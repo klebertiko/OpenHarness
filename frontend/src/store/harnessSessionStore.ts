@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 
+import { apiUrl } from "@/lib/apiBase";
+
 export const HARNESS_SESSION_KEY = "oh.harnessSession";
 
 /** Session-held bundle — at least `manifest.id`; Studio import stores the full `.oharness`. */
@@ -78,7 +80,7 @@ export const useHarnessSessionStore = create<HarnessSessionState>((set, get) => 
     const enabled =
       typeof persisted.enabled === "boolean" ? persisted.enabled : get().enabled;
 
-    const res = await fetch("/bundles/default");
+    const res = await fetch(apiUrl("/bundles/default"));
     if (!res.ok) {
       throw new Error(`Failed to load default harness: ${res.status}`);
     }

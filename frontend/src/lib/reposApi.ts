@@ -1,7 +1,9 @@
 /**
- * Same-origin Repos API — proxied to the FastAPI sidecar via Next rewrites.
+ * Repos API — FastAPI sidecar via `apiBase` (static export / Tauri).
  * Dev default provider is `fake` (REPO_PROVIDER / NEXT_PUBLIC_REPO_PROVIDER).
  */
+
+import { apiUrl } from "@/lib/apiBase";
 
 export type PullSummary = {
   number: number;
@@ -28,7 +30,7 @@ export type CreatePullInput = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });

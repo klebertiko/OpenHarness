@@ -38,7 +38,19 @@ app = FastAPI(title="OpenHarness API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://frontend:3000"],
+    # Static export / Tauri: UI is not same-origin with the sidecar. Allow
+    # local Next, Tauri webviews, and null (file://) for packaged assets.
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://frontend:3000",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://tauri.localhost",
+        "null",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

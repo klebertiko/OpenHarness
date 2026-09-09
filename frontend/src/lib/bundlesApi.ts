@@ -1,10 +1,8 @@
 /**
- * Same-origin bundle API client.
- *
- * Paths match `harnessSessionStore.hydrate` (`/bundles/default`) and the
- * FastAPI router. Next rewrites proxy `/bundles/*` to the sidecar so the
- * browser never talks cross-origin to :8000 (same rule as `/api/run`).
+ * Bundle API client — FastAPI sidecar via `apiBase` (static export / Tauri).
  */
+
+import { apiUrl } from "@/lib/apiBase";
 
 export interface OHarnessManifest {
   id: string;
@@ -78,12 +76,12 @@ async function readJson<T>(res: Response): Promise<T> {
 }
 
 export async function fetchDefault(): Promise<OHarnessBundle> {
-  const res = await fetch("/bundles/default", { cache: "no-store" });
+  const res = await fetch(apiUrl("/bundles/default"), { cache: "no-store" });
   return readJson<OHarnessBundle>(res);
 }
 
 export async function validateBundle(bundle: unknown): Promise<ValidateResult> {
-  const res = await fetch("/bundles/validate", {
+  const res = await fetch(apiUrl("/bundles/validate"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(bundle),
@@ -92,7 +90,7 @@ export async function validateBundle(bundle: unknown): Promise<ValidateResult> {
 }
 
 export async function mockBundle(bundle: unknown): Promise<MockResult> {
-  const res = await fetch("/bundles/mock", {
+  const res = await fetch(apiUrl("/bundles/mock"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(bundle),

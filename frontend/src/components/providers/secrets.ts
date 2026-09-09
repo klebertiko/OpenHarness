@@ -46,6 +46,8 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
+import { apiUrl } from "@/lib/apiBase";
+
 export type SecretVault = "os-keychain" | "backend" | "memory";
 
 export interface SecretRef {
@@ -110,7 +112,7 @@ function toRef(service: string, value: string, vault: SecretVault): SecretRef {
  */
 async function ensureBackendConnection(connectionId: string): Promise<void> {
   const provider = connectionId.replace(/-local$|-cloud$/, "") || connectionId;
-  const res = await fetch("/providers/connections", {
+  const res = await fetch(apiUrl("/providers/connections"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -130,7 +132,7 @@ async function ensureBackendConnection(connectionId: string): Promise<void> {
 async function saveViaBackend(service: string, value: string): Promise<string | null> {
   const connectionId = connectionIdFromService(service);
   const post = () =>
-    fetch(`/providers/${encodeURIComponent(connectionId)}/secret`, {
+    fetch(apiUrl(`/providers/${encodeURIComponent(connectionId)}/secret`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: value }),

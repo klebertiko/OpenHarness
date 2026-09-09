@@ -1,6 +1,8 @@
 /**
- * Same-origin Cowork API — proxied to the FastAPI sidecar via Next rewrites.
+ * Cowork API — FastAPI sidecar via `apiBase` (static export / Tauri).
  */
+
+import { apiUrl } from "@/lib/apiBase";
 
 export type CoworkProject = {
   id: string;
@@ -22,7 +24,7 @@ export type CoworkProjectCreate = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -44,7 +46,7 @@ export const coworkApi = {
       body: JSON.stringify(body),
     }),
   remove: (id: string) =>
-    fetch(`/cowork/projects/${id}`, { method: "DELETE" }).then((r) => {
+    fetch(apiUrl(`/cowork/projects/${id}`), { method: "DELETE" }).then((r) => {
       if (!r.ok) throw new Error(`delete failed: ${r.status}`);
     }),
 };

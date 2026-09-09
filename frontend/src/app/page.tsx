@@ -23,6 +23,7 @@ import { Mark } from "@/components/shell/Mark";
 import { useShellStore } from "@/components/shell/shellStore";
 import { chordCaps, useIsMac } from "@/components/shell/keys";
 import type { Command } from "@/components/shell/commands";
+import { apiUrl } from "@/lib/apiBase";
 
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { NodePalette } from "@/components/sidebar/NodePalette";
@@ -147,9 +148,9 @@ export default function Home() {
   useEffect(() => {
     let alive = true;
     const ping = () =>
-      fetch("/api/health", { cache: "no-store" })
+      fetch(apiUrl("/health"), { cache: "no-store" })
         .then((r) => r.json())
-        .then((d) => alive && setBackendOk(Boolean(d.ok)))
+        .then((d) => alive && setBackendOk(Boolean(d.status === "ok" || d.ok)))
         .catch(() => alive && setBackendOk(false));
     ping();
     const t = setInterval(ping, 15000);

@@ -1,6 +1,8 @@
 /**
- * Same-origin Automations API — proxied to the FastAPI sidecar via Next rewrites.
+ * Automations API — FastAPI sidecar via `apiBase` (static export / Tauri).
  */
+
+import { apiUrl } from "@/lib/apiBase";
 
 export type AutomationJob = {
   id: string;
@@ -23,7 +25,7 @@ export type AutomationJobCreate = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -47,7 +49,7 @@ export const automationsApi = {
   runNow: (id: string) =>
     request<AutomationJob>(`/automations/${id}/run`, { method: "POST" }),
   remove: (id: string) =>
-    fetch(`/automations/${id}`, { method: "DELETE" }).then((r) => {
+    fetch(apiUrl(`/automations/${id}`), { method: "DELETE" }).then((r) => {
       if (!r.ok) throw new Error(`delete failed: ${r.status}`);
     }),
 };

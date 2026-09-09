@@ -1,3 +1,11 @@
+/**
+ * Open a run and pump its SSE frames at the caller.
+ *
+ * Production is a static Tauri export — there is no Next `/api/run` proxy.
+ * Calls go straight to the FastAPI sidecar (`apiUrl` / `window.__OH_API__`).
+ */
+
+import { apiUrl } from "@/lib/apiBase";
 import type { HarnessGraph } from "@/lib/types";
 
 export interface StartRunPayload {
@@ -8,14 +16,6 @@ export interface StartRunPayload {
   instruction?: string;
 }
 
-/**
- * Open a run and pump its SSE frames at the caller.
- *
- * Requests go through the app's own `/api/run` route rather than straight at
- * the Python service: the panel then works identically in the browser, in
- * `next start`, and inside the Tauri shell, where a cross-origin call to
- * localhost:8000 is exactly the thing the webview blocks.
- */
 function pumpSse(
   url: string,
   payload: unknown,
@@ -75,7 +75,7 @@ export function startRun(
   onEvent: (event: string, data: Record<string, unknown>) => void,
   onClose: (err?: Error) => void
 ): () => void {
-  return pumpSse("/api/run", payload, onEvent, onClose);
+  return pumpSse(apiUrl("/execute/"), payload, onEvent, onClose);
 }
 
 export interface DirectRunPayload {
@@ -86,13 +86,13 @@ export interface DirectRunPayload {
   model?: string;
 }
 
-/** Harness-off path — one adapter turn via `/api/run/direct`. */
+/** Harness-off path — one adapter turn via `/execute/direct`. */
 export function startDirectRun(
   payload: DirectRunPayload,
   onEvent: (event: string, data: Record<string, unknown>) => void,
   onClose: (err?: Error) => void
 ): () => void {
-  return pumpSse("/api/run/direct", payload, onEvent, onClose);
+  return pumpSse(apiUrl("/execute/direct"), payload, onEvent, onClose);
 }
 
 export type ControlAction = "stop" | "step" | "resume" | "message";
@@ -106,7 +106,7 @@ export async function sendControl(
     text?: string;
   }
 ): Promise<void> {
-  await fetch(`/api/run/${encodeURIComponent(runId)}/control`, {
+  await fetch(apiUrl(`/execute/${encodeURIComponent(runId)}/control`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

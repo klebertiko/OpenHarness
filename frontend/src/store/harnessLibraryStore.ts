@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 
+import { apiUrl } from "@/lib/apiBase";
 import {
   useHarnessSessionStore,
   type HarnessBundle,
@@ -116,7 +117,7 @@ export const useHarnessLibraryStore = create<HarnessLibraryState>((set, get) => 
   hydrated: false,
 
   hydrate: async () => {
-    const res = await fetch("/bundles/default", { cache: "no-store" });
+    const res = await fetch(apiUrl("/bundles/default"), { cache: "no-store" });
     if (!res.ok) {
       throw new Error(`Failed to load default harness: ${res.status}`);
     }

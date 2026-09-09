@@ -1,42 +1,20 @@
 import type { NextConfig } from "next";
 
-const BACKEND =
-  process.env.OPENHARNESS_BACKEND_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://127.0.0.1:8000";
-
+/**
+ * Static export for the Tauri webview (ADR 0001).
+ *
+ * Production has **no Next.js server**: no rewrites, no `app/api` proxies.
+ * The UI talks to the FastAPI sidecar via `src/lib/apiBase.ts`
+ * (`window.__OH_API__` or loopback). Dev (`next dev`) also uses apiBase →
+ * sidecar; optional reference proxies live under `dev-proxies/` (not built).
+ */
 const nextConfig: NextConfig = {
+  output: "export",
   reactStrictMode: true,
+  images: { unoptimized: true },
   // The dev overlay badge floats over the app's own bottom-left corner, where
   // the canvas controls live. Off, so the shell's chrome is the only chrome.
   devIndicators: { buildActivity: false, appIsrStatus: false },
-  // Same-origin `/bundles/*`, `/providers/*`, `/cowork/*`, `/automations/*`, `/repos/*`
-  // for the client. Mirrors the `/api/run` proxy rule: the webview must not
-  // call :8000 directly.
-  async rewrites() {
-    return [
-      {
-        source: "/bundles/:path*",
-        destination: `${BACKEND}/bundles/:path*`,
-      },
-      {
-        source: "/providers/:path*",
-        destination: `${BACKEND}/providers/:path*`,
-      },
-      {
-        source: "/cowork/:path*",
-        destination: `${BACKEND}/cowork/:path*`,
-      },
-      {
-        source: "/automations/:path*",
-        destination: `${BACKEND}/automations/:path*`,
-      },
-      {
-        source: "/repos/:path*",
-        destination: `${BACKEND}/repos/:path*`,
-      },
-    ];
-  },
 };
 
 export default nextConfig;
