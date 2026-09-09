@@ -17,6 +17,7 @@ backend/venv/
 # SDD / tooling
 .superpowers/
 .worktrees/
+.tools/
 
 # Docker / OS
 *.log
