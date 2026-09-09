@@ -22,4 +22,4 @@ BASE: 790b6028c317dbb359ba9a86290751bf7ab1533b
 | 73ec8f3 | docs(desktop): NSIS install path and harness-spec |
 | 7272195 | docs(workspace): index OpenHarness in place of HarnessSimulator |
 
-Branch HEAD: `72721950e00589998ce232ab1d1032c7a599ba0d`
+Branch HEAD: `6f2afaf81c99872aa4732a376775f20673700237` (includes SDD ledger commit)
