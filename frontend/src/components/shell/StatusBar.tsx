@@ -58,7 +58,7 @@ export function StatusBar({ mode, running, nodeCount, edgeCount, selectedId, bac
         <span className="uppercase text-ink-dim">{running ? "executing" : "ready"}</span>
       </span>
 
-      <Cell k="mode" v={mode} tone={mode === "live" ? "warn" : "dim"} />
+      <Cell k="mode" v={mode} tone={mode.includes("live") ? "warn" : "dim"} />
       <Cell k="section" v={section} />
       <Cell k="graph" v={`${nodeCount}n · ${edgeCount}e`} />
       {selectedId && <Cell k="sel" v={selectedId} />}

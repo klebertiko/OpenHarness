@@ -1,4 +1,8 @@
 import type { LucideIcon } from "lucide-react";
+import { Bot, Boxes, Power, PowerOff } from "lucide-react";
+import type { ShellMode } from "@/store/modeStore";
+import { useModeStore } from "@/store/modeStore";
+import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 
 /**
  * One command = one thing a person can ask the app to do.
@@ -23,6 +27,46 @@ export interface Command {
   role?: string;
   disabled?: boolean;
   run: () => void;
+}
+
+/** Mode + harness session verbs owned by the shell (mirrors the activity rail). */
+export function shellModeAndHarnessCommands(): Command[] {
+  return [
+    {
+      id: "mode:agent",
+      label: "Switch to Agent mode",
+      group: "Mode",
+      icon: Bot,
+      keywords: "agent chat run",
+      meta: "agent",
+      run: () => useModeStore.getState().setMode("agent" satisfies ShellMode),
+    },
+    {
+      id: "mode:studio",
+      label: "Switch to Studio mode",
+      group: "Mode",
+      icon: Boxes,
+      keywords: "studio design canvas harness",
+      meta: "studio",
+      run: () => useModeStore.getState().setMode("studio" satisfies ShellMode),
+    },
+    {
+      id: "harness:on",
+      label: "Turn harness on",
+      group: "Harness",
+      icon: Power,
+      keywords: "enable govern policy",
+      run: () => useHarnessSessionStore.getState().setEnabled(true),
+    },
+    {
+      id: "harness:off",
+      label: "Turn harness off",
+      group: "Harness",
+      icon: PowerOff,
+      keywords: "disable direct passthrough",
+      run: () => useHarnessSessionStore.getState().setEnabled(false),
+    },
+  ];
 }
 
 export interface Match {

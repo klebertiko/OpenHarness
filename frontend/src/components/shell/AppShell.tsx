@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleBar } from "./TitleBar";
 import { ActivityRail } from "./ActivityRail";
 import { StatusBar } from "./StatusBar";
@@ -7,7 +7,8 @@ import { CommandPalette } from "./CommandPalette";
 import { KeymapSheet } from "./KeymapSheet";
 import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX } from "./shellStore";
 import { isEditingTarget, matchesChord, useIsMac } from "./keys";
-import type { Command } from "./commands";
+import { shellModeAndHarnessCommands, type Command } from "./commands";
+import { useModeStore } from "@/store/modeStore";
 
 /**
  * Split handle. 5px hit area over a 1px visual rule — the standard trick, but
@@ -111,6 +112,8 @@ export function AppShell({
 }: Props) {
   const mac = useIsMac();
   const shell = useShellStore();
+  const shellMode = useModeStore((s) => s.mode);
+  const setMode = useModeStore((s) => s.setMode);
 
   useEffect(() => {
     shell.hydrate();
@@ -155,8 +158,13 @@ export function AppShell({
   const leftOpen = leftPref && !narrow.left;
   const rightOpen = rightPref && !narrow.right;
 
-  const commandsRef = useRef(commands);
-  commandsRef.current = commands;
+  const allCommands = useMemo(
+    () => [...shellModeAndHarnessCommands(), ...commands],
+    [commands]
+  );
+
+  const commandsRef = useRef(allCommands);
+  commandsRef.current = allCommands;
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -191,8 +199,19 @@ export function AppShell({
         toggleRight();
         return;
       }
-      for (const [i, s] of (["build", "runs", "providers", "files"] as const).entries()) {
-        if (matchesChord(e, `Alt+${i + 1}`, mac)) {
+      if (matchesChord(e, "Alt+1", mac)) {
+        e.preventDefault();
+        setMode("agent");
+        return;
+      }
+      if (matchesChord(e, "Alt+2", mac)) {
+        e.preventDefault();
+        setMode("studio");
+        setSection("build");
+        return;
+      }
+      for (const [i, s] of (["runs", "providers", "files"] as const).entries()) {
+        if (matchesChord(e, `Alt+${i + 3}`, mac)) {
           e.preventDefault();
           setSection(s);
           return;
@@ -206,7 +225,16 @@ export function AppShell({
         }
       }
     },
-    [mac, setPaletteOpen, setKeymapOpen, toggleLeft, toggleRight, setSection, dismissOverlays]
+    [
+      mac,
+      setPaletteOpen,
+      setKeymapOpen,
+      toggleLeft,
+      toggleRight,
+      setSection,
+      setMode,
+      dismissOverlays,
+    ]
   );
 
   useEffect(() => {
@@ -215,11 +243,14 @@ export function AppShell({
   }, [onKeyDown]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-sub-000">
+    <div
+      className="flex h-screen flex-col overflow-hidden bg-sub-000"
+      data-shell-mode={shellMode}
+    >
       <TitleBar
         harnessName={harnessName}
         onHarnessNameChange={onHarnessNameChange}
-        mode={mode}
+        mode={`${shellMode} · ${mode}`}
         running={running}
         nodeCount={nodeCount}
         onOpenPalette={() => setPaletteOpen(true)}
@@ -270,7 +301,7 @@ export function AppShell({
       </div>
 
       <StatusBar
-        mode={mode}
+        mode={`${shellMode} · ${mode}`}
         running={running}
         nodeCount={nodeCount}
         edgeCount={edgeCount}
@@ -280,7 +311,7 @@ export function AppShell({
 
       <CommandPalette
         open={paletteOpen}
-        commands={commands}
+        commands={allCommands}
         onClose={() => setPaletteOpen(false)}
       />
       <KeymapSheet open={keymapOpen} onClose={() => setKeymapOpen(false)} />
