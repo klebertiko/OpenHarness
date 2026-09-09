@@ -21,9 +21,10 @@ import json
 import time
 import uuid
 from collections import defaultdict, deque
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from adapters import get_adapter, AdapterConfig
+from runtime.router import select_runtime
 
 # ── Terminal states a run can land in ──────────────────────────────────────────
 STATUS_COMPLETE = "complete"
@@ -134,28 +135,34 @@ async def execute_harness(
     execution_mode: str = "mock",
     control: RunControl | None = None,
     run_id: str = "",
+    user_pref: str | None = None,
+    probe: Callable[[str], str | None] | None = None,
 ) -> AsyncIterator[str]:
     """
     Stream of SSE events:
 
-      run_start     {run_id, mode, order:[node_view], unreachable}
-      awaiting_step {next: node_view}                — parked, step mode
-      node_start    {node_id, label, type, adapter, model}
-      node_phase    {node_id, phase, detail}         — thinking|tool|writing|done
-      node_reason   {node_id, chunk}                 — reasoning text
-      node_stream   {node_id, chunk}                 — answer text
-      tool_call     {node_id, call_id, name, args}
-      tool_result   {node_id, call_id, ok, result, duration_ms}
-      node_done     {node_id, output, tokens, latency_ms}
-      node_error    {node_id, error}
-      hitl_pause    {node_id, label, question, context}
-      hitl_resolved {node_id, decision, note}
-      user_message  {text}                           — steering injected mid-run
-      run_stopped   {at_node}
-      harness_done  {status, total_tokens, elapsed_ms, nodes_run}
+      run_start         {run_id, mode, order:[node_view], unreachable}
+      runtime_selected  {kind, name, reason}         — CLI probe or API fallback
+      awaiting_step     {next: node_view}            — parked, step mode
+      node_start        {node_id, label, type, adapter, model}
+      node_phase        {node_id, phase, detail}     — thinking|tool|writing|done
+      node_reason       {node_id, chunk}             — reasoning text
+      node_stream       {node_id, chunk}             — answer text
+      tool_call         {node_id, call_id, name, args}
+      tool_result       {node_id, call_id, ok, result, duration_ms}
+      node_done         {node_id, output, tokens, latency_ms}
+      node_error        {node_id, error}
+      hitl_pause        {node_id, label, question, context}
+      hitl_resolved     {node_id, decision, note}
+      user_message      {text}                       — steering injected mid-run
+      run_stopped       {at_node}
+      harness_done      {status, total_tokens, elapsed_ms, nodes_run}
     """
     nodes: list[dict] = harness_json.get("nodes", [])
     edges: list[dict] = harness_json.get("edges", [])
+    if not nodes and isinstance(harness_json.get("graph"), dict):
+        nodes = harness_json["graph"].get("nodes", [])
+        edges = harness_json["graph"].get("edges", [])
     control = control or RunControl(run_id or str(uuid.uuid4()))
 
     node_map = {n["id"]: n for n in nodes}
@@ -176,6 +183,13 @@ async def execute_harness(
             "order": [_node_view(node_map[nid]) for nid in order if nid in node_map],
             "unreachable": unreachable,
         },
+    )
+
+    bundle_runtime = harness_json.get("runtime")
+    choice = select_runtime(bundle_runtime, user_pref, probe=probe)
+    yield _sse(
+        "runtime_selected",
+        {"kind": choice.kind, "name": choice.name, "reason": choice.reason},
     )
 
     status = STATUS_COMPLETE
