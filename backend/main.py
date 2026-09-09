@@ -5,11 +5,18 @@ from database import init_db
 from routers.bundles import router as bundles_router
 from routers.harnesses import router as harnesses_router
 from routers.execution import router as execution_router
+from routers.providers import router as providers_router
+from secrets.memory import MemorySecrets
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    # Process-lifetime vault until FileSecrets / Tauri keychain is selected via env.
+    if not hasattr(app.state, "secrets_store") or app.state.secrets_store is None:
+        app.state.secrets_store = MemorySecrets()
+    if not hasattr(app.state, "provider_connections") or app.state.provider_connections is None:
+        app.state.provider_connections = {}
     yield
 
 
@@ -26,6 +33,7 @@ app.add_middleware(
 app.include_router(harnesses_router)
 app.include_router(execution_router)
 app.include_router(bundles_router)
+app.include_router(providers_router)
 
 
 @app.get("/health")
