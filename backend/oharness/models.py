@@ -1,13 +1,15 @@
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA_VERSION = "1.0.0"
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "oharness.schema.json"
 
 
 class Manifest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str
     version: str
@@ -17,11 +19,15 @@ class Manifest(BaseModel):
 
 
 class Graph(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     nodes: list[Any] = Field(default_factory=list)
     edges: list[Any] = Field(default_factory=list)
 
 
 class Content(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     prompts: dict[str, Any] = Field(default_factory=dict)
     agents: dict[str, Any] = Field(default_factory=dict)
     skills: dict[str, Any] = Field(default_factory=dict)
@@ -31,6 +37,8 @@ class Content(BaseModel):
 
 
 class Runtime(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     preferred: str
     cli: str | None = None
     env: list[Any] = Field(default_factory=list)
@@ -38,10 +46,14 @@ class Runtime(BaseModel):
 
 
 class Validation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     mockProfile: str
 
 
 class HarnessBundle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     schemaVersion: str
     manifest: Manifest
     graph: Graph
