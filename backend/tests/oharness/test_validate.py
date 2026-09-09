@@ -40,6 +40,12 @@ def test_invalid_missing_manifest():
     assert any("manifest" in e.lower() for e in r.errors)
 
 
+def test_invalid_json():
+    r = validate_path(FIXTURES / "invalid-json.oharness")
+    assert not r.ok
+    assert any("invalid json" in e.lower() for e in r.errors)
+
+
 def test_extra_top_level_property_rejected():
     data = {**MINIMAL, "unexpected": True}
     r = validate_dict(data)

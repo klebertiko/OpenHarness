@@ -76,5 +76,10 @@ def validate_dict(data: dict) -> ValidateResult:
 
 
 def validate_path(path: Path) -> ValidateResult:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as ex:
+        return ValidateResult(False, [f"invalid JSON: {ex.msg}"])
+    if not isinstance(data, dict):
+        return ValidateResult(False, ["root document must be a JSON object"])
     return validate_dict(data)
