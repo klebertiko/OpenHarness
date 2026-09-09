@@ -30,3 +30,12 @@ def test_cli_validate_fail():
     out = json.loads(p.stdout)
     assert out["ok"] is False
     assert len(out["errors"]) > 0
+
+
+def test_cli_validate_missing_file():
+    p = run_validate(FIXTURES / "does-not-exist.oharness")
+    assert p.returncode == 1
+    assert p.stderr == ""
+    out = json.loads(p.stdout)
+    assert out["ok"] is False
+    assert any("file not found" in e.lower() for e in out["errors"])

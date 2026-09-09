@@ -76,6 +76,8 @@ def validate_dict(data: dict) -> ValidateResult:
 
 
 def validate_path(path: Path) -> ValidateResult:
+    if not path.is_file():
+        return ValidateResult(False, [f"file not found: {path}"])
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as ex:

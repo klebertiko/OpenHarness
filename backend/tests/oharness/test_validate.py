@@ -46,6 +46,12 @@ def test_invalid_json():
     assert any("invalid json" in e.lower() for e in r.errors)
 
 
+def test_missing_file():
+    r = validate_path(FIXTURES / "does-not-exist.oharness")
+    assert not r.ok
+    assert any("file not found" in e.lower() for e in r.errors)
+
+
 def test_extra_top_level_property_rejected():
     data = {**MINIMAL, "unexpected": True}
     r = validate_dict(data)
