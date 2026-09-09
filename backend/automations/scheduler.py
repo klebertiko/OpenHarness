@@ -61,14 +61,30 @@ def _field_matches(field: str, value: int) -> bool:
 
 
 async def mock_execute(job: AutomationJob) -> dict[str, Any]:
-    """Stand-in for Agent execute pipeline — records harness flag."""
-    return {
+    """Stand-in for Agent execute pipeline — records harness flag.
+
+    Jobs named ``pr_watch`` / ``pr_watch:...`` optionally poll FakeRepoProvider.
+    """
+    from automations.pr_watch import is_pr_watch_job, stub_pr_watch
+    from repos.fake import FakeRepoProvider
+
+    base = {
         "ok": True,
         "mode": "mock",
         "harnessEnabled": bool(job.harness_enabled),
         "jobId": job.id,
         "jobName": job.name,
     }
+    if is_pr_watch_job(job.name):
+        # Optional stub: poll open pulls; repo from name suffix ``pr_watch:owner/name``.
+        repo = "acme/app"
+        if ":" in job.name:
+            maybe = job.name.split(":", 1)[1].strip()
+            if maybe:
+                repo = maybe
+        watch = await stub_pr_watch(FakeRepoProvider(), repo)
+        return {**base, "prWatch": watch}
+    return base
 
 
 async def run_job(

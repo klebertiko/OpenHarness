@@ -1,0 +1,103 @@
+"""Repos API — list/create/comment against Fake in REPO_PROVIDER=fake mode."""
+
+from __future__ import annotations
+
+import os
+
+import pytest
+from fastapi.testclient import TestClient
+
+from main import app
+from repos.base import DiffStat, PullSummary
+from repos.fake import FakeRepoProvider
+from secrets.memory import MemorySecrets
+
+
+@pytest.fixture()
+def client(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("REPO_PROVIDER", "fake")
+    store = MemorySecrets()
+    fake = FakeRepoProvider()
+    fake.seed_pull(
+        "acme/app",
+        PullSummary(
+            number=1,
+            title="Seeded PR",
+            state="open",
+            head="feat",
+            base="main",
+            url="fake://acme/app/pull/1",
+            body="",
+        ),
+        diff=DiffStat(additions=5, deletions=1, changed_files=2),
+    )
+    app.state.secrets_store = store
+    app.state.fake_repo_provider = fake
+    with TestClient(app) as c:
+        app.state.secrets_store = store
+        app.state.fake_repo_provider = fake
+        yield c
+
+
+def test_list_create_comment_via_fake(client: TestClient) -> None:
+    listed = client.get("/repos/fake/pulls", params={"repo": "acme/app"})
+    assert listed.status_code == 200
+    body = listed.json()
+    assert body["provider"] == "fake"
+    assert len(body["pulls"]) == 1
+    assert body["pulls"][0]["title"] == "Seeded PR"
+
+    created = client.post(
+        "/repos/fake/pulls",
+        json={
+            "repo": "acme/app",
+            "title": "New",
+            "head": "x",
+            "base": "main",
+            "body": "hi",
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["pull"]["number"] == 2
+
+    commented = client.post(
+        "/repos/fake/pulls/2/comments",
+        json={"repo": "acme/app", "body": "LGTM"},
+    )
+    assert commented.status_code == 201
+    assert commented.json()["ok"] is True
+
+    diff = client.get("/repos/fake/pulls/1/diff", params={"repo": "acme/app"})
+    assert diff.status_code == 200
+    assert diff.json()["diff"]["changedFiles"] == 2
+
+
+def test_pr_watch_stub(client: TestClient) -> None:
+    r = client.post("/repos/fake/pr-watch", params={"repo": "acme/app"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["type"] == "pr_watch"
+    assert data["openCount"] >= 1
+
+
+def test_origin_unsupported_on_windows(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Force native Windows path even if env says fake — origin bypasses fake override.
+    monkeypatch.setenv("REPO_PROVIDER", "github")
+    from repos import origin as origin_mod
+
+    monkeypatch.setattr(origin_mod, "_default_platform", lambda: "win32")
+    monkeypatch.setattr(origin_mod, "_default_is_wsl", lambda: False)
+
+    r = client.get("/repos/origin/pulls", params={"repo": "acme/app"})
+    assert r.status_code == 501
+    detail = r.json()["detail"]
+    assert detail["code"] == "origin_unsupported_platform"
+
+
+def test_repo_provider_env_defaults_to_fake() -> None:
+    os.environ.pop("REPO_PROVIDER", None)
+    from repos.factory import default_provider_name
+
+    assert default_provider_name() == "fake"
+    os.environ["REPO_PROVIDER"] = "fake"
+    assert default_provider_name() == "fake"

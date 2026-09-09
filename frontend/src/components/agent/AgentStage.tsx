@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AutomationsPanel } from "@/components/automations/AutomationsPanel";
 import { HarnessSwitch } from "@/components/agent/HarnessSwitch";
 import { CoworkPanel } from "@/components/cowork/CoworkPanel";
+import { GitPanel } from "@/components/git/GitPanel";
 import { RunControls } from "@/components/agent-run/RunControls";
 import { RunLadder } from "@/components/agent-run/RunLadder";
 import { Transcript } from "@/components/agent-run/Transcript";
@@ -16,10 +17,10 @@ import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 
 const MODES: ExecutionMode[] = ["mock", "live", "local"];
 
-type AgentTab = "chat" | "cowork" | "automations";
+type AgentTab = "chat" | "cowork" | "automations" | "git";
 
 /**
- * Agent mode stage — harness switch + Chat / Cowork / Automations sub-nav.
+ * Agent mode stage — harness switch + Chat / Cowork / Automations / Git sub-nav.
  *
  * Harness on → `/api/run` with the active bundle graph (instruction seeded on
  * the first node). Harness off → `/api/run/direct`. Stop uses
@@ -85,6 +86,7 @@ export function AgentStage() {
             ["chat", "Chat"],
             ["cowork", "Cowork"],
             ["automations", "Automations"],
+            ["git", "Git"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -113,6 +115,12 @@ export function AgentStage() {
       {tab === "automations" && (
         <div className="min-h-0 flex-1 overflow-hidden">
           <AutomationsPanel />
+        </div>
+      )}
+
+      {tab === "git" && (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <GitPanel />
         </div>
       )}
 

@@ -8,7 +8,9 @@ from routers.execution import router as execution_router
 from routers.providers import router as providers_router
 from routers.cowork import router as cowork_router
 from routers.automations import router as automations_router
+from routers.repos import router as repos_router
 from automations.scheduler import AutomationScheduler
+from repos.fake import FakeRepoProvider
 from secrets.memory import MemorySecrets
 import models  # noqa: F401 — register ORM tables for create_all
 
@@ -21,6 +23,8 @@ async def lifespan(app: FastAPI):
         app.state.secrets_store = MemorySecrets()
     if not hasattr(app.state, "provider_connections") or app.state.provider_connections is None:
         app.state.provider_connections = {}
+    if not hasattr(app.state, "fake_repo_provider") or app.state.fake_repo_provider is None:
+        app.state.fake_repo_provider = FakeRepoProvider()
     scheduler = AutomationScheduler(SessionLocal)
     app.state.automation_scheduler = scheduler
     scheduler.start()
@@ -46,6 +50,7 @@ app.include_router(bundles_router)
 app.include_router(providers_router)
 app.include_router(cowork_router)
 app.include_router(automations_router)
+app.include_router(repos_router)
 
 
 @app.get("/health")
