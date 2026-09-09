@@ -8,3 +8,5 @@ anthropic==0.43.0
 openai==1.68.2
 python-dotenv==1.0.1
 anyio==4.7.0
+jsonschema==4.23.0
+pytest==8.3.4
