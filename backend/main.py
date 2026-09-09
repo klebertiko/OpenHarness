@@ -11,16 +11,16 @@ from routers.automations import router as automations_router
 from routers.repos import router as repos_router
 from automations.scheduler import AutomationScheduler
 from repos.fake import FakeRepoProvider
-from secrets.memory import MemorySecrets
+from secrets.factory import build_secrets_store
 import models  # noqa: F401 — register ORM tables for create_all
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    # Process-lifetime vault until FileSecrets / Tauri keychain is selected via env.
+    # OH_SECRETS=memory|file|keychain (default memory for tests / ephemeral).
     if not hasattr(app.state, "secrets_store") or app.state.secrets_store is None:
-        app.state.secrets_store = MemorySecrets()
+        app.state.secrets_store = build_secrets_store()
     if not hasattr(app.state, "provider_connections") or app.state.provider_connections is None:
         app.state.provider_connections = {}
     if not hasattr(app.state, "fake_repo_provider") or app.state.fake_repo_provider is None:

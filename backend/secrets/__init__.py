@@ -1,4 +1,7 @@
-"""Sidecar secrets port — MemorySecrets (tests) and FileSecrets (dev interim).
+"""Sidecar secrets port — Memory / File / Keychain stores.
+
+Select via ``OH_SECRETS=memory|file|keychain`` (see ``factory.build_secrets_store``).
+``keyring`` is an optional dependency used only for ``keychain``.
 
 This package is named ``secrets`` to match the plan path. That shadows the
 stdlib module of the same name when ``backend/`` is on ``sys.path``. Starlette
@@ -52,13 +55,17 @@ token_hex = _std.token_hex
 token_urlsafe = _std.token_urlsafe
 
 from .base import SecretsStore
+from .factory import build_secrets_store
 from .file_store import FileSecrets
+from .keychain import KeychainSecrets
 from .memory import MemorySecrets
 
 __all__ = [
     "SecretsStore",
     "MemorySecrets",
     "FileSecrets",
+    "KeychainSecrets",
+    "build_secrets_store",
     "SystemRandom",
     "choice",
     "randbelow",

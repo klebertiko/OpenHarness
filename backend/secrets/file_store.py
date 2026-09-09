@@ -1,9 +1,8 @@
-"""Fernet-backed file SecretsStore — interim until Tauri OS keychain (plan 06).
+"""Fernet-backed file SecretsStore — used when ``OH_SECRETS=file``.
 
 DPAPI-free: the Fernet key is derived from the absolute store path via
 PBKDF2-HMAC-SHA256 so the same directory decrypts across process restarts
-on this machine. This is *not* a substitute for OS keychain; it only keeps
-plaintext off disk for local/dev sidecar use.
+on this machine. Prefer ``OH_SECRETS=keychain`` for desktop installs.
 """
 
 from __future__ import annotations

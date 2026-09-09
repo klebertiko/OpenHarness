@@ -1,0 +1,109 @@
+"""KeychainSecrets + OH_SECRETS factory — mock keyring; optional real keyring."""
+
+from __future__ import annotations
+
+import importlib.util
+
+import pytest
+
+from secrets.factory import build_secrets_store
+from secrets.file_store import FileSecrets
+from secrets.keychain import KeychainSecrets
+from secrets.memory import MemorySecrets
+
+
+SECRET_VALUE = "sk-test-NEVER-LOG-THIS-VALUE-9f3a"
+SECRET_REF = "openharness/test-provider"
+
+
+class FakeKeyring:
+    """In-memory stand-in for the ``keyring`` module API."""
+
+    def __init__(self) -> None:
+        self._data: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service: str, username: str) -> str | None:
+        return self._data.get((service, username))
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        self._data[(service, username)] = password
+
+    def delete_password(self, service: str, username: str) -> None:
+        key = (service, username)
+        if key not in self._data:
+            raise KeyError(f"missing {service}/{username}")
+        del self._data[key]
+
+
+def test_keychain_secrets_roundtrip_with_mock() -> None:
+    store = KeychainSecrets(backend=FakeKeyring())
+    assert store.exists(SECRET_REF) is False
+    store.put(SECRET_REF, SECRET_VALUE)
+    assert store.exists(SECRET_REF) is True
+    assert store.get(SECRET_REF) == SECRET_VALUE
+    store.delete(SECRET_REF)
+    assert store.exists(SECRET_REF) is False
+    assert store.get(SECRET_REF) is None
+
+
+def test_keychain_delete_missing_is_noop() -> None:
+    store = KeychainSecrets(backend=FakeKeyring())
+    store.delete(SECRET_REF)  # must not raise
+
+
+def test_keychain_repr_hides_values() -> None:
+    store = KeychainSecrets(backend=FakeKeyring())
+    store.put(SECRET_REF, SECRET_VALUE)
+    assert SECRET_VALUE not in repr(store)
+
+
+def test_build_secrets_store_memory() -> None:
+    assert isinstance(build_secrets_store("memory"), MemorySecrets)
+
+
+def test_build_secrets_store_file(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OH_SECRETS_DIR", str(tmp_path))
+    store = build_secrets_store("file")
+    assert isinstance(store, FileSecrets)
+    store.put(SECRET_REF, SECRET_VALUE)
+    assert store.get(SECRET_REF) == SECRET_VALUE
+
+
+def test_build_secrets_store_keychain_uses_keychain_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeKeyring()
+
+    def _fake_default():
+        return fake
+
+    monkeypatch.setattr("secrets.keychain._default_keyring", _fake_default)
+    store = build_secrets_store("keychain")
+    assert isinstance(store, KeychainSecrets)
+    store.put(SECRET_REF, SECRET_VALUE)
+    assert store.get(SECRET_REF) == SECRET_VALUE
+
+
+def test_build_secrets_store_unknown_raises() -> None:
+    with pytest.raises(ValueError, match="Unknown OH_SECRETS"):
+        build_secrets_store("vault")
+
+
+def test_build_secrets_store_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OH_SECRETS", "memory")
+    assert isinstance(build_secrets_store(), MemorySecrets)
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("keyring") is None,
+    reason="optional keyring package not installed",
+)
+def test_keychain_integration_optional_real_backend() -> None:
+    """Live OS keychain smoke — skipped on CI without keyring."""
+    store = KeychainSecrets()
+    ref = "openharness/ci-skip-integration-probe"
+    try:
+        store.put(ref, "probe-value")
+        assert store.get(ref) == "probe-value"
+    finally:
+        store.delete(ref)
