@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
+from routers.bundles import router as bundles_router
 from routers.harnesses import router as harnesses_router
 from routers.execution import router as execution_router
 
@@ -24,6 +25,7 @@ app.add_middleware(
 
 app.include_router(harnesses_router)
 app.include_router(execution_router)
+app.include_router(bundles_router)
 
 
 @app.get("/health")
