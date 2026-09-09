@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from automations.scheduler import run_job
 from database import get_db
 from models import AutomationJob
 
@@ -33,8 +34,8 @@ class JobUpdate(BaseModel):
     harnessEnabled: bool | None = None
 
 
-def public_job(job: AutomationJob) -> dict[str, Any]:
-    return {
+def public_job(job: AutomationJob, *, result: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "id": job.id,
         "name": job.name,
         "cron": job.cron,
@@ -44,6 +45,11 @@ def public_job(job: AutomationJob) -> dict[str, Any]:
         "lastRunAt": job.last_run_at.isoformat() if job.last_run_at else None,
         "status": job.status,
     }
+    if result is not None:
+        payload["result"] = result
+    elif hasattr(job, "_last_result"):
+        payload["result"] = getattr(job, "_last_result")
+    return payload
 
 
 @router.get("/")
@@ -106,3 +112,13 @@ async def delete_job(job_id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(job)
     await db.commit()
     return None
+
+
+@router.post("/{job_id}/run")
+async def run_now(job_id: str, db: AsyncSession = Depends(get_db)):
+    """Immediate mock execute — always available, independent of cron."""
+    try:
+        job = await run_job(db, job_id)
+    except KeyError:
+        raise HTTPException(404, "Job not found") from None
+    return public_job(job)
