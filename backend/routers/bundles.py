@@ -26,6 +26,9 @@ def validate_bundle(body: dict):
 
 @router.post("/mock")
 def mock_bundle(body: dict):
+    result = validate_dict(body)
+    if not result.ok:
+        return {"ok": False, "steps": [], "errors": result.errors}
     bundle = HarnessBundle.model_validate(body)
     report = plan_mock_run(bundle)
     return {

@@ -35,3 +35,12 @@ def test_mock_endpoint_default():
     assert body["ok"] is True
     assert len(body["steps"]) == 8
     assert all(step["status"] == "planned" for step in body["steps"])
+
+
+def test_mock_endpoint_invalid():
+    r = client.post("/bundles/mock", json={"bad": True})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False
+    assert body["steps"] == []
+    assert body["errors"]
