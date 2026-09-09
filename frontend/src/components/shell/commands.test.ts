@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { shellModeAndHarnessCommands } from "./commands";
 import { useModeStore } from "@/store/modeStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
+import { useShellStore } from "./shellStore";
 
 describe("shellModeAndHarnessCommands", () => {
   beforeEach(() => {
@@ -11,6 +12,7 @@ describe("shellModeAndHarnessCommands", () => {
       activeBundle: null,
       hydrated: false,
     });
+    useShellStore.setState({ section: "runs" });
   });
 
   it("exposes mode agent/studio and harness on/off", () => {
@@ -18,11 +20,12 @@ describe("shellModeAndHarnessCommands", () => {
     expect(ids).toEqual(["mode:agent", "mode:studio", "harness:on", "harness:off"]);
   });
 
-  it("mode:studio switches modeStore without navigation", () => {
+  it("mode:studio switches modeStore and selects build section", () => {
     const studio = shellModeAndHarnessCommands().find((c) => c.id === "mode:studio");
     expect(studio).toBeDefined();
     studio!.run();
     expect(useModeStore.getState().mode).toBe("studio");
+    expect(useShellStore.getState().section).toBe("build");
   });
 
   it("mode:agent switches back to agent", () => {

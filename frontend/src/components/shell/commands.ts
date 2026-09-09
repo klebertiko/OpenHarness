@@ -3,6 +3,7 @@ import { Bot, Boxes, Power, PowerOff } from "lucide-react";
 import type { ShellMode } from "@/store/modeStore";
 import { useModeStore } from "@/store/modeStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
+import { useShellStore } from "./shellStore";
 
 /**
  * One command = one thing a person can ask the app to do.
@@ -48,7 +49,11 @@ export function shellModeAndHarnessCommands(): Command[] {
       icon: Boxes,
       keywords: "studio design canvas harness",
       meta: "studio",
-      run: () => useModeStore.getState().setMode("studio" satisfies ShellMode),
+      run: () => {
+        useModeStore.getState().setMode("studio" satisfies ShellMode);
+        // Mirror rail / Alt+2: Studio lands on the build section.
+        useShellStore.getState().setSection("build");
+      },
     },
     {
       id: "harness:on",

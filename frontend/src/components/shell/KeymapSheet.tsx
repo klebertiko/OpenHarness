@@ -30,10 +30,11 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Mod+B", "Toggle palette panel"],
       ["Mod+Alt+B", "Toggle inspector"],
-      ["Alt+1", "Build section"],
-      ["Alt+2", "Runs section"],
-      ["Alt+3", "Providers section"],
-      ["Alt+4", "Harnesses section"],
+      ["Alt+1", "Agent mode"],
+      ["Alt+2", "Studio mode"],
+      ["Alt+3", "Runs section"],
+      ["Alt+4", "Providers section"],
+      ["Alt+5", "Harnesses section"],
     ],
   },
   {
