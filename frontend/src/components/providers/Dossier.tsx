@@ -102,7 +102,7 @@ export function Dossier() {
             kicker="billed as"
             value={BILLING_LABEL[spec.billing]}
             tone={c.health === "degraded" ? "warn" : "ink"}
-            note={billingNote(c)}
+            note={c.secret ? "Credential on file for this connection" : "No credential attached yet"}
           />
           <Stamp
             kicker="reachability"

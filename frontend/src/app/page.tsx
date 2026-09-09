@@ -29,9 +29,11 @@ import { NodePalette } from "@/components/sidebar/NodePalette";
 import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
+import { AgentStage } from "@/components/agent/AgentStage";
 
 import { useCanvasStore } from "@/store/canvasStore";
 import { useModeStore } from "@/store/modeStore";
+import { useActiveRunStore } from "@/store/activeRunStore";
 import { useHarnessActions } from "@/lib/actions";
 import { NODE_TEMPLATES, HARNESS_PRESETS } from "@/lib/templates";
 import { ROLE_ICON, ROLE_VAR } from "@/lib/roles";
@@ -96,25 +98,6 @@ function StubPanel({ title, note }: { title: string; note: string }) {
     <Panel title={title} className="h-full">
       <p className="t-body p-3 text-ink-mute">{note}</p>
     </Panel>
-  );
-}
-
-/** Agent-mode placeholders until Task 4 mounts agent-run. Hidden in Studio. */
-function AgentStageStub() {
-  return (
-    <div className="grid h-full place-items-center p-6">
-      <div className="w-[320px]">
-        <div className="mb-2 flex items-center gap-2">
-          <Mark size={14} />
-          <span className="t-label text-ink-faint">AGENT</span>
-          <span className="h-px flex-1 bg-line-soft" aria-hidden />
-        </div>
-        <p className="t-body text-ink-mute">
-          Chat and run controls mount here next. Switch to Studio (Alt+2) to edit
-          the harness graph and validate a bundle.
-        </p>
-      </div>
-    </div>
   );
 }
 
@@ -223,7 +206,11 @@ export default function Home() {
         group: "Run",
         icon: Square,
         disabled: !isRunning,
-        run: () => setRunning(false),
+        run: () => {
+          void useActiveRunStore.getState().requestStop().then((sent) => {
+            if (!sent) setRunning(false);
+          });
+        },
       },
       {
         id: "mode",
@@ -339,6 +326,7 @@ export default function Home() {
           isStudio ? (
             <Toolbar
               onRun={actions.run}
+              onStop={actions.stop}
               onSave={actions.save}
               onExport={actions.exportJson}
               onImport={actions.importJson}
@@ -347,8 +335,17 @@ export default function Home() {
           ) : null
         }
         left={left}
-        stage={isStudio ? studioStage : <AgentStageStub />}
-        right={isStudio ? <PropertiesPanel /> : <StubPanel title="Session" note="Agent session inspector lands with agent-run." />}
+        stage={isStudio ? studioStage : <AgentStage />}
+        right={
+          isStudio ? (
+            <PropertiesPanel />
+          ) : (
+            <StubPanel
+              title="Session"
+              note="Active run metrics live in the Agent stage. Harness library expands in a later task."
+            />
+          )
+        }
       />
     </ReactFlowProvider>
   );

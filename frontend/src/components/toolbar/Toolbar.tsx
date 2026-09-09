@@ -52,15 +52,16 @@ function IconButton({
 
 interface Props {
   onRun: () => void;
+  onStop: () => void;
   onSave: () => void;
   onExport: () => void;
   onImport: () => void;
   saveMsg: string;
 }
 
-export function Toolbar({ onRun, onSave, onExport, onImport, saveMsg }: Props) {
+export function Toolbar({ onRun, onStop, onSave, onExport, onImport, saveMsg }: Props) {
   const mac = useIsMac();
-  const { nodes, executionMode, isRunning, setExecutionMode, setRunning, undo, redo } =
+  const { nodes, executionMode, isRunning, setExecutionMode, undo, redo } =
     useCanvasStore();
 
   const runCaps = chordCaps("Mod+Enter", mac);
@@ -70,7 +71,7 @@ export function Toolbar({ onRun, onSave, onExport, onImport, saveMsg }: Props) {
       {isRunning ? (
         <button
           type="button"
-          onClick={() => setRunning(false)}
+          onClick={onStop}
           className="flex h-[22px] items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2 text-ink transition-colors hover:bg-sub-300"
         >
           <Square size={9} strokeWidth={0} fill="currentColor" />

@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { HarnessGraph } from "@/lib/types";
+import { useActiveRunStore } from "@/store/activeRunStore";
 import { emptyRun, runReducer } from "./runReducer";
-import { sendControl, startRun } from "./runClient";
+import { sendControl, startDirectRun, startRun } from "./runClient";
 import type { RunState } from "./types";
 
 export interface RunController {
@@ -19,11 +20,21 @@ export interface RunController {
 
 const LIVE = new Set(["starting", "running", "gate", "paused"]);
 
-export function useRunStream(graph: HarnessGraph): RunController {
+export interface UseRunStreamOptions {
+  /** Active when harnessSessionStore.enabled — engine walks this graph. */
+  graph: HarnessGraph;
+  /** When false, start hits `/api/run/direct` instead of `/api/run`. */
+  harnessEnabled: boolean;
+}
+
+export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): RunController {
   const [run, dispatch] = useReducer(runReducer, emptyRun);
   const abortRef = useRef<(() => void) | null>(null);
   const graphRef = useRef(graph);
   graphRef.current = graph;
+  const harnessEnabledRef = useRef(harnessEnabled);
+  harnessEnabledRef.current = harnessEnabled;
+  const setRunId = useActiveRunStore((s) => s.setRunId);
 
   const live = LIVE.has(run.status);
 
@@ -43,17 +54,34 @@ export function useRunStream(graph: HarnessGraph): RunController {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run.startedAt, run.endedAt, live]);
 
+  useEffect(() => {
+    setRunId(live ? run.runId : null);
+  }, [live, run.runId, setRunId]);
+
   const start = useCallback(
     ({ instruction, mode, step }: { instruction: string; mode: string; step: boolean }) => {
       abortRef.current?.();
       dispatch({ type: "reset", mode, step });
-      abortRef.current = startRun(
-        { graph_json: graphRef.current, mode, step, instruction },
-        (event, data) => dispatch({ type: "sse", event, data }),
-        (err) => {
-          if (err) dispatch({ type: "transport-error", message: err.message });
-        }
-      );
+      const onEvent = (event: string, data: Record<string, unknown>) =>
+        dispatch({ type: "sse", event, data });
+      const onClose = (err?: Error) => {
+        if (err) dispatch({ type: "transport-error", message: err.message });
+        useActiveRunStore.getState().setRunId(null);
+      };
+
+      if (harnessEnabledRef.current) {
+        abortRef.current = startRun(
+          { graph_json: graphRef.current, mode, step, instruction },
+          onEvent,
+          onClose
+        );
+      } else {
+        abortRef.current = startDirectRun(
+          { instruction, mode, step },
+          onEvent,
+          onClose
+        );
+      }
     },
     []
   );

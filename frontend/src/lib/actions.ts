@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useActiveRunStore } from "@/store/activeRunStore";
 import { api } from "@/lib/api";
 
 /**
@@ -77,6 +78,12 @@ export function useHarnessActions() {
     input.click();
   }, []);
 
+  const stop = useCallback(() => {
+    void useActiveRunStore.getState().requestStop().then((sent) => {
+      if (!sent) useCanvasStore.getState().setRunning(false);
+    });
+  }, []);
+
   const run = useCallback(() => {
     const s = useCanvasStore.getState();
     if (s.isRunning || s.nodes.length === 0) return;
@@ -87,7 +94,9 @@ export function useHarnessActions() {
       (event, data) => {
         const d = data as Record<string, unknown>;
         const store = useCanvasStore.getState();
-        if (event === "node_start") store.setNodeStatus(d.node_id as string, "running");
+        if (event === "run_start" && d.run_id) {
+          useActiveRunStore.getState().setRunId(String(d.run_id));
+        } else if (event === "node_start") store.setNodeStatus(d.node_id as string, "running");
         else if (event === "node_stream")
           store.appendNodeOutput(d.node_id as string, d.chunk as string);
         else if (event === "node_done")
@@ -99,10 +108,16 @@ export function useHarnessActions() {
           );
         else if (event === "node_error")
           store.setNodeError(d.node_id as string, d.error as string);
+        else if (event === "harness_done" || event === "run_stopped") {
+          useActiveRunStore.getState().setRunId(null);
+        }
       },
-      () => useCanvasStore.getState().setRunning(false)
+      () => {
+        useActiveRunStore.getState().setRunId(null);
+        useCanvasStore.getState().setRunning(false);
+      }
     );
   }, []);
 
-  return { run, save, exportJson, importJson, saving, saveMsg };
+  return { run, stop, save, exportJson, importJson, saving, saveMsg };
 }

@@ -16,8 +16,9 @@ export interface StartRunPayload {
  * `next start`, and inside the Tauri shell, where a cross-origin call to
  * localhost:8000 is exactly the thing the webview blocks.
  */
-export function startRun(
-  payload: StartRunPayload,
+function pumpSse(
+  url: string,
+  payload: unknown,
   onEvent: (event: string, data: Record<string, unknown>) => void,
   onClose: (err?: Error) => void
 ): () => void {
@@ -25,7 +26,7 @@ export function startRun(
 
   (async () => {
     try {
-      const res = await fetch("/api/run", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -67,6 +68,31 @@ export function startRun(
   })();
 
   return () => ctrl.abort();
+}
+
+export function startRun(
+  payload: StartRunPayload,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  onClose: (err?: Error) => void
+): () => void {
+  return pumpSse("/api/run", payload, onEvent, onClose);
+}
+
+export interface DirectRunPayload {
+  instruction: string;
+  mode: string;
+  step?: boolean;
+  adapter?: string;
+  model?: string;
+}
+
+/** Harness-off path — one adapter turn via `/api/run/direct`. */
+export function startDirectRun(
+  payload: DirectRunPayload,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  onClose: (err?: Error) => void
+): () => void {
+  return pumpSse("/api/run/direct", payload, onEvent, onClose);
 }
 
 export type ControlAction = "stop" | "step" | "resume" | "message";
