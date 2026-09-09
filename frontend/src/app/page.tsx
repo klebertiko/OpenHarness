@@ -28,8 +28,10 @@ import { Toolbar } from "@/components/toolbar/Toolbar";
 import { NodePalette } from "@/components/sidebar/NodePalette";
 import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
+import { ValidateDock } from "@/components/studio/ValidateDock";
 
 import { useCanvasStore } from "@/store/canvasStore";
+import { useModeStore } from "@/store/modeStore";
 import { useHarnessActions } from "@/lib/actions";
 import { NODE_TEMPLATES, HARNESS_PRESETS } from "@/lib/templates";
 import { ROLE_ICON, ROLE_VAR } from "@/lib/roles";
@@ -97,6 +99,25 @@ function StubPanel({ title, note }: { title: string; note: string }) {
   );
 }
 
+/** Agent-mode placeholders until Task 4 mounts agent-run. Hidden in Studio. */
+function AgentStageStub() {
+  return (
+    <div className="grid h-full place-items-center p-6">
+      <div className="w-[320px]">
+        <div className="mb-2 flex items-center gap-2">
+          <Mark size={14} />
+          <span className="t-label text-ink-faint">AGENT</span>
+          <span className="h-px flex-1 bg-line-soft" aria-hidden />
+        </div>
+        <p className="t-body text-ink-mute">
+          Chat and run controls mount here next. Switch to Studio (Alt+2) to edit
+          the harness graph and validate a bundle.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const {
     nodes,
@@ -116,9 +137,11 @@ export default function Home() {
     redo,
   } = useCanvasStore();
 
+  const shellMode = useModeStore((s) => s.mode);
   const actions = useHarnessActions();
   const { section, toggleLeft, toggleRight, setKeymapOpen } = useShellStore();
   const [backendOk, setBackendOk] = useState(false);
+  const isStudio = shellMode === "studio";
 
   /* Deep link: /?preset=critic-gate opens a named preset on load. Useful for
      docs links and for handing someone a reproducible starting graph. */
@@ -269,7 +292,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, executionMode, isRunning, selectedNodeId, actions]);
 
-  const left =
+  const left = isStudio ? (
     section === "build" ? (
       <NodePalette />
     ) : section === "runs" ? (
@@ -281,7 +304,24 @@ export default function Home() {
       />
     ) : (
       <StubPanel title="Harnesses" note="Saved harnesses from the local backend appear here." />
-    );
+    )
+  ) : section === "runs" ? (
+    <StubPanel title="Runs" note="Agent run history mounts with the agent-run panel." />
+  ) : section === "providers" ? (
+    <StubPanel title="Providers" note="Provider wallet is shared; configure from Studio for now." />
+  ) : (
+    <StubPanel title="Harnesses" note="Harness library ships in a later task." />
+  );
+
+  const studioStage = (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="relative min-h-0 flex-1">
+        <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
+        {nodes.length === 0 && <EmptyStage onPreset={() => loadPreset(HARNESS_PRESETS[1])} />}
+      </div>
+      <ValidateDock />
+    </div>
+  );
 
   return (
     <ReactFlowProvider>
@@ -296,22 +336,19 @@ export default function Home() {
         selectedId={selectedNodeId}
         backendOk={backendOk}
         toolbar={
-          <Toolbar
-            onRun={actions.run}
-            onSave={actions.save}
-            onExport={actions.exportJson}
-            onImport={actions.importJson}
-            saveMsg={actions.saveMsg}
-          />
+          isStudio ? (
+            <Toolbar
+              onRun={actions.run}
+              onSave={actions.save}
+              onExport={actions.exportJson}
+              onImport={actions.importJson}
+              saveMsg={actions.saveMsg}
+            />
+          ) : null
         }
         left={left}
-        stage={
-          <>
-            <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
-            {nodes.length === 0 && <EmptyStage onPreset={() => loadPreset(HARNESS_PRESETS[1])} />}
-          </>
-        }
-        right={<PropertiesPanel />}
+        stage={isStudio ? studioStage : <AgentStageStub />}
+        right={isStudio ? <PropertiesPanel /> : <StubPanel title="Session" note="Agent session inspector lands with agent-run." />}
       />
     </ReactFlowProvider>
   );

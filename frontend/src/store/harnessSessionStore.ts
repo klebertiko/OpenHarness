@@ -4,9 +4,15 @@ import { create } from "zustand";
 
 export const HARNESS_SESSION_KEY = "oh.harnessSession";
 
-/** Minimal bundle shape for session state (full graph arrives later). */
+/** Session-held bundle — at least `manifest.id`; Studio import stores the full `.oharness`. */
 export interface HarnessBundle {
-  manifest: { id: string };
+  schemaVersion?: string;
+  manifest: { id: string; name?: string; description?: string; [key: string]: unknown };
+  graph?: { nodes: unknown[]; edges: unknown[] };
+  content?: Record<string, unknown>;
+  runtime?: Record<string, unknown>;
+  validation?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface HarnessSessionPersisted {
