@@ -6,7 +6,10 @@ from routers.bundles import router as bundles_router
 from routers.harnesses import router as harnesses_router
 from routers.execution import router as execution_router
 from routers.providers import router as providers_router
+from routers.cowork import router as cowork_router
+from routers.automations import router as automations_router
 from secrets.memory import MemorySecrets
+import models  # noqa: F401 — register ORM tables for create_all
 
 
 @asynccontextmanager
@@ -34,6 +37,8 @@ app.include_router(harnesses_router)
 app.include_router(execution_router)
 app.include_router(bundles_router)
 app.include_router(providers_router)
+app.include_router(cowork_router)
+app.include_router(automations_router)
 
 
 @app.get("/health")
