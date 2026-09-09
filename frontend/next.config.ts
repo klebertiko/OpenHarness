@@ -10,8 +10,9 @@ const nextConfig: NextConfig = {
   // The dev overlay badge floats over the app's own bottom-left corner, where
   // the canvas controls live. Off, so the shell's chrome is the only chrome.
   devIndicators: { buildActivity: false, appIsrStatus: false },
-  // Same-origin `/bundles/*` and `/providers/*` for the Studio client.
-  // Mirrors the `/api/run` proxy rule: the webview must not call :8000 directly.
+  // Same-origin `/bundles/*`, `/providers/*`, `/cowork/*`, `/automations/*`
+  // for the client. Mirrors the `/api/run` proxy rule: the webview must not
+  // call :8000 directly.
   async rewrites() {
     return [
       {
@@ -21,6 +22,14 @@ const nextConfig: NextConfig = {
       {
         source: "/providers/:path*",
         destination: `${BACKEND}/providers/:path*`,
+      },
+      {
+        source: "/cowork/:path*",
+        destination: `${BACKEND}/cowork/:path*`,
+      },
+      {
+        source: "/automations/:path*",
+        destination: `${BACKEND}/automations/:path*`,
       },
     ];
   },
