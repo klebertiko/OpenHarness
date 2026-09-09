@@ -5,6 +5,7 @@ import { chordCaps, useIsMac } from "@/components/shell/keys";
 import { ROLE_CODE, ROLE_ICON, ROLE_VAR } from "@/lib/roles";
 import { PORTS } from "@/lib/ports";
 import type { NodeData, AdapterType, NodeType } from "@/lib/types";
+import { useProviderStore } from "@/components/providers/providerStore";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    The inspector.
@@ -96,6 +97,7 @@ export function PropertiesPanel() {
   const nodes = useCanvasStore((s) => s.nodes);
   const selectedNodeId = useCanvasStore((s) => s.selectedNodeId);
   const updateNodeData = useCanvasStore((s) => s.updateNodeData);
+  const connections = useProviderStore((s) => s.connections);
   const mac = useIsMac();
   const node = nodes.find((n) => n.id === selectedNodeId);
 
@@ -123,6 +125,7 @@ export function PropertiesPanel() {
   const d = node.data as NodeData;
   const update = (patch: Partial<NodeData>) => updateNodeData(node.id, patch);
   const isModel = ["llm", "evaluator", "tool", "aggregator"].includes(node.type);
+  const sealed = connections.filter((c) => c.secret);
 
   return (
     <Panel
@@ -241,14 +244,28 @@ export function PropertiesPanel() {
             )}
 
             {d.adapter !== "mock" && (
-              <Field label="API Key">
-                <input
+              <Field label="Credential">
+                <select
                   className={inputCls}
-                  type="password"
-                  value={d.apiKey ?? ""}
-                  onChange={(e) => update({ apiKey: e.target.value })}
-                  placeholder="sk-..."
-                />
+                  value={d.secretRef ?? ""}
+                  onChange={(e) => {
+                    const secretRef = e.target.value || undefined;
+                    // Drop any legacy plaintext apiKey when binding a vault ref.
+                    update({ secretRef, apiKey: undefined });
+                  }}
+                >
+                  <option value="">None — bind from Providers wallet</option>
+                  {sealed.map((c) => (
+                    <option key={c.id} value={c.secret!.service}>
+                      {c.label} · {c.secret!.prefix}…{c.secret!.tail}
+                    </option>
+                  ))}
+                </select>
+                {sealed.length === 0 && (
+                  <p className="t-meta mt-1 text-ink-faint">
+                    Seal a key under Providers (Alt+4). The inspector only stores the reference.
+                  </p>
+                )}
               </Field>
             )}
 

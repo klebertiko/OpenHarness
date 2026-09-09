@@ -31,6 +31,9 @@ import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
 import { HarnessLibrary } from "@/components/harnesses/HarnessLibrary";
+import { Wallet } from "@/components/providers/Wallet";
+import { Dossier } from "@/components/providers/Dossier";
+import { useProviderStore } from "@/components/providers/providerStore";
 
 import { useCanvasStore } from "@/store/canvasStore";
 import { useModeStore } from "@/store/modeStore";
@@ -124,8 +127,10 @@ export default function Home() {
   const shellMode = useModeStore((s) => s.mode);
   const actions = useHarnessActions();
   const { section, toggleLeft, toggleRight, setKeymapOpen } = useShellStore();
+  const connectionCount = useProviderStore((s) => s.connections.length);
   const [backendOk, setBackendOk] = useState(false);
   const isStudio = shellMode === "studio";
+  const onProviders = section === "providers";
 
   /* Deep link: /?preset=critic-gate opens a named preset on load. Useful for
      docs links and for handing someone a reproducible starting graph. */
@@ -280,26 +285,33 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, executionMode, isRunning, selectedNodeId, actions]);
 
-  const left = isStudio ? (
-    section === "build" ? (
-      <NodePalette />
-    ) : section === "runs" ? (
-      <StubPanel title="Runs" note="Execution history lands here once the run panel ships." />
-    ) : section === "providers" ? (
-      <StubPanel
-        title="Providers"
-        note="Anthropic, OpenAI, Cursor, OpenRouter and Ollama connections are wired in a later pass."
-      />
-    ) : (
-      <HarnessLibrary />
-    )
-  ) : section === "runs" ? (
-    <StubPanel title="Runs" note="Agent run history mounts with the agent-run panel." />
-  ) : section === "providers" ? (
-    <StubPanel title="Providers" note="Provider wallet is shared; configure from Studio for now." />
-  ) : (
-    <HarnessLibrary />
+  const providersLeft = (
+    <Panel title="Wallet" meta={`${connectionCount}`} className="h-full">
+      <Wallet />
+    </Panel>
   );
+
+  const left = onProviders
+    ? providersLeft
+    : isStudio
+      ? section === "build"
+        ? (
+            <NodePalette />
+          )
+        : section === "runs"
+          ? (
+              <StubPanel title="Runs" note="Execution history lands here once the run panel ships." />
+            )
+          : (
+              <HarnessLibrary />
+            )
+      : section === "runs"
+        ? (
+            <StubPanel title="Runs" note="Agent run history mounts with the agent-run panel." />
+          )
+        : (
+            <HarnessLibrary />
+          );
 
   const studioStage = (
     <div className="flex h-full min-h-0 flex-col">
@@ -310,6 +322,8 @@ export default function Home() {
       <ValidateDock />
     </div>
   );
+
+  const stage = onProviders ? <Dossier /> : isStudio ? studioStage : <AgentStage />;
 
   return (
     <ReactFlowProvider>
@@ -324,7 +338,7 @@ export default function Home() {
         selectedId={selectedNodeId}
         backendOk={backendOk}
         toolbar={
-          isStudio ? (
+          isStudio && !onProviders ? (
             <Toolbar
               onRun={actions.run}
               onStop={actions.stop}
@@ -336,7 +350,7 @@ export default function Home() {
           ) : null
         }
         left={left}
-        stage={isStudio ? studioStage : <AgentStage />}
+        stage={stage}
         right={
           isStudio ? (
             <PropertiesPanel />

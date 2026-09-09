@@ -33,10 +33,10 @@
  *      crosses back over the IPC boundary; the backend asks Rust for it at
  *      request time. Commands: `secret_save`, `secret_forget`, `secret_list`.
  *      Capability allow-list grants these three and nothing else.
- *   b. Backend (`POST /providers/{id}/credential`) — for the browser-hosted dev
- *      build, so the FastAPI process holds the secret in its own memory and the
- *      renderer still never sees it. Same shape, weaker guarantees; the UI says
- *      so on the dossier.
+ *   b. Backend (`POST /providers/{id}/secret`) — for the browser-hosted dev
+ *      build, so the FastAPI process holds the secret in its own SecretsStore
+ *      and the renderer still never sees it. Same shape, weaker guarantees; the
+ *      UI says so on the dossier. Proxied same-origin via Next rewrite.
  *   c. Memory — this file's fallback. Process-lifetime only, deliberately NOT
  *      persisted. A refresh loses it, which is correct: a dev fallback that
  *      quietly persisted secrets would be the exact bug this seam prevents.
@@ -73,7 +73,7 @@ function tauriInvoke(): ((cmd: string, args?: unknown) => Promise<unknown>) | nu
 }
 
 export function activeVault(): SecretVault {
-  return tauriInvoke() ? "os-keychain" : "memory";
+  return tauriInvoke() ? "os-keychain" : "backend";
 }
 
 export const VAULT_LABEL: Record<SecretVault, string> = {
@@ -81,6 +81,70 @@ export const VAULT_LABEL: Record<SecretVault, string> = {
   backend: "backend process",
   memory: "session memory",
 };
+
+function connectionIdFromService(service: string): string {
+  return service.startsWith("openharness/") ? service.slice("openharness/".length) : service;
+}
+
+function recognisePrefix(value: string): string {
+  // Longest known vendor prefix wins, so `sk-ant-` is not reported as `sk-`.
+  return (
+    ["sk-ant-", "sk-or-", "crsr_", "sk-proj-", "sk-"].find((p) => value.startsWith(p)) ?? ""
+  );
+}
+
+function toRef(service: string, value: string, vault: SecretVault): SecretRef {
+  return {
+    service,
+    prefix: recognisePrefix(value),
+    tail: value.slice(-4),
+    length: value.length,
+    vault,
+    savedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Ensure a connection row exists so POST /providers/{id}/secret does not 404.
+ * Best-effort: 409 (already exists) is success.
+ */
+async function ensureBackendConnection(connectionId: string): Promise<void> {
+  const provider = connectionId.replace(/-local$|-cloud$/, "") || connectionId;
+  const res = await fetch("/providers/connections", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: connectionId,
+      provider,
+      label: connectionId,
+      residence: connectionId.endsWith("-local") ? "local" : "cloud",
+      endpoint: "",
+      enabled: false,
+    }),
+  });
+  if (res.ok || res.status === 409) return;
+  // Leave failure for the secret POST to surface.
+}
+
+/** Hand the key to FastAPI once; return the opaque secretRef string or null. */
+async function saveViaBackend(service: string, value: string): Promise<string | null> {
+  const connectionId = connectionIdFromService(service);
+  const post = () =>
+    fetch(`/providers/${encodeURIComponent(connectionId)}/secret`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: value }),
+    });
+
+  let res = await post();
+  if (res.status === 404) {
+    await ensureBackendConnection(connectionId);
+    res = await post();
+  }
+  if (!res.ok) return null;
+  const body = (await res.json()) as { secretRef?: string };
+  return typeof body.secretRef === "string" ? body.secretRef : null;
+}
 
 /**
  * The only function in the app that accepts a plaintext credential.
@@ -91,26 +155,20 @@ export async function saveSecret(service: string, plaintext: string): Promise<Se
   if (!value) throw new Error("empty credential");
 
   const invoke = tauriInvoke();
-  let vault: SecretVault = "memory";
   if (invoke) {
     await invoke("secret_save", { service, value });
-    vault = "os-keychain";
-  } else {
-    memory.set(service, value);
+    return toRef(service, value, "os-keychain");
   }
 
-  // Longest known vendor prefix wins, so `sk-ant-` is not reported as `sk-`.
-  const prefix =
-    ["sk-ant-", "sk-or-", "crsr_", "sk-proj-", "sk-"].find((p) => value.startsWith(p)) ?? "";
+  try {
+    const secretRef = await saveViaBackend(service, value);
+    if (secretRef) return toRef(secretRef, value, "backend");
+  } catch {
+    // Backend unreachable — fall through to process memory.
+  }
 
-  return {
-    service,
-    prefix,
-    tail: value.slice(-4),
-    length: value.length,
-    vault,
-    savedAt: new Date().toISOString(),
-  };
+  memory.set(service, value);
+  return toRef(service, value, "memory");
 }
 
 export async function forgetSecret(service: string): Promise<void> {

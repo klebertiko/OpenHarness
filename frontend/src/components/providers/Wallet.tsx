@@ -11,6 +11,11 @@ import { specOf, useProviderStore, type Connection } from "./providerStore";
  * prompt leave this machine?" changes what you are allowed to put in it. The
  * two Ollama rows land in different groups for exactly that reason: same
  * vendor, same protocol, opposite answer.
+ *
+ * Credentials never appear here — only labels, health, and endpoints.
+ * ADR 0001 § Consequences ¶6 (`docs/adr/0001-desktop-packaging.md`):
+ * "Provider credentials must never reach the renderer." Refs live in
+ * `secrets.ts` / the host vault; this panel is labels-only by construction.
  */
 
 const GROUPS: { key: Residence; label: string; note: string }[] = [
