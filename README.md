@@ -74,6 +74,9 @@ cd backend && python -m oharness validate oharness/fixtures/default-agile.oharne
 
 Default harness id: `openharness.default.agile`
 
+Workspace index (outside this repo): `src/OpenHarness` replaces HarnessSimulator in
+`D:\Development\CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and `.cursor/rules/workspace.mdc`.
+
 ## Smoke checklist (HITL)
 
 After installing from a local NSIS build:
