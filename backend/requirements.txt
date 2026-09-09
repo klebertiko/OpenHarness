@@ -10,3 +10,4 @@ python-dotenv==1.0.1
 anyio==4.7.0
 jsonschema==4.23.0
 pytest==8.3.4
+cryptography==44.0.0
