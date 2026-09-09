@@ -30,6 +30,7 @@ import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
+import { HarnessLibrary } from "@/components/harnesses/HarnessLibrary";
 
 import { useCanvasStore } from "@/store/canvasStore";
 import { useModeStore } from "@/store/modeStore";
@@ -290,14 +291,14 @@ export default function Home() {
         note="Anthropic, OpenAI, Cursor, OpenRouter and Ollama connections are wired in a later pass."
       />
     ) : (
-      <StubPanel title="Harnesses" note="Saved harnesses from the local backend appear here." />
+      <HarnessLibrary />
     )
   ) : section === "runs" ? (
     <StubPanel title="Runs" note="Agent run history mounts with the agent-run panel." />
   ) : section === "providers" ? (
     <StubPanel title="Providers" note="Provider wallet is shared; configure from Studio for now." />
   ) : (
-    <StubPanel title="Harnesses" note="Harness library ships in a later task." />
+    <HarnessLibrary />
   );
 
   const studioStage = (

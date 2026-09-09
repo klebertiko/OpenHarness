@@ -3,80 +3,55 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Power, PowerOff } from "lucide-react";
 
-import { fetchDefault, type OHarnessBundle } from "@/lib/bundlesApi";
 import {
-  useHarnessSessionStore,
-  type HarnessBundle,
-} from "@/store/harnessSessionStore";
+  DEFAULT_BUNDLE_ID,
+  useHarnessLibraryStore,
+} from "@/store/harnessLibraryStore";
+import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 
 type SwitchOption = {
   id: string;
   name: string;
-  bundle: HarnessBundle;
-  kind: "default" | "active";
+  kind: "default" | "library";
 };
 
 /**
- * Harness on/off + replace from the session's known bundles.
- *
- * Task 4 scope: default (from `/bundles/default`) and the current active
- * bundle. Full library rail is Task 5.
+ * Harness on/off + replace from the HarnessLibrary rail entries.
  */
 export function HarnessSwitch() {
   const enabled = useHarnessSessionStore((s) => s.enabled);
   const activeBundle = useHarnessSessionStore((s) => s.activeBundle);
   const hydrated = useHarnessSessionStore((s) => s.hydrated);
   const setEnabled = useHarnessSessionStore((s) => s.setEnabled);
-  const replaceBundle = useHarnessSessionStore((s) => s.replaceBundle);
-  const hydrate = useHarnessSessionStore((s) => s.hydrate);
+  const hydrateSession = useHarnessSessionStore((s) => s.hydrate);
 
-  const [defaultBundle, setDefaultBundle] = useState<OHarnessBundle | null>(null);
+  const libraryEntries = useHarnessLibraryStore((s) => s.entries);
+  const libraryHydrated = useHarnessLibraryStore((s) => s.hydrated);
+  const hydrateLibrary = useHarnessLibraryStore((s) => s.hydrate);
+  const activate = useHarnessLibraryStore((s) => s.activate);
+
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!hydrated) {
-      void hydrate().catch((err: Error) => setError(err.message));
+      void hydrateSession().catch((err: Error) => setError(err.message));
     }
-  }, [hydrated, hydrate]);
+  }, [hydrated, hydrateSession]);
 
   useEffect(() => {
-    let alive = true;
-    fetchDefault()
-      .then((b) => {
-        if (alive) setDefaultBundle(b);
-      })
-      .catch((err: Error) => {
-        if (alive) setError(err.message);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    if (!libraryHydrated) {
+      void hydrateLibrary().catch((err: Error) => setError(err.message));
+    }
+  }, [libraryHydrated, hydrateLibrary]);
 
   const options = useMemo<SwitchOption[]>(() => {
-    const out: SwitchOption[] = [];
-    if (defaultBundle?.manifest?.id) {
-      out.push({
-        id: defaultBundle.manifest.id,
-        name: defaultBundle.manifest.name || "Default",
-        bundle: defaultBundle as unknown as HarnessBundle,
-        kind: "default",
-      });
-    }
-    if (
-      activeBundle?.manifest?.id &&
-      activeBundle.manifest.id !== defaultBundle?.manifest?.id
-    ) {
-      out.push({
-        id: activeBundle.manifest.id,
-        name: activeBundle.manifest.name || activeBundle.manifest.id,
-        bundle: activeBundle,
-        kind: "active",
-      });
-    }
-    return out;
-  }, [defaultBundle, activeBundle]);
+    return libraryEntries.map((e) => ({
+      id: e.id,
+      name: e.name,
+      kind: e.isDefault || e.id === DEFAULT_BUNDLE_ID ? "default" : "library",
+    }));
+  }, [libraryEntries]);
 
   const activeLabel =
     activeBundle?.manifest?.name ||
@@ -132,7 +107,7 @@ export function HarnessSwitch() {
                     aria-selected={selected}
                     className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[12px] text-ink-dim hover:bg-sub-200 hover:text-ink"
                     onClick={() => {
-                      replaceBundle(opt.bundle);
+                      activate(opt.id);
                       setOpen(false);
                     }}
                   >
