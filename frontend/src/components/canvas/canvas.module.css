@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Canvas-scoped xyflow overrides.
+
+   Deliberately a CSS module rather than an addition to globals.css: the shell
+   owns that file. Everything here is nested under `.stage.stage` (a doubled
+   local class, specificity 0-3-0) so it beats both the library's own sheet and
+   the baseline re-skin in globals.css without a single !important.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── Selection ────────────────────────────────────────────────────────────
+   The baseline re-skin draws a 1px signal ring around any selected node. This
+   canvas draws selection itself — corner registration marks plus a value step
+   — so the library ring is removed rather than fought with. */
+.stage.stage :global(.react-flow__node.selected) > * {
+  box-shadow: none;
+}
+
+/* Nodes must be able to paint outside their own box (registration marks, the
+   hover toolbar) without xyflow clipping them. */
+.stage.stage :global(.react-flow__node) {
+  cursor: default;
+}
+
+/* ── Ports ────────────────────────────────────────────────────────────────
+   A port is a pin, not a bubble: a 4×10 bar flush to the plate edge, aligned
+   to the labelled row it belongs to. Hollow means nothing is wired to it. */
+.stage.stage :global(.react-flow__handle) {
+  width: 4px;
+  height: 11px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 1px;
+  border: 1px solid var(--line);
+  background: var(--sub-000);
+  transition: background 110ms, border-color 110ms, box-shadow 110ms;
+}
+
+.stage.stage :global(.react-flow__handle-left) {
+  left: -3px;
+}
+.stage.stage :global(.react-flow__handle-right) {
+  right: -3px;
+}
+
+/* Wired ports fill with the owning node's role hue, so "what is actually
+   connected" is answerable without tracing a single wire. */
+.stage.stage .portWired {
+  background: var(--port-tone, var(--ink-faint));
+  border-color: var(--port-tone, var(--ink-faint));
+}
+
+.stage.stage :global(.react-flow__handle:hover),
+.stage.stage :global(.react-flow__handle.connecting),
+.stage.stage :global(.react-flow__handle.connectingfrom),
+.stage.stage :global(.react-flow__handle.connectingto) {
+  background: var(--signal);
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--signal) 22%, transparent);
+}
+
+/* The whole plate is a valid drop target while dragging a wire; say so. */
+.stage.stage :global(.react-flow__node.connectable-end) :global(.oh-plate) {
+  border-color: var(--signal-deep);
+}
+
+/* ── Wires ────────────────────────────────────────────────────────────────
+   Stroke, dash and marker all come from the edge component. Only the hit area
+   and the in-flight connection line are set here. */
+.stage.stage :global(.react-flow__edge-interaction) {
+  stroke-width: 16;
+}
+
+.stage.stage :global(.react-flow__connectionline path) {
+  stroke: var(--signal);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+/* ── Minimap ──────────────────────────────────────────────────────────────*/
+.stage.stage :global(.react-flow__minimap) {
+  background: var(--sub-100);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  margin: 0;
+  right: 10px;
+  bottom: 10px;
+}
+
+.stage.stage :global(.react-flow__minimap-mask) {
+  stroke: var(--ink-faint);
+  stroke-width: 2px;
+}
+
+/* ── Marching wire — a run in progress ───────────────────────────────────
+   Dashes travel along the path in the direction of flow. Not a pulse: a pulse
+   says "look at me", a march says "data is moving through here". */
+@keyframes ohMarch {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+.live {
+  stroke-dasharray: 5 4;
+  animation: ohMarch 620ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live {
+    animation: none;
+  }
+}

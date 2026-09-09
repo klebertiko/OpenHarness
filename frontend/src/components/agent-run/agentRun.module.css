@@ -1,0 +1,140 @@
+/* Local to the agent-run panel. Everything here is either something Tailwind
+   cannot express (pseudo-element rules, keyframes) or something that would be
+   noise as a utility soup. All colour comes from the app token layer. */
+
+/* ── The spine ──────────────────────────────────────────────────────────────
+   One hairline running the length of the transcript, with each node hanging
+   off it. This is the thing that makes a run read as a traversal of a graph
+   rather than as a chat log. The last node stops the line at its own marker so
+   the trace has a visible end. */
+.gutter {
+  position: relative;
+}
+.gutter::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 11px;
+  width: 1px;
+  background: var(--line-soft);
+}
+.gutterFirst::before {
+  top: 14px;
+}
+.gutterLast::before {
+  bottom: auto;
+  height: 14px;
+}
+
+/* ── Streaming caret ────────────────────────────────────────────────────────
+   A 2px block that sits at the end of live text. Stepped, not eased: a caret
+   that fades is a decoration, a caret that snaps is a cursor. */
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--signal);
+  animation: ohCaret 1s steps(1, end) infinite;
+}
+@keyframes ohCaret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Gate tape ──────────────────────────────────────────────────────────────
+   A blocked run gets tape across it. Hazard hatching is the one place in this
+   app where a pattern carries meaning instead of texture. */
+.tape {
+  height: 3px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--warn) 0 4px,
+    transparent 4px 8px
+  );
+  opacity: 0.55;
+}
+
+/* ── Ladder ─────────────────────────────────────────────────────────────────
+   Plan segments. Pending is substrate, done is the node's role hue, running
+   carries the shell's travelling tick. */
+.rung {
+  position: relative;
+  height: 3px;
+  flex: 1 1 0;
+  min-width: 4px;
+  border-radius: 1px;
+  overflow: hidden;
+  background: var(--sub-400);
+  transition: background 110ms cubic-bezier(0.2, 0, 0, 1);
+}
+.rungDone {
+  background: var(--role);
+}
+.rungSkipped {
+  background: var(--sub-300);
+}
+.rungGate {
+  background: var(--warn);
+}
+.rungError {
+  background: var(--fault);
+}
+.rungRunning {
+  background: color-mix(in oklab, var(--role) 34%, var(--sub-400));
+}
+.rungRunning::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: var(--role);
+  animation: ohRung 1.1s linear infinite;
+}
+@keyframes ohRung {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* ── Now-line activity bar ─────────────────────────────────────────────────── */
+.pulse {
+  position: relative;
+  width: 22px;
+  height: 2px;
+  overflow: hidden;
+  background: var(--sub-400);
+  border-radius: 1px;
+}
+.pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background: currentColor;
+  animation: ohRung 0.95s linear infinite;
+}
+
+/* Prose that arrived over a wire: preserve the author's paragraph breaks,
+   break long unbroken machine strings rather than pushing the panel wide. */
+.prose {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.argEllipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,403 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OpenHarness — design tokens
+   Hallmark · genre: instrument · macrostructure: Rail + Bench + Inspector
+   designed-as-app (desktop shell, Tauri custom decorations)
+
+   PALETTE LOGIC — read this before adding a colour.
+   The substrate is strictly cold-neutral and carries NO chroma of its own
+   beyond a 0.010 blue cast that keeps it from going flat grey. Elevation is
+   expressed as value steps + hairlines, never as glow or drop shadow.
+   Chroma is reserved: it means *state*, never mood. Exactly one hue
+   (--signal) marks "this is live / this is focused / this is the primary
+   action". Two more encode warn and fault. Node roles get an identity hue,
+   but locked to one lightness and one chroma so nine roles read as a family
+   instead of a rainbow. If a colour is not carrying information, it is grey.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Substrate — cold neutral, value-stepped ───────────────────────────── */
+  --sub-000: oklch(0.152 0.010 258); /* window void, canvas ground   */
+  --sub-100: oklch(0.188 0.010 258); /* panels, chrome               */
+  --sub-200: oklch(0.222 0.011 258); /* inset fields, rows           */
+  --sub-300: oklch(0.262 0.012 258); /* hover                        */
+  --sub-400: oklch(0.318 0.013 258); /* pressed / active control     */
+
+  --line: oklch(0.312 0.012 258); /* structural hairline             */
+  --line-soft: oklch(0.248 0.011 258); /* internal divider           */
+
+  /* ── Ink — four steps, no opacity soup ─────────────────────────────────── */
+  --ink: oklch(0.945 0.006 258);
+  --ink-dim: oklch(0.702 0.010 258);
+  --ink-mute: oklch(0.548 0.012 258);
+  --ink-faint: oklch(0.432 0.012 258);
+
+  /* ── Signal — the only decorative-looking colour, and it is not decorative */
+  --signal: oklch(0.858 0.176 118);
+  --signal-deep: oklch(0.640 0.150 118);
+  --signal-ink: oklch(0.190 0.048 118); /* text ON a signal fill */
+  --warn: oklch(0.795 0.145 78);
+  --fault: oklch(0.662 0.190 25);
+
+  /* ── Node role hues — locked L/C, hue is the only free variable ────────── */
+  --role-input: oklch(0.740 0.115 232);
+  --role-llm: oklch(0.740 0.115 300);
+  --role-tool: oklch(0.740 0.115 40);
+  --role-evaluator: oklch(0.740 0.115 158);
+  --role-router: oklch(0.740 0.115 330);
+  --role-hitl: oklch(0.740 0.115 18);
+  --role-memory: oklch(0.740 0.115 200);
+  --role-aggregator: oklch(0.740 0.115 268);
+  --role-output: oklch(0.740 0.115 172);
+
+  /* ── Chrome metrics — the shell's fixed skeleton ───────────────────────── */
+  --h-titlebar: 34px;
+  --h-statusbar: 22px;
+  --h-panelhead: 30px;
+  --w-rail: 46px;
+
+  --r-control: 2px;
+  --r-panel: 3px;
+  --r-float: 5px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--sub-000);
+  color: var(--ink);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Type roles — five, locked. Never invent a sixth. ────────────────────── */
+
+/* Display — one per view: the harness name in the title bar, palette header */
+.t-display {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  line-height: 1.2;
+}
+
+/* Title — panel headings, node names, command rows */
+.t-title {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.004em;
+  line-height: 1.3;
+}
+
+/* Body — descriptions, field values, help copy */
+.t-body {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+/* Label — section kickers. Uppercase sans, NOT mono: mono is for machines. */
+.t-label {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+/* Meta — mono. Machine-readable strings only: ids, keys, counts, latencies,
+   adapter names, shortcuts. If a human wrote it, it is not Meta. */
+.t-meta {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 450;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+/* ── Shell primitives ───────────────────────────────────────────────────── */
+
+/* Elevation is a value step plus a hairline. There is no glow in this app. */
+.oh-panel {
+  background: var(--sub-100);
+  border-radius: var(--r-panel);
+}
+
+.oh-float {
+  background: var(--sub-100);
+  border: 1px solid var(--line);
+  border-radius: var(--r-float);
+  box-shadow: 0 1px 0 0 var(--sub-400) inset, 0 24px 48px -12px rgb(0 0 0 / 0.72);
+}
+
+.oh-inset {
+  background: var(--sub-200);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-control);
+}
+
+/* Keycap — squared, hairline, mono. Not a pill. */
+.oh-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--r-control);
+  background: var(--sub-200);
+  color: var(--ink-mute);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Tick — the 2px role rule that identifies a node or a section. */
+.oh-tick {
+  width: 2px;
+  align-self: stretch;
+  border-radius: 1px;
+  background: var(--role, var(--ink-faint));
+}
+
+/* Drag region — Tauri reads the data attribute; this class only kills the
+   text cursor so the bar does not feel like a text field. */
+[data-tauri-drag-region] {
+  cursor: default;
+  user-select: none;
+}
+
+/* ── Focus — one ring, signal-coloured, never removed ───────────────────── */
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: -1px;
+  border-radius: var(--r-control);
+}
+
+.oh-focus-inner:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ── Scrollbars — 8px, no track, thumb is substrate not ink ─────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sub-400) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sub-400);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Native control resets ──────────────────────────────────────────────── */
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+select {
+  appearance: none;
+}
+
+input[type="range"] {
+  appearance: none;
+  height: 2px;
+  background: var(--sub-400);
+  border-radius: 999px;
+  outline-offset: 6px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--signal);
+  cursor: pointer;
+}
+
+::placeholder {
+  color: var(--ink-faint);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--signal) 28%, transparent);
+  color: var(--ink);
+}
+
+/* ── xyflow, re-skinned to the token layer ──────────────────────────────────
+   Selectors are doubled up (`.react-flow .react-flow__x`) on purpose: the
+   library's own stylesheet is imported from a component and therefore lands
+   *after* this file in the cascade, so single-class rules lose. ─────────── */
+.react-flow {
+  --xy-background-color: var(--sub-000);
+}
+
+/* Our node types are named `input` and `output`, which collide head-on with
+   xyflow's built-in node classes — the library was painting those two nodes as
+   white 150px boxes underneath our markup. Neutralise the built-ins. */
+.react-flow .react-flow__node-input,
+.react-flow .react-flow__node-output,
+.react-flow .react-flow__node-default,
+.react-flow .react-flow__node-group {
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
+.react-flow .react-flow__node.selected > * {
+  box-shadow: 0 0 0 1px var(--signal);
+}
+
+.react-flow .react-flow__edge-path {
+  stroke: var(--ink-faint);
+  stroke-width: 1.5;
+}
+
+.react-flow .react-flow__edge.selected .react-flow__edge-path,
+.react-flow .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--ink-dim);
+}
+
+.react-flow .react-flow__edge.animated .react-flow__edge-path {
+  stroke: var(--signal);
+}
+
+.react-flow .react-flow__handle {
+  width: 7px;
+  height: 7px;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 1px;
+  border: 1px solid var(--line);
+  background: var(--sub-300);
+}
+.react-flow .react-flow__handle:hover,
+.react-flow .react-flow__handle.connecting {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+.react-flow .react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  overflow: hidden;
+  margin: 10px;
+}
+.react-flow .react-flow__controls-button {
+  background: var(--sub-100);
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-mute);
+  width: 22px;
+  height: 22px;
+  padding: 5px;
+}
+.react-flow .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+.react-flow .react-flow__controls-button:hover {
+  background: var(--sub-300);
+  color: var(--ink);
+}
+.react-flow .react-flow__controls-button svg {
+  fill: currentColor;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.react-flow .react-flow__minimap {
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  margin: 10px;
+}
+.react-flow .react-flow__minimap-mask {
+  stroke: var(--line);
+  stroke-width: 1px;
+}
+
+.react-flow .react-flow__attribution {
+  display: none;
+}
+
+/* ── Motion — short, linear-ish, and off entirely on request ────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes oh-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+/* A running node shows a travelling tick, not a pulse. Pulses read as decor;
+   a tick that moves left-to-right reads as throughput. */
+.oh-running::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  height: 1px;
+  width: 33%;
+  background: var(--signal);
+  animation: oh-sweep 1.1s linear infinite;
+}
