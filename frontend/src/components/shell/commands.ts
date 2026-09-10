@@ -40,7 +40,13 @@ export function shellModeAndHarnessCommands(): Command[] {
       icon: Bot,
       keywords: "agent chat run",
       meta: "agent",
-      run: () => useModeStore.getState().setMode("agent" satisfies ShellMode),
+      run: () => {
+        useModeStore.getState().setMode("agent" satisfies ShellMode);
+        // Mirror rail / Alt+1: Agent lands on Threads, no inspector stub.
+        const shell = useShellStore.getState();
+        shell.setSection("threads");
+        shell.setRightOpen(false);
+      },
     },
     {
       id: "mode:studio",
@@ -51,8 +57,10 @@ export function shellModeAndHarnessCommands(): Command[] {
       meta: "studio",
       run: () => {
         useModeStore.getState().setMode("studio" satisfies ShellMode);
-        // Mirror rail / Alt+2: Studio lands on the build section.
-        useShellStore.getState().setSection("build");
+        // Mirror rail / Alt+2: Studio lands on the canvas section.
+        const shell = useShellStore.getState();
+        shell.setSection("build");
+        shell.setRightOpen(true);
       },
     },
     {

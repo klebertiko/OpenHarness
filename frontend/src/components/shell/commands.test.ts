@@ -28,11 +28,20 @@ describe("shellModeAndHarnessCommands", () => {
     expect(useShellStore.getState().section).toBe("build");
   });
 
-  it("mode:agent switches back to agent", () => {
+  it("mode:agent switches back to agent and threads section", () => {
     useModeStore.getState().setMode("studio");
+    useShellStore.setState({ section: "build", rightOpen: true });
     const agent = shellModeAndHarnessCommands().find((c) => c.id === "mode:agent");
     agent!.run();
     expect(useModeStore.getState().mode).toBe("agent");
+    expect(useShellStore.getState().section).toBe("threads");
+    expect(useShellStore.getState().rightOpen).toBe(false);
+  });
+
+  it("mode:studio opens inspector", () => {
+    useShellStore.setState({ rightOpen: false });
+    shellModeAndHarnessCommands().find((c) => c.id === "mode:studio")!.run();
+    expect(useShellStore.getState().rightOpen).toBe(true);
   });
 
   it("harness on/off toggles harnessSessionStore.enabled", () => {

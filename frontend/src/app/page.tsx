@@ -31,6 +31,7 @@ import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
+import { ThreadsSidebar } from "@/components/agent/ThreadsSidebar";
 import { HarnessLibrary } from "@/components/harnesses/HarnessLibrary";
 import { PROVIDERS_PANEL_TITLE } from "@/components/providers/copy";
 import { ProvidersList } from "@/components/providers/ProvidersList";
@@ -128,11 +129,23 @@ export default function Home() {
 
   const shellMode = useModeStore((s) => s.mode);
   const actions = useHarnessActions();
-  const { section, toggleLeft, toggleRight, setKeymapOpen } = useShellStore();
+  const { section, toggleLeft, toggleRight, setKeymapOpen, setSection, setRightOpen } =
+    useShellStore();
   const connectionCount = useProviderStore((s) => s.connections.length);
   const [backendOk, setBackendOk] = useState(false);
   const isStudio = shellMode === "studio";
   const onProviders = section === "providers";
+
+  // Keep mode ↔ section coherent after hydration / stale localStorage.
+  useEffect(() => {
+    if (shellMode === "agent" && section === "build") {
+      setSection("threads");
+      setRightOpen(false);
+    }
+    if (shellMode === "studio" && (section === "runs" || section === "threads")) {
+      setSection("build");
+    }
+  }, [shellMode, section, setSection, setRightOpen]);
 
   /* Deep link: /?preset=critic-gate opens a named preset on load. Useful for
      docs links and for handing someone a reproducible starting graph. */
@@ -262,7 +275,7 @@ export default function Home() {
       ...insert,
       {
         id: "toggle-left",
-        label: "Toggle nodes panel",
+        label: "Toggle left panel",
         group: "View",
         icon: PanelLeft,
         chord: "Mod+B",
@@ -311,9 +324,13 @@ export default function Home() {
         ? (
             <StubPanel title="Runs" note="Agent run history mounts with the agent-run panel." />
           )
-        : (
-            <HarnessLibrary />
-          );
+        : section === "files"
+          ? (
+              <HarnessLibrary />
+            )
+          : (
+              <ThreadsSidebar />
+            );
 
   const studioStage = (
     <div className="flex h-full min-h-0 flex-col">
@@ -353,16 +370,7 @@ export default function Home() {
         }
         left={left}
         stage={stage}
-        right={
-          isStudio ? (
-            <PropertiesPanel />
-          ) : (
-            <StubPanel
-              title="Session"
-              note="Active run metrics live in the Agent stage. Harness library expands in a later task."
-            />
-          )
-        }
+        right={isStudio && !onProviders ? <PropertiesPanel /> : null}
       />
     </ReactFlowProvider>
   );

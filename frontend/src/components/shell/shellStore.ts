@@ -8,9 +8,9 @@ import { create } from "zustand";
  * desktop layout: the app must come back exactly as the user left it.
  */
 
-export type RailSection = "build" | "runs" | "providers" | "files";
+export type RailSection = "build" | "runs" | "providers" | "files" | "threads";
 
-const STORAGE_KEY = "oh.shell.v2";
+const STORAGE_KEY = "oh.shell.v4";
 
 interface Persisted {
   leftOpen: boolean;
@@ -22,10 +22,12 @@ interface Persisted {
 
 const DEFAULTS: Persisted = {
   leftOpen: true,
-  rightOpen: true,
+  // Inspector is Studio-only; Agent lands without a dead Session column.
+  rightOpen: false,
   leftWidth: 216,
   rightWidth: 264,
-  section: "build",
+  // Agent home = threads master list. Studio still uses `build` / `files`.
+  section: "threads",
 };
 
 export const LEFT_MIN = 188;
@@ -61,6 +63,8 @@ interface ShellState extends Persisted {
   hydrate: () => void;
   toggleLeft: () => void;
   toggleRight: () => void;
+  setLeftOpen: (v: boolean) => void;
+  setRightOpen: (v: boolean) => void;
   setLeftWidth: (w: number) => void;
   setRightWidth: (w: number) => void;
   setSection: (s: RailSection) => void;
@@ -96,6 +100,14 @@ export const useShellStore = create<ShellState>((set, get) => ({
   },
   toggleRight: () => {
     set({ rightOpen: !get().rightOpen });
+    persistFrom(get());
+  },
+  setLeftOpen: (leftOpen) => {
+    set({ leftOpen });
+    persistFrom(get());
+  },
+  setRightOpen: (rightOpen) => {
+    set({ rightOpen });
     persistFrom(get());
   },
   setLeftWidth: (w) => {

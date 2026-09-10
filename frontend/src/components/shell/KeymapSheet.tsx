@@ -28,13 +28,14 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
   {
     title: "Layout",
     rows: [
-      ["Mod+B", "Toggle palette panel"],
-      ["Mod+Alt+B", "Toggle inspector"],
+      ["Mod+B", "Toggle left panel"],
+      ["Mod+Alt+B", "Toggle inspector (Studio)"],
       ["Alt+1", "Agent mode"],
-      ["Alt+2", "Studio mode"],
-      ["Alt+3", "Runs section"],
-      ["Alt+4", "Providers section"],
-      ["Alt+5", "Harnesses section"],
+      ["Alt+2", "Studio mode · canvas"],
+      ["Alt+3", "Canvas (Studio)"],
+      ["Alt+4", "Providers"],
+      ["Alt+5", "Harnesses"],
+      ["Alt+6", "Threads (Agent)"],
     ],
   },
   {

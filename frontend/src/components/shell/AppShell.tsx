@@ -202,20 +202,37 @@ export function AppShell({
       if (matchesChord(e, "Alt+1", mac)) {
         e.preventDefault();
         setMode("agent");
+        setSection("threads");
+        useShellStore.getState().setRightOpen(false);
         return;
       }
       if (matchesChord(e, "Alt+2", mac)) {
         e.preventDefault();
         setMode("studio");
         setSection("build");
+        useShellStore.getState().setRightOpen(true);
         return;
       }
-      for (const [i, s] of (["runs", "providers", "files"] as const).entries()) {
-        if (matchesChord(e, `Alt+${i + 3}`, mac)) {
-          e.preventDefault();
-          setSection(s);
-          return;
-        }
+      // Studio: Alt+3 = Canvas. Agent: Alt+3 reserved (Runs coming soon).
+      if (matchesChord(e, "Alt+3", mac)) {
+        e.preventDefault();
+        if (useModeStore.getState().mode === "studio") setSection("build");
+        return;
+      }
+      if (matchesChord(e, "Alt+4", mac)) {
+        e.preventDefault();
+        setSection("providers");
+        return;
+      }
+      if (matchesChord(e, "Alt+5", mac)) {
+        e.preventDefault();
+        setSection("files");
+        return;
+      }
+      if (matchesChord(e, "Alt+6", mac)) {
+        e.preventDefault();
+        if (useModeStore.getState().mode === "agent") setSection("threads");
+        return;
       }
       for (const c of commandsRef.current) {
         if (c.chord && !c.disabled && matchesChord(e, c.chord, mac)) {
@@ -244,13 +261,13 @@ export function AppShell({
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden bg-sub-000"
+      className="oh-shell flex h-screen flex-col overflow-hidden"
       data-shell-mode={shellMode}
     >
       <TitleBar
         harnessName={harnessName}
         onHarnessNameChange={onHarnessNameChange}
-        mode={`${shellMode} · ${mode}`}
+        mode={shellMode === "agent" ? "Agent" : "Studio"}
         running={running}
         nodeCount={nodeCount}
         onOpenPalette={() => setPaletteOpen(true)}
@@ -301,7 +318,7 @@ export function AppShell({
       </div>
 
       <StatusBar
-        mode={`${shellMode} · ${mode}`}
+        mode={`${shellMode === "agent" ? "Agent" : "Studio"} · exec ${mode}`}
         running={running}
         nodeCount={nodeCount}
         edgeCount={edgeCount}
