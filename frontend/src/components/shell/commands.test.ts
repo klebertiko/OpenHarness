@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { shellModeAndHarnessCommands } from "./commands";
+import { shellModeAndHarnessCommands, shellOverlayCommands } from "./commands";
 import { useModeStore } from "@/store/modeStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 import { useShellStore } from "./shellStore";
@@ -12,7 +12,7 @@ describe("shellModeAndHarnessCommands", () => {
       activeBundle: null,
       hydrated: false,
     });
-    useShellStore.setState({ section: "runs" });
+    useShellStore.setState({ section: "runs", overlay: null });
   });
 
   it("exposes mode agent/studio and harness on/off", () => {
@@ -50,5 +50,38 @@ describe("shellModeAndHarnessCommands", () => {
     expect(useHarnessSessionStore.getState().enabled).toBe(false);
     cmds.find((c) => c.id === "harness:on")!.run();
     expect(useHarnessSessionStore.getState().enabled).toBe(true);
+  });
+});
+
+describe("shellOverlayCommands", () => {
+  beforeEach(() => {
+    useShellStore.setState({ overlay: null, paletteOpen: false });
+  });
+
+  it("exposes cowork, automations, and pull-requests commands", () => {
+    const cmds = shellOverlayCommands();
+    expect(cmds.map((c) => c.id)).toEqual([
+      "overlay:cowork",
+      "overlay:automations",
+      "overlay:git",
+    ]);
+    expect(cmds.find((c) => c.id === "overlay:git")!.label).toBe(
+      "Open Pull requests"
+    );
+  });
+
+  it("Open Cowork sets overlay to cowork", () => {
+    shellOverlayCommands().find((c) => c.id === "overlay:cowork")!.run();
+    expect(useShellStore.getState().overlay).toBe("cowork");
+  });
+
+  it("Open Automations sets overlay to automations", () => {
+    shellOverlayCommands().find((c) => c.id === "overlay:automations")!.run();
+    expect(useShellStore.getState().overlay).toBe("automations");
+  });
+
+  it("Open Pull requests sets overlay to git", () => {
+    shellOverlayCommands().find((c) => c.id === "overlay:git")!.run();
+    expect(useShellStore.getState().overlay).toBe("git");
   });
 });

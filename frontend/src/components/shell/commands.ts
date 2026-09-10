@@ -1,5 +1,13 @@
 import type { LucideIcon } from "lucide-react";
-import { Bot, Boxes, Power, PowerOff } from "lucide-react";
+import {
+  Bot,
+  Boxes,
+  FolderKanban,
+  GitPullRequest,
+  Power,
+  PowerOff,
+  Timer,
+} from "lucide-react";
 import type { ShellMode } from "@/store/modeStore";
 import { useModeStore } from "@/store/modeStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
@@ -78,6 +86,42 @@ export function shellModeAndHarnessCommands(): Command[] {
       icon: PowerOff,
       keywords: "disable direct passthrough",
       run: () => useHarnessSessionStore.getState().setEnabled(false),
+    },
+  ];
+}
+
+/**
+ * Agent workspace panels formerly on Chat tabs — now palette-only overlays.
+ * User-facing git/repo label is "Pull requests" (not "Git").
+ */
+export function shellOverlayCommands(): Command[] {
+  return [
+    {
+      id: "overlay:cowork",
+      label: "Open Cowork",
+      group: "Panels",
+      icon: FolderKanban,
+      keywords: "cowork projects workspace folders",
+      meta: "cowork",
+      run: () => useShellStore.getState().setOverlay("cowork"),
+    },
+    {
+      id: "overlay:automations",
+      label: "Open Automations",
+      group: "Panels",
+      icon: Timer,
+      keywords: "automations jobs schedule cron",
+      meta: "automations",
+      run: () => useShellStore.getState().setOverlay("automations"),
+    },
+    {
+      id: "overlay:git",
+      label: "Open Pull requests",
+      group: "Panels",
+      icon: GitPullRequest,
+      keywords: "git github pull request pr repo",
+      meta: "pull-requests",
+      run: () => useShellStore.getState().setOverlay("git"),
     },
   ];
 }

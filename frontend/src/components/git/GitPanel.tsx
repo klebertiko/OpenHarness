@@ -76,7 +76,7 @@ export function GitPanel() {
   };
 
   return (
-    <Panel title="Git" meta={provider} className="h-full">
+    <Panel title="Pull requests" meta={provider} className="h-full">
       <div className="flex flex-col gap-3 p-2.5 text-[12px]">
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-ink-mute">

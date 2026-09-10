@@ -10,6 +10,9 @@ import { create } from "zustand";
 
 export type RailSection = "build" | "runs" | "providers" | "files" | "threads";
 
+/** Transient Agent panels opened from the command palette (not persisted). */
+export type ShellOverlay = "cowork" | "automations" | "git" | null;
+
 const STORAGE_KEY = "oh.shell.v4";
 
 interface Persisted {
@@ -59,6 +62,7 @@ interface ShellState extends Persisted {
   hydrated: boolean;
   paletteOpen: boolean;
   keymapOpen: boolean;
+  overlay: ShellOverlay;
 
   hydrate: () => void;
   toggleLeft: () => void;
@@ -70,6 +74,7 @@ interface ShellState extends Persisted {
   setSection: (s: RailSection) => void;
   setPaletteOpen: (v: boolean) => void;
   setKeymapOpen: (v: boolean) => void;
+  setOverlay: (overlay: ShellOverlay) => void;
   dismissOverlays: () => void;
 }
 
@@ -90,6 +95,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
   hydrated: false,
   paletteOpen: false,
   keymapOpen: false,
+  overlay: null,
 
   // Read persisted geometry after mount so SSR and first paint agree.
   hydrate: () => set({ ...load(), hydrated: true }),
@@ -125,5 +131,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
   setPaletteOpen: (paletteOpen) => set({ paletteOpen, keymapOpen: false }),
   setKeymapOpen: (keymapOpen) => set({ keymapOpen, paletteOpen: false }),
-  dismissOverlays: () => set({ paletteOpen: false, keymapOpen: false }),
+  setOverlay: (overlay) =>
+    set({ overlay, paletteOpen: false, keymapOpen: false }),
+  dismissOverlays: () =>
+    set({ paletteOpen: false, keymapOpen: false, overlay: null }),
 }));

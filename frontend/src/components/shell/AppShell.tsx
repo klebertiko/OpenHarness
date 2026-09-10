@@ -5,9 +5,14 @@ import { ActivityRail } from "./ActivityRail";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { KeymapSheet } from "./KeymapSheet";
+import { ShellOverlayHost } from "./ShellOverlayHost";
 import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX } from "./shellStore";
 import { isEditingTarget, matchesChord, useIsMac } from "./keys";
-import { shellModeAndHarnessCommands, type Command } from "./commands";
+import {
+  shellModeAndHarnessCommands,
+  shellOverlayCommands,
+  type Command,
+} from "./commands";
 import { useModeStore } from "@/store/modeStore";
 
 /**
@@ -159,7 +164,11 @@ export function AppShell({
   const rightOpen = rightPref && !narrow.right;
 
   const allCommands = useMemo(
-    () => [...shellModeAndHarnessCommands(), ...commands],
+    () => [
+      ...shellModeAndHarnessCommands(),
+      ...shellOverlayCommands(),
+      ...commands,
+    ],
     [commands]
   );
 
@@ -332,6 +341,7 @@ export function AppShell({
         onClose={() => setPaletteOpen(false)}
       />
       <KeymapSheet open={keymapOpen} onClose={() => setKeymapOpen(false)} />
+      <ShellOverlayHost />
     </div>
   );
 }
