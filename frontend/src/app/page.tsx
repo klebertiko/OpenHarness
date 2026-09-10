@@ -32,7 +32,8 @@ import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
 import { HarnessLibrary } from "@/components/harnesses/HarnessLibrary";
-import { Wallet } from "@/components/providers/Wallet";
+import { PROVIDERS_PANEL_TITLE } from "@/components/providers/copy";
+import { ProvidersList } from "@/components/providers/ProvidersList";
 import { Dossier } from "@/components/providers/Dossier";
 import { useProviderStore } from "@/components/providers/providerStore";
 
@@ -287,8 +288,8 @@ export default function Home() {
   }, [nodes.length, executionMode, isRunning, selectedNodeId, actions]);
 
   const providersLeft = (
-    <Panel title="Wallet" meta={`${connectionCount}`} className="h-full">
-      <Wallet />
+    <Panel title={PROVIDERS_PANEL_TITLE} meta={`${connectionCount}`} className="h-full">
+      <ProvidersList />
     </Panel>
   );
 

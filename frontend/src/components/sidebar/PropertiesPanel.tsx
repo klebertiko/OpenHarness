@@ -5,6 +5,7 @@ import { chordCaps, useIsMac } from "@/components/shell/keys";
 import { ROLE_CODE, ROLE_ICON, ROLE_VAR } from "@/lib/roles";
 import { PORTS } from "@/lib/ports";
 import type { NodeData, AdapterType, NodeType } from "@/lib/types";
+import { PROVIDERS_BIND_NONE } from "@/components/providers/copy";
 import { useProviderStore } from "@/components/providers/providerStore";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -254,7 +255,7 @@ export function PropertiesPanel() {
                     update({ secretRef, apiKey: undefined });
                   }}
                 >
-                  <option value="">None — bind from Providers wallet</option>
+                  <option value="">{PROVIDERS_BIND_NONE}</option>
                   {sealed.map((c) => (
                     <option key={c.id} value={c.secret!.service}>
                       {c.label} · {c.secret!.prefix}…{c.secret!.tail}
