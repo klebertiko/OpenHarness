@@ -108,14 +108,32 @@ if (character) {
     try {
       const response = await fetch(new URL('./assets/nilo-poses.json', import.meta.url));
       if (!response.ok) throw new Error('Pose data unavailable');
-      poses = await response.json();
+      const candidate = await response.json();
+      const validRows = rows => Array.isArray(rows) && rows.length === 17 && rows.every(row =>
+        typeof row === 'string' && row.length === 18 && /^[.BWPKRLMGZ]+$/.test(row));
+      const valid = ['waiting', 'thinking', 'working'].every(state => {
+        const value = candidate?.states?.[state];
+        return validRows(value?.still) && Array.isArray(value?.frames) &&
+          value.frames.length > 0 && value.frames.length <= 120 && value.frames.every(validRows);
+      });
+      if (!valid) throw new Error('Invalid pose data');
+      poses = candidate;
+      mode = reducedMotion.matches ? 'paused' : 'playing';
+      synchronize();
       character.querySelector('img').hidden = true;
       svg.removeAttribute('hidden');
       character.disabled = false;
-      mode = reducedMotion.matches ? 'paused' : 'playing';
       control.hidden = false;
-      synchronize();
     } catch {
+      cancelAnimationFrame(frameRequest);
+      poses = undefined;
+      drawnPose = undefined;
+      lastTime = undefined;
+      elapsed = 0;
+      mode = 'ready';
+      character.querySelector('img').hidden = false;
+      svg.setAttribute('hidden', '');
+      character.disabled = true;
       status.textContent = t('loadError');
       controlLabel.textContent = t('retry');
       control.hidden = false;
