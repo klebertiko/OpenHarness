@@ -1,0 +1,265 @@
+import { describe, expect, it } from "vitest";
+import { emptyRun, runReducer } from "./runReducer";
+
+describe("runReducer", () => {
+  it("run_start seeds the plan from the pre-run preview, including its placeholder adapter", () => {
+    const state = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "PO", type: "agent", label: "PO", adapter: "mock", model: "" }],
+        unreachable: [],
+      },
+    });
+    expect(state.plan[0].adapter).toBe("mock");
+  });
+
+  it("node_start refreshes the segment's adapter/model from the real resolved values", () => {
+    // run_start's `order` is a static preview built from the node's template
+    // data — every node defaults to "mock" there regardless of what actually
+    // runs. The node_start event that fires right before real adapter
+    // resolution carries the true answer and must overwrite the preview,
+    // not leave the transcript showing "mock" for a run that used a real
+    // provider end to end (surfaced live, 2026-09-11: an Anthropic-provider
+    // chat run displayed "agent · mock" on every node in "Show run detail").
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "PO", type: "agent", label: "PO", adapter: "mock", model: "" }],
+        unreachable: [],
+      },
+    });
+
+    const afterNodeStart = runReducer(afterStart, {
+      type: "sse",
+      event: "node_start",
+      data: { node_id: "PO", type: "agent", label: "PO", adapter: "claude", model: "" },
+    });
+
+    expect(afterNodeStart.plan[0].adapter).toBe("claude");
+    expect(afterNodeStart.plan[0].state).toBe("running");
+  });
+
+  it("node_start records which connection actually ran the node, for run-outcome attribution", () => {
+    // backend/engine.py only puts `connection_id` on node_start once real
+    // resolution happens (never in run_start's pre-run preview, and never
+    // at all on the harness-off /execute/direct path) — the same "arrives
+    // late" shape adapter/model already have.
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "PO", type: "agent", label: "PO", adapter: "mock", model: "" }],
+        unreachable: [],
+      },
+    });
+    expect(afterStart.plan[0].connectionId).toBeUndefined();
+
+    const afterNodeStart = runReducer(afterStart, {
+      type: "sse",
+      event: "node_start",
+      data: { node_id: "PO", adapter: "claude", model: "", connection_id: "anthropic" },
+    });
+    expect(afterNodeStart.plan[0].connectionId).toBe("anthropic");
+  });
+
+  it("node_start leaves connectionId untouched when the event carries none (the direct-mode path)", () => {
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "direct", type: "llm", label: "Direct", adapter: "claude", model: "" }],
+        unreachable: [],
+      },
+    });
+    const afterNodeStart = runReducer(afterStart, {
+      type: "sse",
+      event: "node_start",
+      data: { node_id: "direct", adapter: "claude", model: "" },
+    });
+    expect(afterNodeStart.plan[0].connectionId).toBeUndefined();
+  });
+
+  it("node_start leaves adapter/model untouched when the event carries neither", () => {
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "PO", type: "agent", label: "PO", adapter: "claude", model: "sonnet" }],
+        unreachable: [],
+      },
+    });
+
+    const afterNodeStart = runReducer(afterStart, {
+      type: "sse",
+      event: "node_start",
+      data: { node_id: "PO" },
+    });
+
+    expect(afterNodeStart.plan[0].adapter).toBe("claude");
+    expect(afterNodeStart.plan[0].model).toBe("sonnet");
+  });
+
+  it("node_skipped marks the segment skipped, not error — a branch not taken is not a failure", () => {
+    // Backend engine.py, 2026-09-12: PASS/FAIL conditional routing emits
+    // node_skipped for a branch this run's decisions didn't select.
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "rejected", type: "agent", label: "Rejected", adapter: "claude", model: "" }],
+        unreachable: [],
+      },
+    });
+
+    const afterSkip = runReducer(afterStart, {
+      type: "sse",
+      event: "node_skipped",
+      data: { node_id: "rejected", reason: "no matching condition" },
+    });
+
+    expect(afterSkip.plan[0].state).toBe("skipped");
+    expect(afterSkip.status).not.toBe("error");
+  });
+});
+
+it("retains partial token usage on node_error before final totals arrive", () => {
+  const running = runReducer(emptyRun, { type: "sse", event: "run_start", data: { run_id: "partial", order: [{ node_id: "direct" }] } });
+  const failed = runReducer(running, { type: "sse", event: "node_error", data: { node_id: "direct", tokens: 42, error: "limit" } });
+  expect(failed.plan[0].tokens).toBe(42);
+  expect(failed.totals.tokens).toBe(42);
+});
+
+// ── CHAT-TOOLS-FE AC#3/#4: tool approval gate on the run stream (contract v1.1 §2.5/§2.6) ──
+describe("runReducer · chat tools", () => {
+  const seeded = runReducer(emptyRun, {
+    type: "sse", event: "run_start",
+    data: { run_id: "r1", mode: "live", step: false, order: [{ node_id: "direct", type: "agent", label: "Chat", adapter: "http", model: "" }], unreachable: [] },
+  });
+  const called = runReducer(seeded, { type: "sse", event: "tool_call", data: { node_id: "direct", call_id: "c1", name: "exec", args: { argv: ["npm", "run", "test"] }, origin: "preset" } });
+  const tool = (state: ReturnType<typeof runReducer>) => {
+    const block = state.plan[0].blocks.find((b) => b.kind === "tool");
+    return block && block.kind === "tool" ? block.call : undefined;
+  };
+
+  it("tool_call keeps the parsed argv beside the raw args", () => {
+    expect(tool(called)?.argv).toEqual(["npm", "run", "test"]);
+    expect(tool(called)?.origin).toBe("preset");
+  });
+
+  it("tool_approval_required parks the run on a gate for that call", () => {
+    const state = runReducer(called, { type: "sse", event: "tool_approval_required", data: { node_id: "direct", call_id: "c1", name: "exec", args: { argv: ["npm", "run", "test"] }, reason: "exec", risk: "high", risk_hints: ["npm publish"] } });
+    expect(state.status).toBe("gate");
+    expect(tool(state)?.approval).toEqual({ reason: "exec", risk: "high", riskHints: ["npm publish"] });
+  });
+
+  it("tool_approval_decision resumes and records the decision", () => {
+    const gated = runReducer(called, { type: "sse", event: "tool_approval_required", data: { node_id: "direct", call_id: "c1", reason: "exec", risk: "normal", risk_hints: [] } });
+    const state = runReducer(gated, { type: "sse", event: "tool_approval_decision", data: { node_id: "direct", call_id: "c1", decision: "approve", note: "ok" } });
+    expect(state.status).toBe("running");
+    expect(tool(state)?.approval?.decision).toBe("approve");
+    expect(tool(state)?.approval?.note).toBe("ok");
+  });
+
+  it("tool_denied marks the call failed with the reason", () => {
+    const state = runReducer(called, { type: "sse", event: "tool_denied", data: { node_id: "direct", call_id: "c1", reason: "rejected", note: "no" } });
+    expect(state.status).toBe("running");
+    expect(tool(state)?.ok).toBe(false);
+    expect(tool(state)?.denied).toEqual({ reason: "rejected", note: "no" });
+  });
+
+  it("tool_result carries truncated, timed_out, simulated, redactions and exit_code", () => {
+    const state = runReducer(called, { type: "sse", event: "tool_result", data: { node_id: "direct", call_id: "c1", ok: false, result: "", duration_ms: 2000, truncated: true, timed_out: true, exit_code: null, redactions: 1, simulated: false } });
+    const c = tool(state)!;
+    expect(c.ok).toBe(false);
+    expect(c.truncated).toBe(true);
+    expect(c.timedOut).toBe(true);
+    expect(c.exitCode).toBeNull();
+    expect(c.redactions).toBe(1);
+    expect(c.simulated).toBe(false);
+  });
+
+  it("capabilities is kept on the run", () => {
+    const state = runReducer(seeded, { type: "sse", event: "capabilities", data: { reason: "cli-adapter", provider_kind: "cli", tools: { discover: true, read: false, exec: false }, preset: { read: true, exec: true }, workspace: { root: "D:/x", name: "x" }, limits: {} } });
+    expect(state.capabilities?.reason).toBe("cli-adapter");
+    expect(state.capabilities?.preset.exec).toBe(true);
+  });
+
+  it("preserves capabilities notices emitted before run_start", () => {
+    const capable = runReducer(emptyRun, { type: "sse", event: "capabilities", data: { reason: "cli-adapter" } });
+    const started = runReducer(capable, { type: "sse", event: "run_start", data: {
+      run_id: "r1", mode: "live", step: false, order: [], unreachable: [],
+    } });
+    expect(started.notices).toEqual(["este provedor não pede ferramentas; /exec e /read continuam disponíveis"]);
+    expect(started.capabilities?.reason).toBe("cli-adapter");
+  });
+
+  it("normalizes read calls, ignores invalid origins, and keeps optional result fields absent", () => {
+    const readCalled = runReducer(seeded, { type: "sse", event: "tool_call", data: {
+      node_id: "direct", call_id: "r1", name: "read", args: '{"path":"README.md"}', origin: "invalid",
+    } });
+    const read = readCalled.plan[0].blocks.find((b) => b.kind === "tool");
+    expect(read && read.kind === "tool" ? read.call : null).toEqual({
+      callId: "r1", name: "read", args: '{"path":"README.md"}', path: "README.md",
+    });
+    const done = runReducer(readCalled, { type: "sse", event: "tool_result", data: {
+      node_id: "direct", call_id: "r1", ok: true, result: "text", duration_ms: 7,
+    } });
+    const result = done.plan[0].blocks.find((b) => b.kind === "tool");
+    expect(result && result.kind === "tool" ? result.call : null).toEqual({
+      callId: "r1", name: "read", args: '{"path":"README.md"}', path: "README.md",
+      ok: true, result: "text", durationMs: 7,
+    });
+  });
+
+  it("applies approval defaults, reject decisions, and every denial reason", () => {
+    const gated = runReducer(called, { type: "sse", event: "tool_approval_required", data: {
+      node_id: "direct", call_id: "c1", reason: "other", risk: "other", risk_hints: "bad",
+    } });
+    expect(tool(gated)?.approval).toEqual({ reason: "exec", risk: "normal", riskHints: [] });
+    const rejected = runReducer(gated, { type: "sse", event: "tool_approval_decision", data: {
+      node_id: "direct", call_id: "c1", decision: "reject",
+    } });
+    expect(tool(rejected)?.approval).toEqual({ reason: "exec", risk: "normal", riskHints: [], decision: "reject", note: "" });
+    for (const reason of ["approval_timeout", "policy", "other"] as const) {
+      const denied = runReducer(gated, { type: "sse", event: "tool_denied", data: {
+        node_id: "direct", call_id: "c1", reason,
+      } });
+      expect(tool(denied)?.denied).toEqual({ reason: reason === "other" ? "rejected" : reason, note: "" });
+      expect(denied.status).toBe("running");
+    }
+  });
+
+  it("emits each capability notice once and none for ok", () => {
+    const reasons = [
+      ["cli-adapter", "este provedor não pede ferramentas; /exec e /read continuam disponíveis"],
+      ["provider-no-tools", "este modelo não suporta ferramentas; a resposta segue só em texto"],
+      ["no-workspace", "sem pasta selecionada: sem ferramentas nesta conversa"],
+    ] as const;
+    for (const [reason, notice] of reasons) {
+      const once = runReducer(seeded, { type: "sse", event: "capabilities", data: { reason } });
+      const twice = runReducer(once, { type: "sse", event: "capabilities", data: { reason } });
+      expect(twice.notices).toEqual([notice]);
+    }
+    expect(runReducer(seeded, { type: "sse", event: "capabilities", data: { reason: "ok" } }).notices).toEqual([]);
+  });
+});

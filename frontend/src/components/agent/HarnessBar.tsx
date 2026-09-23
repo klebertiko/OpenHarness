@@ -1,75 +1,49 @@
 "use client";
 
-import { Boxes, Plug } from "lucide-react";
-
 import { HarnessSwitch } from "@/components/agent/HarnessSwitch";
 import { useShellStore } from "@/components/shell/shellStore";
-import { useModeStore } from "@/store/modeStore";
+import { useCanvasStore } from "@/store/canvasStore";
+import { useHarnessSessionStore } from "@/store/harnessSessionStore";
+import { bundleGraphToCanvas } from "@/lib/bundleGraph";
 
 export type HarnessBarProps = {
-  /** Provider chip label — placeholder until Task 6 probe lands. */
-  providerLabel?: string;
   onOpenStudio?: () => void;
   onOpenProviders?: () => void;
 };
 
-/**
- * Chrome above the Agent composer: On/Off · bundle · provider chip · Open in Studio.
- */
-export function HarnessBar({
-  providerLabel = "…",
-  onOpenStudio,
-  onOpenProviders,
-}: HarnessBarProps) {
-  const setMode = useModeStore((s) => s.setMode);
+/** The harness picker in the composer toolbar, wired to Studio and Providers.
+    `section` (shellStore) is the single source of truth for what's on screen;
+    modeStore only mirrors it (see page.tsx), so navigation must go through
+    setSection — setting modeStore directly is a no-op nothing renders from. */
+export function HarnessBar({ onOpenStudio, onOpenProviders }: HarnessBarProps) {
   const setSection = useShellStore((s) => s.setSection);
 
-  const openStudio = () => {
-    if (onOpenStudio) {
-      onOpenStudio();
-      return;
+  /* Switching to Studio alone leaves the canvas showing whatever was last on
+     it — the session's active bundle and the canvas are two separate stores
+     with nothing connecting them. "Edit in Studio" only means "edit" if it
+     loads that harness's authored graph and metadata before handing off. */
+  const openStudioWithActiveGraph = () => {
+    const bundle = useHarnessSessionStore.getState().activeBundle;
+    if (bundle?.graph) {
+      const { nodes, edges } = bundleGraphToCanvas(bundle.graph);
+      useCanvasStore.getState().loadGraph(nodes, edges);
+      useCanvasStore.getState().setHarnessMeta({
+        id: bundle.manifest.id,
+        name: bundle.manifest.name ?? bundle.manifest.id,
+        description: bundle.manifest.description ?? "",
+      });
     }
-    setMode("studio");
-  };
-
-  const openProviders = () => {
-    if (onOpenProviders) {
-      onOpenProviders();
-      return;
-    }
-    setSection("providers");
+    setSection("studio");
+    useShellStore.getState().setStudioView("editor");
   };
 
   return (
-    <div
-      className="flex h-[36px] flex-none items-center gap-2 border-t border-line bg-sub-100/90 px-3"
-      data-testid="harness-bar"
-    >
-      <HarnessSwitch embedded />
-
-      <span className="mx-0.5 h-[14px] w-px flex-none bg-line-soft" aria-hidden />
-
-      <button
-        type="button"
-        onClick={openProviders}
-        title="Open Providers"
-        className="inline-flex h-[24px] max-w-[120px] items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2 text-[12px] font-[500] text-ink-dim transition hover:bg-sub-300 hover:text-ink"
-      >
-        <Plug size={12} strokeWidth={1.8} className="flex-none text-ink-faint" />
-        <span className="min-w-0 truncate">{providerLabel}</span>
-      </button>
-
-      <span className="flex-1" />
-
-      <button
-        type="button"
-        onClick={openStudio}
-        title="Open in Studio (Alt+2)"
-        className="inline-flex h-[24px] items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2.5 text-[12px] font-[500] text-ink-dim transition hover:bg-sub-300 hover:text-ink"
-      >
-        <Boxes size={12} strokeWidth={1.8} className="flex-none text-ink-faint" />
-        <span>Open in Studio</span>
-      </button>
+    <div className="flex min-w-0 items-center" data-testid="harness-bar">
+      <HarnessSwitch
+        embedded
+        onOpenStudio={onOpenStudio ?? openStudioWithActiveGraph}
+        onOpenProviders={onOpenProviders ?? (() => setSection("providers"))}
+      />
     </div>
   );
 }

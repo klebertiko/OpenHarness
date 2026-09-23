@@ -1,17 +1,16 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Bot,
   Boxes,
-  FolderKanban,
+  CalendarClock,
   GitPullRequest,
+  MessagesSquare,
+  Plug,
   Power,
   PowerOff,
-  Timer,
+  Workflow,
 } from "lucide-react";
-import type { ShellMode } from "@/store/modeStore";
-import { useModeStore } from "@/store/modeStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
-import { useShellStore } from "./shellStore";
+import { useShellStore, type RailSection } from "./shellStore";
 
 /**
  * One command = one thing a person can ask the app to do.
@@ -38,38 +37,36 @@ export interface Command {
   run: () => void;
 }
 
-/** Mode + harness session verbs owned by the shell (mirrors the activity rail). */
-export function shellModeAndHarnessCommands(): Command[] {
+const goTo = (section: RailSection) => () => useShellStore.getState().setSection(section);
+
+/** Every destination in the rail, plus the harness on/off verbs. */
+export function shellNavCommands(): Command[] {
+  const nav: { section: RailSection; label: string; icon: LucideIcon; chord: string; keywords: string }[] = [
+    { section: "chats", label: "Go to Chats", icon: MessagesSquare, chord: "Alt+1", keywords: "conversation thread agent" },
+    { section: "studio", label: "Go to Studio", icon: Boxes, chord: "Alt+2", keywords: "canvas design harness graph" },
+    { section: "automations", label: "Go to Automate", icon: CalendarClock, chord: "Alt+3", keywords: "automations jobs schedule cron trigger cowork projects workspace folders" },
+    { section: "git", label: "Go to Pull requests", icon: GitPullRequest, chord: "Alt+4", keywords: "git github pr repo" },
+    { section: "providers", label: "Go to Providers", icon: Plug, chord: "Alt+5", keywords: "models keys anthropic openai ollama" },
+  ];
+
   return [
+    ...nav.map(({ section, label, icon, chord, keywords }) => ({
+      id: `go:${section}`,
+      label,
+      group: "Go to",
+      icon,
+      chord,
+      keywords,
+      meta: section,
+      run: goTo(section),
+    })),
     {
-      id: "mode:agent",
-      label: "Switch to Agent mode",
-      group: "Mode",
-      icon: Bot,
-      keywords: "agent chat run",
-      meta: "agent",
-      run: () => {
-        useModeStore.getState().setMode("agent" satisfies ShellMode);
-        // Mirror rail / Alt+1: Agent lands on Threads, no inspector stub.
-        const shell = useShellStore.getState();
-        shell.setSection("threads");
-        shell.setRightOpen(false);
-      },
-    },
-    {
-      id: "mode:studio",
-      label: "Switch to Studio mode",
-      group: "Mode",
-      icon: Boxes,
-      keywords: "studio design canvas harness",
-      meta: "studio",
-      run: () => {
-        useModeStore.getState().setMode("studio" satisfies ShellMode);
-        // Mirror rail / Alt+2: Studio lands on the canvas section.
-        const shell = useShellStore.getState();
-        shell.setSection("build");
-        shell.setRightOpen(true);
-      },
+      id: "harness:library",
+      label: "Open harness library",
+      group: "Go to",
+      icon: Workflow,
+      keywords: "library bundle ohm import open harnesses",
+      run: () => useShellStore.getState().setLibraryOpen(true),
     },
     {
       id: "harness:on",
@@ -86,42 +83,6 @@ export function shellModeAndHarnessCommands(): Command[] {
       icon: PowerOff,
       keywords: "disable direct passthrough",
       run: () => useHarnessSessionStore.getState().setEnabled(false),
-    },
-  ];
-}
-
-/**
- * Agent workspace panels formerly on Chat tabs — now palette-only overlays.
- * User-facing git/repo label is "Pull requests" (not "Git").
- */
-export function shellOverlayCommands(): Command[] {
-  return [
-    {
-      id: "overlay:cowork",
-      label: "Open Cowork",
-      group: "Panels",
-      icon: FolderKanban,
-      keywords: "cowork projects workspace folders",
-      meta: "cowork",
-      run: () => useShellStore.getState().setOverlay("cowork"),
-    },
-    {
-      id: "overlay:automations",
-      label: "Open Automations",
-      group: "Panels",
-      icon: Timer,
-      keywords: "automations jobs schedule cron",
-      meta: "automations",
-      run: () => useShellStore.getState().setOverlay("automations"),
-    },
-    {
-      id: "overlay:git",
-      label: "Open Pull requests",
-      group: "Panels",
-      icon: GitPullRequest,
-      keywords: "git github pull request pr repo",
-      meta: "pull-requests",
-      run: () => useShellStore.getState().setOverlay("git"),
     },
   ];
 }

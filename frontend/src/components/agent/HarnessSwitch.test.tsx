@@ -1,0 +1,101 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+import { useHarnessLibraryStore } from "@/store/harnessLibraryStore";
+import { useHarnessSessionStore } from "@/store/harnessSessionStore";
+
+import { HarnessSwitch } from "./HarnessSwitch";
+
+const agileBundle = { manifest: { id: "openharness.default.agile", name: "OpenHarness Agile (skills-framework)" } };
+const customBundle = { manifest: { id: "openharness.custom.demo", name: "Custom Demo" } };
+
+const entries = [
+  { id: agileBundle.manifest.id, name: agileBundle.manifest.name, isDefault: true, bundle: agileBundle },
+  { id: customBundle.manifest.id, name: customBundle.manifest.name, isDefault: false, bundle: customBundle },
+];
+
+describe("HarnessSwitch (harness picker)", () => {
+  let activate: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    activate = vi.fn();
+    useHarnessLibraryStore.setState({ entries: entries as never, hydrated: true, activate: activate as never });
+    useHarnessSessionStore.setState({
+      hydrated: true,
+      enabled: true,
+      activeBundle: agileBundle as never,
+      hydrate: async () => undefined,
+    });
+  });
+
+  afterEach(() => cleanup());
+
+  it("shows the active harness by its short name", () => {
+    render(<HarnessSwitch />);
+    const trigger = screen.getByRole("button", { name: "Harness: OpenHarness Agile" });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(screen.queryByText(/skills-framework/)).toBeNull();
+  });
+
+  it("opens a menu with No harness and every harness, the active one selected", async () => {
+    const user = userEvent.setup();
+    render(<HarnessSwitch />);
+    await user.click(screen.getByRole("button", { name: /^Harness:/ }));
+
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual([
+      expect.stringMatching(/^No harness/),
+      expect.stringMatching(/^OpenHarness Agile/),
+      expect.stringMatching(/^Custom Demo/),
+    ]);
+    expect(screen.getByRole("option", { name: /^OpenHarness Agile/ }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("choosing a harness activates it and closes the menu", async () => {
+    const user = userEvent.setup();
+    render(<HarnessSwitch />);
+    await user.click(screen.getByRole("button", { name: /^Harness:/ }));
+    await user.click(screen.getByRole("option", { name: /^Custom Demo/ }));
+
+    expect(activate).toHaveBeenCalledWith("openharness.custom.demo");
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("No harness turns the harness off", async () => {
+    const user = userEvent.setup();
+    render(<HarnessSwitch />);
+    await user.click(screen.getByRole("button", { name: /^Harness:/ }));
+    await user.click(screen.getByRole("option", { name: /^No harness/ }));
+
+    expect(useHarnessSessionStore.getState().enabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Harness: No harness" })).toBeTruthy();
+  });
+
+  it("works from the keyboard: arrows move, Enter picks, Escape closes", async () => {
+    const user = userEvent.setup();
+    render(<HarnessSwitch />);
+    screen.getByRole("button", { name: /^Harness:/ }).focus();
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("listbox")).toBeTruthy();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{Enter}");
+    expect(activate).toHaveBeenCalledWith("openharness.custom.demo");
+  });
+
+  it("offers Edit in Studio from the menu", async () => {
+    const user = userEvent.setup();
+    const onOpenStudio = vi.fn();
+    render(<HarnessSwitch onOpenStudio={onOpenStudio} />);
+    await user.click(screen.getByRole("button", { name: /^Harness:/ }));
+    await user.click(screen.getByRole("button", { name: "Edit in Studio" }));
+
+    expect(onOpenStudio).toHaveBeenCalled();
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+});

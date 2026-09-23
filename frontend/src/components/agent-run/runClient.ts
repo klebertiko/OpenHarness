@@ -14,6 +14,10 @@ export interface StartRunPayload {
   mode: string;
   step: boolean;
   instruction?: string;
+  /** Working folder for CLI-backed adapters — a Cowork project's `rootPath`.
+      Omitted (not empty-string) when the person picked "No folder", so the
+      backend's own `resolve_cwd()` fallback decides, not an empty path. */
+  cwd?: string;
 }
 
 function pumpSse(
@@ -78,12 +82,22 @@ export function startRun(
   return pumpSse(apiUrl("/execute/"), payload, onEvent, onClose);
 }
 
+/** Contract v1.1 §2.4 — a user-chosen tool that runs before the model is called. */
+export type ToolPresetPayload =
+  | { name: "exec"; argv: string[]; cwd?: string; timeout_s?: number }
+  | { name: "read"; path: string; max_bytes?: number; truncate?: boolean }
+  | { name: "discover" };
+
 export interface DirectRunPayload {
+  connection_id?: string;
   instruction: string;
   mode: string;
   step?: boolean;
   adapter?: string;
   model?: string;
+  cwd?: string;
+  /** Chat tools broker (contract v1.1 §2.4). Absent → the run behaves exactly as before. */
+  tools?: { enabled?: boolean; preset?: ToolPresetPayload; summarize?: boolean };
 }
 
 /** Harness-off path — one adapter turn via `/execute/direct`. */
@@ -102,6 +116,8 @@ export async function sendControl(
   body: {
     action: ControlAction;
     decision?: "approve" | "reject";
+    /** Required for tool decisions (contract §2.6); the backend answers 409 on mismatch. */
+    call_id?: string;
     note?: string;
     text?: string;
   }

@@ -47,8 +47,14 @@ export type Catalogue =
 export type Health = "live" | "setup" | "degraded" | "fault" | "probing";
 
 export interface CredentialSpec {
-  /** `none` means this connection holds no secret at all. */
-  kind: "api-key" | "none";
+  /**
+   * `none` — this connection holds no secret at all.
+   * `cli` — also no secret stored by this app; the connection rides whatever
+   * session the vendor's own CLI is already logged into on this machine
+   * (`claude login` / `cursor-agent login`). `where` names the login command
+   * instead of a key-retrieval URL.
+   */
+  kind: "api-key" | "cli" | "none";
   /** Real, checkable prefix — used to catch a pasted key from the wrong vendor. */
   prefix?: string;
   /** Where the user gets one. Plain sentence, no marketing. */
@@ -83,16 +89,17 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
     monogram: "AN",
     residence: "cloud",
     capabilities: ["chat"],
-    billing: "metered",
+    billing: "subscription",
     catalogue: "fixed",
     credential: {
-      kind: "api-key",
-      prefix: "sk-ant-",
-      where: "console.anthropic.com → Settings → API keys",
-      env: "ANTHROPIC_API_KEY",
+      kind: "cli",
+      where: "Run `claude login` (or open Claude Code once and sign in).",
     },
-    endpoint: { default: "https://api.anthropic.com", editable: true },
-    summary: "Claude models over the Messages API. Billed per token against the key's workspace.",
+    endpoint: { default: "https://api.anthropic.com", editable: false },
+    summary:
+      "Claude models via the local `claude` CLI, non-interactive print mode. Runs on your Claude Pro/Max seat, not a metered API key.",
+    caveat:
+      "Tool execution is disabled on every call (`--tools \"\"`) — this connection answers chat completions, it does not run commands or touch files.",
     docs: "https://docs.anthropic.com",
   },
 
@@ -105,16 +112,14 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
     billing: "subscription",
     catalogue: "agent-only",
     credential: {
-      kind: "api-key",
-      prefix: "crsr_",
-      where: "cursor.com dashboard → API Keys (user key or service account)",
-      env: "CURSOR_API_KEY",
+      kind: "cli",
+      where: "Run `cursor-agent login` (or sign in once from the Cursor desktop app).",
     },
     endpoint: { default: "https://api.cursor.com", editable: false },
     summary:
-      "Cloud Agents API and the headless cursor-agent CLI, both on your Cursor seat.",
+      "The headless `cursor-agent` CLI, non-interactive print mode. Runs on your Cursor seat, not a metered API key.",
     caveat:
-      "Cursor publishes no chat-completions endpoint — its API runs agents, not models. An LLM node cannot target this connection; a Delegate node can.",
+      "Cursor publishes no chat-completions endpoint — its CLI runs agents, not models. An LLM node cannot target this connection; a Delegate node can. Tool execution stays on for that delegated task (file/shell access), scoped to a pinned working directory.",
     docs: "https://cursor.com/docs/api",
   },
 
@@ -124,16 +129,17 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
     monogram: "OA",
     residence: "cloud",
     capabilities: ["chat", "embed"],
-    billing: "metered",
+    billing: "subscription",
     catalogue: "fixed",
     credential: {
-      kind: "api-key",
-      prefix: "sk-",
-      where: "platform.openai.com → API keys",
-      env: "OPENAI_API_KEY",
+      kind: "cli",
+      where: "Run `codex login` (or open the Codex app once and sign in).",
     },
     endpoint: { default: "https://api.openai.com/v1", editable: true },
-    summary: "GPT models over the Chat Completions API. Billed per token against the project.",
+    summary:
+      "GPT models via the local `codex` CLI, non-interactive exec mode. Runs on your ChatGPT seat, not a metered API key.",
+    caveat:
+      "Shell commands the model chooses to run go through a read-only sandbox (`--sandbox read-only`) and a pinned working directory — this connection answers chat completions, it does not write files.",
     docs: "https://platform.openai.com/docs",
   },
 
@@ -150,7 +156,9 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
       where: "The local daemon is unauthenticated. Ollama Cloud is a separate connection.",
       env: "OLLAMA_API_KEY",
     },
-    endpoint: { default: "http://127.0.0.1:11434", editable: true },
+    // The bare daemon has no /v1 — that's Ollama's OpenAI-compat surface,
+    // which is what every adapter call (probe included) actually speaks.
+    endpoint: { default: "http://127.0.0.1:11434/v1", editable: true },
     summary: "The daemon on this machine. Nothing leaves the device; nothing is billed.",
     docs: "https://docs.ollama.com",
   },

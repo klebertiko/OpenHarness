@@ -4,8 +4,9 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    OpenHarness — design tokens
-   Hallmark · genre: instrument · macrostructure: Rail + Bench + Inspector
-   designed-as-app (desktop shell, Tauri custom decorations)
+   Hallmark · genre: modern-minimal editorial workspace
+   macrostructure: Quiet Desk + Graph Workshop · design-system: design.md
+   designed-as-app
 
    PALETTE LOGIC — read this before adding a colour.
    The substrate is strictly cold-neutral and carries NO chroma of its own
@@ -21,49 +22,100 @@
 :root {
   color-scheme: dark;
 
-  /* ── Substrate — cold neutral, value-stepped ───────────────────────────── */
-  --sub-000: oklch(0.152 0.010 258); /* window void, canvas ground   */
-  --sub-100: oklch(0.188 0.010 258); /* panels, chrome               */
-  --sub-200: oklch(0.222 0.011 258); /* inset fields, rows           */
-  --sub-300: oklch(0.262 0.012 258); /* hover                        */
-  --sub-400: oklch(0.318 0.013 258); /* pressed / active control     */
+  /* ── Warm graphite surfaces (default) ───────────────────────────────── */
+  --sub-000: oklch(0.170 0.006 72);
+  --sub-100: oklch(0.205 0.007 72);
+  --sub-200: oklch(0.245 0.008 72);
+  --sub-300: oklch(0.295 0.009 72);
+  --sub-400: oklch(0.355 0.010 72);
 
-  --line: oklch(0.312 0.012 258); /* structural hairline             */
-  --line-soft: oklch(0.248 0.011 258); /* internal divider           */
+  --line: oklch(0.350 0.010 72);
+  --line-soft: oklch(0.275 0.008 72);
 
-  /* ── Ink — four steps, no opacity soup ─────────────────────────────────── */
-  --ink: oklch(0.945 0.006 258);
-  --ink-dim: oklch(0.702 0.010 258);
-  --ink-mute: oklch(0.548 0.012 258);
-  --ink-faint: oklch(0.432 0.012 258);
+  /* ── Ink ───────────────────────────────────────────────────────────────────
+     Four levels, spaced for comfortable reading on --sub-000, not squeezed:
+     dim carries real body copy, mute carries secondary copy, faint is the
+     quietest label that still needs to be read without effort. */
+  --ink-primary: oklch(0.945 0.006 82);
+  --ink-dim: oklch(0.820 0.007 82);
+  --ink-mute: oklch(0.700 0.007 82);
+  --ink-faint: oklch(0.600 0.006 82);
+  --ink: var(--ink-primary);
+  /* legacy aliases */
+  --ink-secondary: var(--ink-mute);
+  --ink-tertiary: var(--ink-faint);
 
-  /* ── Signal — the only decorative-looking colour, and it is not decorative */
-  --signal: oklch(0.858 0.176 118);
-  --signal-deep: oklch(0.640 0.150 118);
-  --signal-ink: oklch(0.190 0.048 118); /* text ON a signal fill */
-  --warn: oklch(0.795 0.145 78);
-  --fault: oklch(0.662 0.190 25);
+  /* ── Signal — soft blue (focus / live). Quiet, not neon cyan. ──────────── */
+  --signal: oklch(0.700 0.105 190);
+  --signal-deep: oklch(0.570 0.095 190);
+  --signal-ink: oklch(0.160 0.008 72);
+  /* Warn shares hue 80 with --nilo-beak below on purpose — the app has two
+     identity colours now, not one: teal (--signal, live/focus/body) and
+     amber (Nilo's beak, attention/decision). Warn and Gate already lived a
+     couple of hue-degrees from the beak by coincidence; locking them to the
+     same value makes "amber" a real, deliberate second colour instead of
+     three near-misses that almost match. */
+  --warn: oklch(0.620 0.120 80);
+  --fault: oklch(0.550 0.160 28);
 
   /* ── Node role hues — locked L/C, hue is the only free variable ────────── */
-  --role-input: oklch(0.740 0.115 232);
-  --role-llm: oklch(0.740 0.115 300);
-  --role-tool: oklch(0.740 0.115 40);
-  --role-evaluator: oklch(0.740 0.115 158);
-  --role-router: oklch(0.740 0.115 330);
-  --role-hitl: oklch(0.740 0.115 18);
-  --role-memory: oklch(0.740 0.115 200);
-  --role-aggregator: oklch(0.740 0.115 268);
-  --role-output: oklch(0.740 0.115 172);
+  --role-agent: oklch(0.520 0.095 190);
+  /* Gate is a checkpoint — a decision point, the same idea the beak already
+     carries on the mascot. Same hue/chroma family, deliberately. */
+  --role-gate: oklch(0.610 0.120 80);
+  --role-hitl: oklch(0.560 0.105 30);
+  --role-skill: oklch(0.520 0.075 255);
+  --role-mcp: oklch(0.520 0.075 160);
+  --role-tool: oklch(0.470 0.035 235);
 
-  /* ── Chrome metrics — the shell's fixed skeleton ───────────────────────── */
-  --h-titlebar: 34px;
-  --h-statusbar: 22px;
-  --h-panelhead: 30px;
-  --w-rail: 46px;
+  /* ── Nilo (mascot): the body follows --signal; the face stays fixed so it
+     reads the same in both themes. Screen/desk/code are animation props. ── */
+  --nilo-body: var(--signal);
+  --nilo-eye: oklch(0.955 0.012 85);
+  --nilo-pupil: oklch(0.170 0.006 72);
+  --nilo-beak: oklch(0.760 0.120 80);
+  /* spectacle rims + chest chevron — a lighter teal that reads on the body */
+  --nilo-rim: oklch(0.870 0.075 190);
+  /* A lit screen (light) with dark code — reads as "on" at any size, instead
+     of a near-black rectangle disappearing into the dark substrate. */
+  --nilo-screen: oklch(0.800 0.025 210);
+  --nilo-desk: oklch(0.500 0.010 72);
+  --nilo-code: var(--nilo-pupil);
 
-  --r-control: 2px;
-  --r-panel: 3px;
-  --r-float: 5px;
+  --shadow-soft: 0 16px 44px oklch(0.08 0.005 72 / 0.24);
+  --shadow-float: 0 22px 58px oklch(0.08 0.005 72 / 0.34);
+  --surface-highlight: oklch(1 0 0 / 0.045);
+
+  /* ── Chrome metrics ────────────────────────────────────────────────────── */
+  --h-titlebar: 48px;
+  --h-statusbar: 24px;
+  --h-panelhead: 32px;
+  --w-rail: 220px;
+
+  --r-control: 4px;
+  --r-panel: 6px;
+  --r-float: 8px;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --sub-000: oklch(0.965 0.008 82);
+  --sub-100: oklch(0.985 0.005 82);
+  --sub-200: oklch(0.940 0.009 82);
+  --sub-300: oklch(0.905 0.010 82);
+  --sub-400: oklch(0.865 0.011 82);
+  --line: oklch(0.810 0.011 82);
+  --line-soft: oklch(0.885 0.009 82);
+  --ink-primary: oklch(0.235 0.012 75);
+  --ink-dim: oklch(0.380 0.011 75);
+  --ink-mute: oklch(0.470 0.010 75);
+  --ink-faint: oklch(0.560 0.009 75);
+  --signal: oklch(0.520 0.105 190);
+  --signal-deep: oklch(0.440 0.095 190);
+  --signal-ink: oklch(0.985 0.005 82);
+  --shadow-soft: 0 16px 44px oklch(0.25 0.01 75 / 0.09);
+  --shadow-float: 0 22px 58px oklch(0.25 0.01 75 / 0.14);
+  --surface-highlight: oklch(1 0 0 / 0.72);
 }
 
 * {
@@ -74,6 +126,7 @@ html,
 body,
 #__next {
   height: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -86,6 +139,118 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+@media (max-width: 640px) {
+  .oh-navigation { width: 52px; }
+  .oh-navigation .oh-rail-label { display: none; }
+}
+
+.oh-shell {
+  background: var(--sub-000);
+}
+
+/* Quiet, contextual header; native window actions are desktop-only. */
+.oh-header-brand { width: var(--w-rail); }
+.oh-work-overlay { background: var(--overlay-backdrop, oklch(0 0 0 / 0.42)); }
+.oh-header-context { border-left: 1px solid var(--line-soft); }
+@media (max-width: 768px) {
+  .oh-header-shortcut { display: none; }
+}
+@media (max-width: 640px) {
+  .oh-header-brand { width: 52px; padding-inline: 10px; }
+  .oh-header .oh-wordmark, .oh-header-search-label { display: none; }
+  .oh-header-context { padding-inline: 12px; gap: 8px; }
+  .oh-header-context:has(.oh-header-name) .oh-header-mode { display: none; }
+  .oh-header-context:has(.oh-header-name) > span[aria-hidden] { display: none; }
+}
+
+/* Hallmark · genre: calm operational atelier · macrostructure: Conversation
+   Atelier + Graph Theatre · design-system: design.md · designed-as-app */
+.oh-agent-stage {
+  background: var(--sub-000);
+}
+
+.oh-agent-welcome {
+  animation: oh-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.oh-agent-nilo {
+  position: absolute;
+  right: 1.75rem;
+  bottom: 0.2rem;
+}
+
+.oh-studio-welcome {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--sub-100);
+  box-shadow: var(--shadow-float);
+}
+
+.oh-studio-nilo {
+  position: absolute;
+  right: 1.3rem;
+  bottom: 0.35rem;
+}
+
+.oh-nilo {
+  display: block;
+  user-select: none;
+}
+
+.oh-nilo-bubble {
+  position: absolute;
+  top: 0;
+  right: -0.5rem;
+  padding: 2px 7px;
+  border-radius: var(--r-control);
+  background: var(--ink);
+  color: var(--sub-000);
+  font: 600 11px/1.4 var(--font-mono);
+  pointer-events: none;
+}
+
+.oh-agent-prompt-card {
+  border: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  border-radius: 14px;
+  background: var(--sub-100);
+  box-shadow: var(--shadow-soft);
+}
+
+.oh-agent-suggestion {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--sub-200) 74%, transparent);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.oh-agent-suggestion:hover {
+  border-color: var(--line);
+  background: var(--sub-200);
+  transform: translateY(-1px);
+}
+
+.oh-agent-composer {
+  border: 1px solid color-mix(in oklab, var(--line) 82%, transparent);
+  border-radius: 14px;
+  background: var(--sub-100);
+  box-shadow: var(--shadow-soft);
+}
+
+.oh-agent-message--user {
+  border: 1px solid var(--line-soft);
+  border-radius: 12px 12px 3px 12px;
+  background: var(--sub-200);
+}
+
+.oh-agent-message--assistant {
+  border-inline-start: 2px solid color-mix(in oklab, var(--signal) 60%, var(--line));
+}
+
+@keyframes oh-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Type roles — five, locked. Never invent a sixth. ────────────────────── */
@@ -143,13 +308,14 @@ body {
 .oh-panel {
   background: var(--sub-100);
   border-radius: var(--r-panel);
+  box-shadow: inset 0 1px 0 var(--surface-highlight);
 }
 
 .oh-float {
   background: var(--sub-100);
   border: 1px solid var(--line);
   border-radius: var(--r-float);
-  box-shadow: 0 1px 0 0 var(--sub-400) inset, 0 24px 48px -12px rgb(0 0 0 / 0.72);
+  box-shadow: var(--shadow-float);
 }
 
 .oh-inset {
@@ -192,15 +358,26 @@ body {
   user-select: none;
 }
 
-/* ── Focus — one ring, signal-coloured, never removed ───────────────────── */
+/* ── Focus — one ring, signal-coloured, never removed. The outline follows
+   each element's own border-radius; forcing a fixed radius here made the ring
+   corners disagree with rounder controls. ─────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: -1px;
-  border-radius: var(--r-control);
 }
 
 .oh-focus-inner:focus-visible {
   outline-offset: -2px;
+}
+
+/* The composer shows focus on the whole 14px card, not the bare textarea, so
+   the ring can't cut square corners inside a rounded container. */
+.oh-agent-composer:focus-within {
+  border-color: var(--signal);
+  box-shadow: var(--shadow-soft), inset 0 0 0 1px color-mix(in oklab, var(--signal) 55%, transparent);
+}
+.oh-agent-composer textarea:focus-visible {
+  outline: none;
 }
 
 /* ── Scrollbars — 8px, no track, thumb is substrate not ink ─────────────── */

@@ -1,22 +1,36 @@
 export type NodeType =
-  | "input"
-  | "output"
-  | "llm"
-  | "tool"
-  | "evaluator"
-  | "router"
+  | "agent"
+  | "gate"
   | "hitl"
-  | "memory"
-  | "aggregator";
+  | "skill"
+  | "mcp"
+  | "tool";
 
 export type AdapterType = "mock" | "ollama" | "openai" | "claude" | "lmstudio" | "codex";
 export type ExecutionMode = "mock" | "live" | "local";
 
+export interface ProviderRouteRule {
+  /** Short matcher label, e.g. "code", "prose". */
+  when: string;
+  providerId: string;
+}
+
 export interface NodeData {
   label: string;
-  // input / output
-  prompt?: string;
-  // llm / evaluator / aggregator
+  /** Agent / content role id (PO, BE, …) or skill id. */
+  roleId?: string;
+  skillId?: string;
+  gateId?: string;
+  /** 1..N provider ids — index 0 is primary, rest are fallbacks. */
+  providerIds?: string[];
+  /** Optional task routing; only when the author enables advanced routing. */
+  providerRoutes?: ProviderRouteRule[];
+  /** Bound connector ids (McpServer / Tool nodes or connectors table). */
+  connectorIds?: string[];
+  /** Signals this node declares it can emit. */
+  emits?: string[];
+  /** Signals this node declares it consumes. */
+  consumes?: string[];
   adapter?: AdapterType;
   model?: string;
   endpoint?: string;
@@ -27,17 +41,26 @@ export interface NodeData {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
-  // router
-  condition?: string;
-  // hitl
+  /** Optional spend ceiling for this node's own turn, in total tokens
+      (in+out combined — the adapter layer only ever reports one combined
+      count, see backend/usage_tracking.py). Unlike `maxTokens` (a
+      generation-length request parameter), this is enforced *after* the
+      turn completes: the engine flags the node as failed (honest
+      node_error) when its real usage is at/over this limit, and warns,
+      non-blocking, at 80% of it. `undefined`/`0` means no limit. */
+  tokenLimit?: number;
+  /** MCP server transport hint. */
+  mcpCommand?: string;
+  mcpUrl?: string;
+  /** Native tool kind. */
+  toolKind?: string;
   approvalLabel?: string;
-  // runtime (not persisted)
+  checklist?: string;
   status?: "idle" | "running" | "complete" | "error" | "paused";
   output?: string;
   tokens?: number;
   latencyMs?: number;
   error?: string;
-  // xyflow requires index signature for node data
   [key: string]: unknown;
 }
 
@@ -51,16 +74,16 @@ export interface HarnessNode {
 /**
  * What an edge *means*, not what it looks like. The renderer derives stroke,
  * dash and marker from this; nothing else in the app is allowed to style an
- * edge directly. Backward-running (feedback) geometry is detected from the
- * node positions at draw time, so moving a node can turn a forward edge into a
- * visible loop without anyone rewriting data.
+ * edge directly.
  */
 export type EdgeKind = "flow" | "accept" | "reject";
 
 export interface EdgeData {
   kind?: EdgeKind;
-  /** Port name shown on the wire, e.g. "pass", "reject", "else". */
+  /** Port name shown on the wire, e.g. "pass", "reject". */
   label?: string;
+  /** Typed exit-state Signal, e.g. "Ready for QA". */
+  signal?: string;
   [key: string]: unknown;
 }
 
@@ -88,8 +111,8 @@ export interface HarnessMeta {
   updated_at: string;
 }
 
-/** Palette grouping. Nine flat rows is a list; four stages is a mental model. */
-export type NodeStage = "boundary" | "compute" | "control" | "state";
+/** Palette grouping — flow pieces vs Connections dock pieces. */
+export type NodeStage = "flow" | "connections";
 
 export interface NodeTemplate {
   type: NodeType;
@@ -97,8 +120,6 @@ export interface NodeTemplate {
   description: string;
   stage: NodeStage;
   defaultData: Partial<NodeData>;
-  /** Legacy fields kept so older consumers keep type-checking. Unused: role
-   *  identity now lives in lib/roles.ts and is derived from the node type. */
   icon?: string;
   color?: string;
 }

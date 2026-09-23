@@ -14,6 +14,7 @@ export interface OHarnessManifest {
 }
 
 export interface OHarnessGraph {
+  [key: string]: unknown;
   nodes: unknown[];
   edges: unknown[];
 }
@@ -28,6 +29,7 @@ export interface OHarnessContent {
 }
 
 export interface OHarnessBundle {
+  [key: string]: unknown;
   schemaVersion: string;
   manifest: OHarnessManifest;
   graph: OHarnessGraph;
@@ -99,44 +101,53 @@ export async function mockBundle(bundle: unknown): Promise<MockResult> {
 }
 
 /** Canvas / xyflow node → schema-tolerant graph node (role from type). */
-export function canvasNodeToBundleNode(node: {
+export function canvasNodeToBundleNode<T extends {
   id: string;
   type?: string;
+  position?: { x: number; y: number };
   data?: { label?: string; [key: string]: unknown };
-}): Record<string, unknown> {
+  role?: unknown;
+  label?: unknown;
+}>(node: T): Record<string, unknown> {
+  const data = node.data ? { ...node.data } : undefined;
+  // Legacy raw credentials are not authoring data; persist secretRef instead.
+  if (data) delete data.apiKey;
   return {
-    id: node.id,
-    role: node.type ?? node.id,
-    label: node.data?.label ?? node.id,
+    ...node,
+    role: node.role ?? node.type ?? node.id,
+    label: node.data?.label ?? node.label ?? node.id,
+    ...(data ? { data } : {}),
   };
 }
 
-export function canvasEdgeToBundleEdge(edge: {
+export function canvasEdgeToBundleEdge<T extends {
   id: string;
   source: string;
   target: string;
-}): Record<string, unknown> {
-  return { id: edge.id, source: edge.source, target: edge.target };
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  data?: Record<string, unknown>;
+}>(edge: T): Record<string, unknown> {
+  return { ...edge };
 }
 
 /**
- * Compose an exportable `.oharness` from the live canvas graph plus content /
- * runtime stubs taken from a base bundle (usually the default or active one).
+ * Compose an exportable `.ohm` (Open Harness Model) from the live canvas graph
+ * plus content / runtime stubs taken from a base bundle.
  */
-export function composeBundleFromCanvas(
+export function composeBundleFromCanvas<
+  N extends Parameters<typeof canvasNodeToBundleNode>[0],
+  E extends Parameters<typeof canvasEdgeToBundleEdge>[0],
+>(
   base: OHarnessBundle | null,
   canvas: {
-    nodes: Array<{
-      id: string;
-      type?: string;
-      data?: { label?: string; [key: string]: unknown };
-    }>;
-    edges: Array<{ id: string; source: string; target: string }>;
+    nodes: N[];
+    edges: E[];
     harnessMeta: { name: string; description: string };
   }
 ): OHarnessBundle {
   const fallback: OHarnessBundle = {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     manifest: {
       id: "openharness.studio.export",
       name: canvas.harnessMeta.name || "Untitled Harness",
@@ -153,6 +164,7 @@ export function composeBundleFromCanvas(
 
   const src = base ?? fallback;
   return {
+    ...src,
     schemaVersion: src.schemaVersion || "1.0.0",
     manifest: {
       ...src.manifest,
@@ -160,6 +172,7 @@ export function composeBundleFromCanvas(
       description: canvas.harnessMeta.description || src.manifest.description,
     },
     graph: {
+      ...src.graph,
       nodes: canvas.nodes.map(canvasNodeToBundleNode),
       edges: canvas.edges.map(canvasEdgeToBundleEdge),
     },
@@ -172,14 +185,15 @@ export function composeBundleFromCanvas(
 export function downloadOHarness(bundle: OHarnessBundle, filename?: string): void {
   const name =
     filename ??
-    `${(bundle.manifest.name || "harness").replace(/\s+/g, "_")}.oharness`;
+    `${(bundle.manifest.name || "harness").replace(/\s+/g, "_")}.ohm`;
   const blob = new Blob([JSON.stringify(bundle, null, 2)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = name.endsWith(".oharness") ? name : `${name}.oharness`;
+  a.download =
+    name.endsWith(".ohm") || name.endsWith(".oharness") ? name : `${name}.ohm`;
   a.click();
   URL.revokeObjectURL(url);
 }

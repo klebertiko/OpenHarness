@@ -2,8 +2,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { HarnessGraph } from "@/lib/types";
 import { useActiveRunStore } from "@/store/activeRunStore";
+import { useProviderStore } from "@/components/providers/providerStore";
+import { useUsageStore } from "@/components/providers/usageStore";
 import { emptyRun, runReducer } from "./runReducer";
-import { sendControl, startDirectRun, startRun } from "./runClient";
+import { sendControl, startDirectRun, startRun, type DirectRunPayload } from "./runClient";
 import type { RunState } from "./types";
 
 export interface RunController {
@@ -11,10 +13,14 @@ export interface RunController {
   /** Milliseconds since the run opened — ticks while live, freezes when it ends. */
   elapsed: number;
   live: boolean;
-  start: (opts: { instruction: string; mode: string; step: boolean }) => void;
+  /** Cancel any stream and return to a blank run (used by New chat). */
+  reset: () => void;
+  start: (opts: { instruction: string; mode: string; step: boolean; cwd?: string; providerId?: string; tools?: DirectRunPayload["tools"] }) => void;
   stop: () => void;
   advance: () => void;
   resolveGate: (decision: "approve" | "reject", note: string) => void;
+  /** Tool approval (contract §2.6): one decision per `call_id`, consumed once by the backend. */
+  resolveToolCall: (callId: string, decision: "approve" | "reject", note?: string) => void;
   steer: (text: string) => void;
 }
 
@@ -30,13 +36,22 @@ export interface UseRunStreamOptions {
 export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): RunController {
   const [run, dispatch] = useReducer(runReducer, emptyRun);
   const abortRef = useRef<(() => void) | null>(null);
+  const generationRef = useRef(0);
   const graphRef = useRef(graph);
   graphRef.current = graph;
   const harnessEnabledRef = useRef(harnessEnabled);
   harnessEnabledRef.current = harnessEnabled;
   const setRunId = useActiveRunStore((s) => s.setRunId);
-
   const live = LIVE.has(run.status);
+
+  const reset = useCallback(() => {
+    generationRef.current++;
+    abortRef.current?.();
+    abortRef.current = null;
+    dispatch({ type: "clear" });
+    setElapsed(0);
+    useActiveRunStore.getState().setRunId(null);
+  }, []);
 
   /* One shared clock for the header, the now-line and the gate. A run that has
      been parked at a human gate for four minutes should say so; freezing the
@@ -59,25 +74,75 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
   }, [live, run.runId, setRunId]);
 
   const start = useCallback(
-    ({ instruction, mode, step }: { instruction: string; mode: string; step: boolean }) => {
+    ({
+      instruction,
+      mode,
+      step,
+      cwd,
+      providerId,
+      tools,
+    }: {
+      instruction: string;
+      mode: string;
+      step: boolean;
+      cwd?: string;
+      providerId?: string;
+      tools?: DirectRunPayload["tools"];
+    }) => {
+      const generation = ++generationRef.current;
       abortRef.current?.();
       dispatch({ type: "reset", mode, step });
-      const onEvent = (event: string, data: Record<string, unknown>) =>
+      let terminal = false;
+      let refreshed = false;
+      const refreshUsage = () => {
+        if (refreshed) return;
+        refreshed = true;
+        void useUsageStore.getState().refresh();
+      };
+      const onEvent = (event: string, data: Record<string, unknown>) => {
+        if (generation !== generationRef.current || terminal) return;
+        // Only backend completion evidence proves contact, including triage
+        // events that have no segment in the preview plan.
+        const id = data.connection_id;
+        if (event === "node_done" && data.provider_verified === true && typeof id === "string" && id.trim()) {
+          useProviderStore.getState().reportRunOutcome(id, { ok: true });
+        }
+        if (event === "node_error" && typeof id === "string" && id.trim() &&
+            (data.provider_failure === "authentication" || data.provider_failure === "transport")) {
+          useProviderStore.getState().reportRunOutcome(id, {
+            ok: false,
+            detail: data.provider_failure === "authentication"
+              ? "Provider authentication failed. Test the connection after signing in."
+              : "Provider transport failed. Test the connection to check reachability.",
+          });
+        }
         dispatch({ type: "sse", event, data });
+        if (event === "harness_done" || event === "error") {
+          terminal = true;
+          refreshUsage();
+        }
+      };
       const onClose = (err?: Error) => {
-        if (err) dispatch({ type: "transport-error", message: err.message });
+        if (generation !== generationRef.current) return;
+        if (!terminal) {
+          terminal = true;
+          dispatch({ type: "transport-error", message: err?.message ?? "Run stream closed before completion." });
+        }
+        refreshUsage();
         useActiveRunStore.getState().setRunId(null);
       };
 
-      if (harnessEnabledRef.current) {
+      // A slash-menu Tool is an explicit direct broker action. It must not be
+      // swallowed by the currently enabled harness graph.
+      if (harnessEnabledRef.current && !tools?.preset) {
         abortRef.current = startRun(
-          { graph_json: graphRef.current, mode, step, instruction },
+          { graph_json: graphRef.current, mode, step, instruction, cwd },
           onEvent,
           onClose
         );
       } else {
         abortRef.current = startDirectRun(
-          { instruction, mode, step },
+          { instruction, mode, step, cwd, connection_id: providerId, ...(tools ? { tools } : {}) },
           onEvent,
           onClose
         );
@@ -104,6 +169,13 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
     [run.runId]
   );
 
+  const resolveToolCall = useCallback(
+    (callId: string, decision: "approve" | "reject", note = "") => {
+      if (run.runId) void sendControl(run.runId, { action: "resume", decision, call_id: callId, note });
+    },
+    [run.runId]
+  );
+
   const steer = useCallback(
     (text: string) => {
       if (run.runId) void sendControl(run.runId, { action: "message", text });
@@ -111,7 +183,10 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
     [run.runId]
   );
 
-  useEffect(() => () => abortRef.current?.(), []);
+  useEffect(() => () => {
+    generationRef.current++;
+    abortRef.current?.();
+  }, []);
 
-  return { run, elapsed, live, start, stop, advance, resolveGate, steer };
+  return { run, elapsed, live, reset, start, stop, advance, resolveGate, resolveToolCall, steer };
 }

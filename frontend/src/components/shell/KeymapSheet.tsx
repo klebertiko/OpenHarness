@@ -26,16 +26,20 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
+    title: "Go to",
+    rows: [
+      ["Alt+1", "Chats"],
+      ["Alt+2", "Studio"],
+      ["Alt+3", "Automate"],
+      ["Alt+4", "Pull requests"],
+      ["Alt+5", "Providers"],
+    ],
+  },
+  {
     title: "Layout",
     rows: [
       ["Mod+B", "Toggle left panel"],
       ["Mod+Alt+B", "Toggle inspector (Studio)"],
-      ["Alt+1", "Agent mode"],
-      ["Alt+2", "Studio mode · canvas"],
-      ["Alt+3", "Canvas (Studio)"],
-      ["Alt+4", "Providers"],
-      ["Alt+5", "Harnesses"],
-      ["Alt+6", "Threads (Agent)"],
     ],
   },
   {
@@ -43,7 +47,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Mod+Z", "Undo"],
       ["Mod+Shift+Z", "Redo"],
-      ["Mod+Shift+E", "Export graph as JSON"],
+      ["Mod+Shift+E", "Export graph JSON (advanced)"],
     ],
   },
 ];

@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Upload } from "lucide-react";
+import { Check, Trash2, Upload, Workflow } from "lucide-react";
 
 import { Panel } from "@/components/shell/Panel";
+import { ListGroup, ListRow, RowAction } from "@/components/shell/ListRow";
 import { isOHarnessBundle, validateBundle } from "@/lib/bundlesApi";
-import {
-  DEFAULT_BUNDLE_ID,
-  useHarnessLibraryStore,
-  type LibraryEntry,
-} from "@/store/harnessLibraryStore";
+import { useHarnessLibraryStore } from "@/store/harnessLibraryStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
+import { harnessSubtitle, isBuiltInHarness, splitHarnessName } from "./harnessLabel";
 
 /**
- * Harnesses rail — always lists the skills-framework default, plus imports.
- * Activate swaps the session bundle and turns the harness on.
+ * The harness library — always lists the skills-framework default, plus
+ * imports. Clicking a row puts that harness in use; the full description is
+ * on hover. `onPicked` lets the caller (Studio's sheet) close itself once a
+ * choice is made, without this component knowing it's inside a sheet.
  */
-export function HarnessLibrary() {
+export function HarnessLibrary({ onPicked }: { onPicked?: (bundle: HarnessBundle) => void } = {}) {
   const fileRef = useRef<HTMLInputElement>(null);
   const entries = useHarnessLibraryStore((s) => s.entries);
   const hydrated = useHarnessLibraryStore((s) => s.hydrated);
@@ -48,10 +48,11 @@ export function HarnessLibrary() {
         return;
       }
       if (!isOHarnessBundle(parsed)) {
-        setError("Not a recognizable .oharness bundle");
+        setError("Not a recognizable .ohm bundle");
         return;
       }
       importBundle(parsed as unknown as HarnessBundle);
+      onPicked?.(parsed as unknown as HarnessBundle);
     } catch (err) {
       setError((err as Error).message || "Import failed");
     } finally {
@@ -63,14 +64,13 @@ export function HarnessLibrary() {
   return (
     <Panel
       title="Harnesses"
-      meta={hydrated ? `${entries.length}` : "…"}
       className="h-full"
       actions={
         <>
           <input
             ref={fileRef}
             type="file"
-            accept=".oharness,application/json"
+            accept=".ohm,.oharness,application/json"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -80,102 +80,87 @@ export function HarnessLibrary() {
           <button
             type="button"
             disabled={busy}
-            title="Import .oharness into library"
+            title="Import a .ohm file"
             onClick={() => fileRef.current?.click()}
-            className="inline-flex h-[22px] items-center gap-1 rounded-control border border-line bg-sub-200 px-1.5 text-[11px] font-[550] text-ink-dim transition hover:bg-sub-300 hover:text-ink disabled:opacity-40"
+            className="inline-flex h-6 items-center gap-1.5 rounded-[6px] px-2 text-[12px] font-[550] text-ink-mute transition-colors hover:bg-sub-200 hover:text-ink disabled:opacity-40"
           >
-            <Upload size={11} strokeWidth={1.8} />
+            <Upload size={13} strokeWidth={1.8} />
             Import
           </button>
         </>
       }
     >
-      {!hydrated && !error && (
-        <p className="t-body p-3 text-ink-mute">Loading default harness…</p>
-      )}
+      {!hydrated && !error && <p className="px-4 py-3 text-[12px] text-ink-mute">Loading harnesses…</p>}
 
       {error && (
-        <p className="t-body border-b border-line-soft px-3 py-2 text-fault" role="alert">
+        <p className="mx-3 mt-3 rounded-[8px] bg-sub-200 px-3 py-2 text-[12px] text-fault" role="alert">
           {error}
         </p>
       )}
 
-      <ul className="flex flex-col">
-        {entries.map((entry) => (
-          <LibraryRow
-            key={entry.id}
-            entry={entry}
-            active={entry.id === activeId}
-            onActivate={() => activate(entry.id)}
-            onRemove={
-              entry.isDefault || entry.id === DEFAULT_BUNDLE_ID
-                ? undefined
-                : () => remove(entry.id)
-            }
-          />
-        ))}
-      </ul>
+      <ListGroup>
+        {entries.map((entry) => {
+          const active = entry.id === activeId;
+          const removable = !isBuiltInHarness(entry);
+          const { title } = splitHarnessName(entry.name);
+          return (
+            <ListRow
+              key={entry.id}
+              title={title}
+              subtitle={harnessSubtitle(entry)}
+              hint={entry.description}
+              leading={
+                <span
+                  className={[
+                    "grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-sub-200",
+                    active ? "text-signal" : "text-ink-mute",
+                  ].join(" ")}
+                >
+                  <Workflow size={15} strokeWidth={1.7} />
+                </span>
+              }
+              onSelect={
+                active && !onPicked
+                  ? undefined
+                  : () => {
+                      if (onPicked) onPicked(entry.bundle);
+                      else activate(entry.id);
+                    }
+              }
+              trailing={
+                active ? (
+                  <span className="inline-flex items-center gap-1 text-[12px] font-[550] text-signal">
+                    <Check size={13} strokeWidth={2} />
+                    {onPicked ? "Current" : "In use"}
+                  </span>
+                ) : undefined
+              }
+              actions={
+                active && !removable ? undefined : (
+                  <>
+                    {!active && (
+                      <RowAction
+                        label={(onPicked ? "Open " : "Use ") + title}
+                        onClick={() => {
+                          if (onPicked) onPicked(entry.bundle);
+                      else activate(entry.id);
+                        }}
+                      >
+                        {onPicked ? "Open" : "Use"}
+                      </RowAction>
+                    )}
+                    {removable && (
+                      <RowAction label={`Remove ${title}`} onClick={() => remove(entry.id)}>
+                        <Trash2 size={13} strokeWidth={1.8} />
+                      </RowAction>
+                    )}
+                  </>
+                )
+              }
+            />
+          );
+        })}
+      </ListGroup>
     </Panel>
-  );
-}
-
-function LibraryRow({
-  entry,
-  active,
-  onActivate,
-  onRemove,
-}: {
-  entry: LibraryEntry;
-  active: boolean;
-  onActivate: () => void;
-  onRemove?: () => void;
-}) {
-  const showDefault =
-    entry.isDefault || entry.id === DEFAULT_BUNDLE_ID;
-
-  return (
-    <li className="flex flex-col gap-1.5 border-b border-line-soft px-2.5 py-2 last:border-b-0">
-      <div className="flex min-w-0 items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <span className="t-title truncate text-ink">{entry.name}</span>
-            {showDefault && (
-              <span className="t-meta rounded-[2px] border border-line bg-sub-200 px-1 py-px text-ink-faint">
-                default
-              </span>
-            )}
-            {active && (
-              <span className="t-meta inline-flex items-center gap-0.5 text-signal">
-                <Check size={10} strokeWidth={2} />
-                active
-              </span>
-            )}
-          </div>
-          <div className="t-meta truncate text-ink-faint">{entry.id}</div>
-          {entry.description && (
-            <p className="t-body mt-0.5 line-clamp-2 text-ink-mute">{entry.description}</p>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={active}
-          onClick={onActivate}
-          className="inline-flex h-[22px] items-center rounded-control border border-line bg-sub-200 px-2 text-[11px] font-[550] text-ink-dim transition hover:bg-sub-300 hover:text-ink disabled:cursor-default disabled:opacity-40"
-        >
-          {active ? "Active" : "Activate"}
-        </button>
-        {onRemove && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="inline-flex h-[22px] items-center rounded-control px-2 text-[11px] text-ink-faint transition hover:text-fault"
-          >
-            Remove
-          </button>
-        )}
-      </div>
-    </li>
   );
 }

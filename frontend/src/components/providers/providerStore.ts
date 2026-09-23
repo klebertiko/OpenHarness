@@ -9,7 +9,8 @@ import {
   type ProviderSpec,
   type Residence,
 } from "./catalog";
-import { forgetSecret, saveSecret, type SecretRef } from "./secrets";
+import { activeVault, forgetSecret, saveSecret, type SecretRef } from "./secrets";
+import { apiUrl } from "@/lib/apiBase";
 
 /* ── Shapes ───────────────────────────────────────────────────────────────── */
 
@@ -69,10 +70,12 @@ export function catalogueOf(c: Connection): Catalogue {
   return specOf(c).catalogue;
 }
 
-/* ── Seed state ───────────────────────────────────────────────────────────────
-   Six connections across five vendors, in five different real states. The two
-   Ollama rows are the point: same vendor, same wire protocol, opposite answers
-   to "did my prompt leave this machine". */
+/* ── Catalog template ─────────────────────────────────────────────────────────
+   Six connections across five vendors. `models`/`endpoint`/`residence` below
+   are static vendor facts — safe to show before anything is connected. Every
+   *status* field (health, detail, facts, secret, enabled) is neutralised by
+   `offlineTemplate()` below and only becomes real once `hydrate()` merges in
+   what the backend actually knows, or a probe/secret round-trip updates it. */
 
 const now = new Date("2026-09-04T11:42:00Z").toISOString();
 
@@ -83,21 +86,14 @@ const seed: Connection[] = [
     label: "Anthropic",
     residence: "cloud",
     endpoint: "https://api.anthropic.com",
-    secret: {
-      service: "openharness/anthropic",
-      prefix: "sk-ant-",
-      tail: "9Qd4",
-      length: 108,
-      vault: "os-keychain",
-      savedAt: "2026-08-19T09:12:00Z",
-    },
+    secret: null,
     health: "live",
-    detail: "Key accepted. 4 models offered on this workspace.",
+    detail: "Logged in as klebertiko@gmail.com (pro plan). 4 models offered on this seat.",
     probes: [188, 204, 191, 176, 199, 212, 183, 195, 180, 207, 190, 186],
     facts: [
-      { k: "workspace", v: "personal" },
-      { k: "tier", v: "build · tier 2" },
-      { k: "rate", v: "1000 rpm · 450k tpm" },
+      { k: "account", v: "klebertiko@gmail.com" },
+      { k: "plan", v: "pro", tone: "signal" },
+      { k: "cli", v: "claude · on PATH", tone: "signal" },
     ],
     models: [
       { id: "claude-opus-5", ctx: 200000, price: [15, 75] },
@@ -118,21 +114,13 @@ const seed: Connection[] = [
     label: "Cursor",
     residence: "cloud",
     endpoint: "https://api.cursor.com",
-    secret: {
-      service: "openharness/cursor",
-      prefix: "crsr_",
-      tail: "b31f",
-      length: 69,
-      vault: "os-keychain",
-      savedAt: "2026-08-22T16:40:00Z",
-    },
+    secret: null,
     health: "live",
-    detail: "Key accepted by /v1/me. Delegation only — no completion endpoint exists.",
+    detail: "Logged in as klebertiko@gmail.com. Delegation only — no completion endpoint exists.",
     probes: [246, 231, 259, 240, 268, 252, 238, 244, 271, 249, 235, 257],
     facts: [
-      { k: "key name", v: "openharness-desktop" },
       { k: "account", v: "klebertiko@gmail.com" },
-      { k: "cli", v: "cursor-agent 2.4.1 · on PATH", tone: "signal" },
+      { k: "cli", v: "cursor-agent · on PATH", tone: "signal" },
     ],
     models: [
       { id: "cursor-composer-2-5", ctx: 200000 },
@@ -266,12 +254,147 @@ const seed: Connection[] = [
   } as unknown as Connection,
 ];
 
-/* Probe fixtures are written as bare millisecond arrays above for legibility;
-   widen them into the real shape here. A zero means the probe never answered. */
-const connections: Connection[] = seed.map((c) => ({
-  ...c,
-  probes: (c.probes as unknown as number[]).map((ms) => ({ ms, ok: ms > 0 })),
-}));
+function credentialDetail(c: Connection): string {
+  const cred = specOf(c).credential;
+  if (cred.kind === "cli") return `Not connected. ${cred.where}`;
+  if (cred.kind === "none") return "Not connected. Nothing to add — turn it on when ready.";
+  return `Not connected. Add a key from ${cred.where}.`;
+}
+
+/** Every status field neutralised to "nothing has happened yet". Vendor facts
+    (models, endpoint, residence) survive from the template as-is. */
+function offlineTemplate(c: Connection): Connection {
+  return {
+    ...c,
+    secret: null,
+    health: "setup",
+    detail: credentialDetail(c),
+    probes: [],
+    facts: [],
+    enabled: false,
+    lastProbe: "",
+  };
+}
+
+type BackendConnectionRow = {
+  id: string;
+  provider: string;
+  label: string;
+  residence: Residence;
+  endpoint: string;
+  enabled: boolean;
+  secretRef: string | null;
+};
+
+/** Create-if-missing so /probe and /secret never 404 on a connection this
+    session hasn't POSTed yet. 409 (already exists) is success. */
+async function ensureBackendRow(c: Connection): Promise<void> {
+  try {
+    await fetch(apiUrl("/providers/connections"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: c.id,
+        provider: c.provider,
+        label: c.label,
+        residence: c.residence,
+        endpoint: c.endpoint,
+        enabled: false,
+      }),
+    });
+  } catch {
+    // Surfaced by the probe/secret call that follows.
+  }
+}
+
+type ProbeResponse = {
+  ok: boolean;
+  health: Health;
+  detail: string;
+  latencyMs: number;
+  facts: AccountFact[];
+};
+
+/** The one real reachability check — no fixture, no fake delay. */
+async function runProbe(id: string, set: (partial: Partial<ProviderState>) => void, get: () => ProviderState) {
+  try {
+    const res = await fetch(apiUrl(`/providers/${encodeURIComponent(id)}/probe`), { method: "POST" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw new Error((body?.detail as string) || `Test failed (HTTP ${res.status}).`);
+    }
+    const body = (await res.json()) as ProbeResponse;
+    set({
+      connections: patch(get().connections, id, (c) => ({
+        ...c,
+        health: body.health,
+        detail: body.detail,
+        facts: body.facts,
+        probes: [...c.probes.slice(-11), { ms: body.latencyMs, ok: body.ok }],
+        lastProbe: new Date().toISOString(),
+      })),
+    });
+  } catch (err) {
+    set({
+      connections: patch(get().connections, id, (c) => ({
+        ...c,
+        health: "fault",
+        detail:
+          err instanceof Error
+            ? err.message
+            : "Could not reach the OpenHarness sidecar to test this connection.",
+        probes: [...c.probes.slice(-11), { ms: 0, ok: false }],
+        lastProbe: new Date().toISOString(),
+      })),
+    });
+  }
+}
+
+/** Auth/transport signatures a real adapter call actually fails with — the
+    same class runProbe()'s own catch block treats as fault. Deliberately
+    narrow: a resolver-side config problem ("disconnected", "no credential",
+    "no default model", a capability mismatch) is a graph/setup issue, not
+    proof the vendor rejected a call, so those messages are left out on
+    purpose — flipping a connection to "fault" over a miswired node would be
+    exactly the "misread as broken" mistake this exists to avoid. An
+    unmatched message leaves health untouched rather than guessing. */
+const PROVIDER_FAILURE_SIGNATURES = [
+  "401",
+  "403",
+  "unauthorized",
+  "invalid api key",
+  "invalid_api_key",
+  "authentication failed",
+  "not logged in",
+  "econnrefused",
+  "connection refused",
+  "enotfound",
+  "timed out",
+  "timeout",
+] as const;
+
+/** Is this run-failure message real evidence the *connection* is broken —
+    not a bad prompt, a tool error, or a graph miswiring?
+    NOT currently called by `useRunStream` — 2026-09-13 SEC review found the
+    only source of `Segment.error` text is free-form prose (a model's own
+    output when an adapter reports `is_error`, a human reviewer's HITL
+    rejection note, or an engine-composed token-limit message that embeds
+    the node's label and raw numbers), and every one of those can contain a
+    substring on this list by coincidence or by design — a prompt someone
+    pasted, a reviewer's phrasing, a token count like "4013" all match. A
+    stale "live" from that gap self-corrects on the next real attempt; a
+    false "fault" does not (`fault` blocks the connection from being picked
+    again — `chatProvider.ts`'s `pickChatProvider`/`autoPick` — until a
+    person manually clicks Test), so an unsafe false positive here is worse
+    than the bug this module fixes. Kept as a tested primitive for a future
+    story that adds a structured, non-prose error classification on the
+    wire (e.g. an `error_kind` field distinguishing auth/transport failures
+    from content/HITL/limit errors) — do not wire this to a run outcome
+    without one. */
+export function isProviderLevelFailure(message: string): boolean {
+  const m = message.toLowerCase();
+  return PROVIDER_FAILURE_SIGNATURES.some((needle) => m.includes(needle));
+}
 
 /* ── Store ────────────────────────────────────────────────────────────────── */
 
@@ -282,14 +405,26 @@ interface ProviderState {
   binding: string[];
   /** Ledger filter — the honest default is "everything", not "healthy only". */
   query: string;
+  hydrated: boolean;
 
   select: (id: string) => void;
   setQuery: (q: string) => void;
+  /** Merge real backend connection state over the catalog template. Safe to
+      call more than once — it's a no-op after the first successful run. */
+  hydrate: () => Promise<void>;
   probe: (id: string) => Promise<void>;
+  /** A real run just finished against this connection — not a Test click,
+      but the thing a person actually cares about working. `ok: true` is at
+      least as strong evidence as a probe, so it clears the untested
+      "setup" default the same way `runProbe()` would. `ok: false` must
+      already be a caller-confirmed provider-level failure (see
+      `isProviderLevelFailure`'s doc comment for why no caller uses it yet)
+      — never a bad prompt, an HITL rejection, or a Stop. */
+  reportRunOutcome: (id: string, outcome: { ok: true } | { ok: false; detail: string }) => void;
   attachSecret: (id: string, plaintext: string) => Promise<void>;
   revokeSecret: (id: string) => Promise<void>;
   setEndpoint: (id: string, endpoint: string) => void;
-  toggleEnabled: (id: string) => void;
+  toggleEnabled: (id: string) => Promise<void>;
   toggleAllowed: (id: string, model: string) => void;
   setRouteSort: (id: string, s: Connection["routeSort"]) => void;
   addToRoute: (id: string, model: string) => void;
@@ -303,40 +438,88 @@ const patch = (list: Connection[], id: string, f: (c: Connection) => Connection)
   list.map((c) => (c.id === id ? f(c) : c));
 
 export const useProviderStore = create<ProviderState>((set, get) => ({
-  connections,
+  connections: seed.map(offlineTemplate),
   selectedId: "openrouter",
   binding: ["anthropic", "ollama-local"],
   query: "",
+  hydrated: false,
 
   select: (selectedId) => set({ selectedId }),
   setQuery: (query) => set({ query }),
 
-  /**
-   * Reachability check. In the packaged app this is a host command so the
-   * credential never leaves the vault; here it replays the fixture's own verdict
-   * after a realistic delay, which is what makes the probing state visible.
-   */
+  hydrate: async () => {
+    if (get().hydrated) return;
+    set({ hydrated: true }); // claim it before the await — one hydrate in flight, not one per mounted consumer
+    try {
+      const res = await fetch(apiUrl("/providers/connections"));
+      if (!res.ok) return;
+      const body = (await res.json()) as { connections: BackendConnectionRow[] };
+      const byId = new Map(body.connections.map((row) => [row.id, row]));
+      set({
+        connections: get().connections.map((c) => {
+          const row = byId.get(c.id);
+          if (!row) return c;
+          return {
+            ...c,
+            label: row.label,
+            residence: row.residence,
+            endpoint: row.endpoint,
+            enabled: row.enabled,
+            secret: row.secretRef
+              ? {
+                  service: row.secretRef,
+                  prefix: "",
+                  tail: "····",
+                  length: 0,
+                  vault: activeVault(),
+                  savedAt: "",
+                }
+              : null,
+          };
+        }),
+      });
+    } catch {
+      // Sidecar unreachable at mount — connections stay in the honest
+      // "not connected" state from offlineTemplate() rather than lying live.
+    }
+  },
+
+  /** Real reachability check against the sidecar — never a fixture replay. */
   probe: async (id) => {
     const before = get().connections.find((c) => c.id === id);
     if (!before) return;
     set({ connections: patch(get().connections, id, (c) => ({ ...c, health: "probing" })) });
-
-    const ms = before.probes.length
-      ? Math.round(before.probes.slice(-4).reduce((a, p) => a + p.ms, 0) / 4)
-      : 0;
-    await new Promise((r) => setTimeout(r, Math.min(900, 260 + ms)));
-
-    set({
-      connections: patch(get().connections, id, (c) => ({
-        ...c,
-        health: before.health,
-        probes: [...c.probes.slice(-11), { ms, ok: ms > 0 }],
-        lastProbe: new Date().toISOString(),
-      })),
-    });
+    await ensureBackendRow(before);
+    await runProbe(id, set, get);
   },
 
-  /** The plaintext lives inside this call and nowhere else. */
+  reportRunOutcome: (id, outcome) => {
+    const c = get().connections.find((x) => x.id === id);
+    // A disabled connection is fully out of the loop until a person
+    // re-enables it — a stray or racing run outcome must not move its
+    // health either direction (that would resurrect, or newly break, a
+    // connection they've already turned away from). A probe already in
+    // flight owns the next honest answer. An unknown id is a stray event.
+    if (!c || !c.enabled || c.health === "probing") return;
+    if (outcome.ok) {
+      set({
+        connections: patch(get().connections, id, (x) => ({
+          ...x,
+          health: "live",
+          detail: x.health === "live" ? x.detail : "Verified by a real run just now.",
+        })),
+      });
+    } else {
+      set({
+        connections: patch(get().connections, id, (x) => ({ ...x, health: "fault", detail: outcome.detail })),
+      });
+    }
+  },
+
+  /** The plaintext lives inside this call and nowhere else. `saveSecret`
+      already creates the backend connection row and, for the backend vault,
+      flips it `enabled` server-side — the probe right after is what tells us
+      whether the key actually works, not a timer. */
   attachSecret: async (id, plaintext) => {
     const c = get().connections.find((x) => x.id === id);
     if (!c) return;
@@ -350,18 +533,14 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
         detail: "Credential stored. Verifying with the vendor…",
       })),
     });
-    await new Promise((r) => setTimeout(r, 700));
-    set({
-      connections: patch(get().connections, id, (x) => ({
-        ...x,
-        health: "live",
-        detail: "Key accepted.",
-        probes: [...x.probes.slice(-11), { ms: 240, ok: true }],
-        lastProbe: new Date().toISOString(),
-      })),
-    });
+    await runProbe(id, set, get);
   },
 
+  /** Clears the local reference and, where the OS keychain holds it, the
+      real credential. NOTE: for the backend-vault dev path there is no
+      DELETE-just-the-secret route yet — the key stays in the sidecar's
+      SecretsStore until the whole connection is deleted. Disabling here at
+      least stops it from being picked for a run. */
   revokeSecret: async (id) => {
     await forgetSecret(`openharness/${id}`);
     set({
@@ -370,18 +549,42 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
         secret: null,
         health: "setup",
         enabled: false,
-        detail: "Credential removed from the vault. This connection is offline until you add one.",
+        detail: "Credential removed. This connection is offline until you add one.",
         facts: [],
       })),
       binding: get().binding.filter((b) => b !== id),
     });
+    try {
+      await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: false }),
+      });
+    } catch {
+      // Best effort — resolve_node_provider still refuses a disabled
+      // connection locally the next time a graph tries to use it.
+    }
   },
 
   setEndpoint: (id, endpoint) =>
     set({ connections: patch(get().connections, id, (c) => ({ ...c, endpoint })) }),
 
-  toggleEnabled: (id) =>
-    set({ connections: patch(get().connections, id, (c) => ({ ...c, enabled: !c.enabled })) }),
+  toggleEnabled: async (id) => {
+    const c = get().connections.find((x) => x.id === id);
+    if (!c) return;
+    const enabled = !c.enabled;
+    set({ connections: patch(get().connections, id, (x) => ({ ...x, enabled })) });
+    await ensureBackendRow(c);
+    try {
+      await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+    } catch {
+      // Best effort — a probe or chat send will surface a stale toggle honestly.
+    }
+  },
 
   toggleAllowed: (id, model) =>
     set({

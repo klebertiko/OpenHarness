@@ -6,7 +6,7 @@ import { apiUrl } from "@/lib/apiBase";
 
 export const HARNESS_SESSION_KEY = "oh.harnessSession";
 
-/** Session-held bundle — at least `manifest.id`; Studio import stores the full `.oharness`. */
+/** Session-held bundle — at least `manifest.id`; Studio import stores the full `.ohm`. */
 export interface HarnessBundle {
   schemaVersion?: string;
   manifest: { id: string; name?: string; description?: string; [key: string]: unknown };

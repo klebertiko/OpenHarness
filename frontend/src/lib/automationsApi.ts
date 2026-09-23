@@ -46,8 +46,17 @@ export const automationsApi = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
-  runNow: (id: string) =>
-    request<AutomationJob>(`/automations/${id}/run`, { method: "POST" }),
+  /**
+   * The sidecar's `POST /automations/{id}/run` defaults to `mode="live"` when
+   * the body is absent (AUTOMATE-REAL). Every caller states the mode; the
+   * default here is `mock` because the only button that calls this today is
+   * labelled "Run simulation" and must never promote itself to live silently.
+   */
+  runNow: (id: string, mode: "mock" | "live" = "mock") =>
+    request<AutomationJob>(`/automations/${id}/run`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    }),
   remove: (id: string) =>
     fetch(apiUrl(`/automations/${id}`), { method: "DELETE" }).then((r) => {
       if (!r.ok) throw new Error(`delete failed: ${r.status}`);

@@ -5,15 +5,12 @@ import { ActivityRail } from "./ActivityRail";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { KeymapSheet } from "./KeymapSheet";
-import { ShellOverlayHost } from "./ShellOverlayHost";
-import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX } from "./shellStore";
+import { HarnessLibrarySheet } from "./HarnessLibrarySheet";
+import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX, type RailSection } from "./shellStore";
 import { isEditingTarget, matchesChord, useIsMac } from "./keys";
-import {
-  shellModeAndHarnessCommands,
-  shellOverlayCommands,
-  type Command,
-} from "./commands";
+import { shellNavCommands, type Command } from "./commands";
 import { useModeStore } from "@/store/modeStore";
+import { useProviderStore } from "@/components/providers/providerStore";
 
 /**
  * Split handle. 5px hit area over a 1px visual rule — the standard trick, but
@@ -94,6 +91,7 @@ interface Props {
   edgeCount: number;
   selectedId: string | null;
   backendOk: boolean;
+  immersive?: boolean;
   toolbar: React.ReactNode;
   left: React.ReactNode;
   stage: React.ReactNode;
@@ -110,6 +108,7 @@ export function AppShell({
   edgeCount,
   selectedId,
   backendOk,
+  immersive = false,
   toolbar,
   left,
   stage,
@@ -118,10 +117,11 @@ export function AppShell({
   const mac = useIsMac();
   const shell = useShellStore();
   const shellMode = useModeStore((s) => s.mode);
-  const setMode = useModeStore((s) => s.setMode);
+  const hydrateProviders = useProviderStore((s) => s.hydrate);
 
   useEffect(() => {
     shell.hydrate();
+    void hydrateProviders();
     // Hydration runs once, deliberately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -163,14 +163,7 @@ export function AppShell({
   const leftOpen = leftPref && !narrow.left;
   const rightOpen = rightPref && !narrow.right;
 
-  const allCommands = useMemo(
-    () => [
-      ...shellModeAndHarnessCommands(),
-      ...shellOverlayCommands(),
-      ...commands,
-    ],
-    [commands]
-  );
+  const allCommands = useMemo(() => [...shellNavCommands(), ...commands], [commands]);
 
   const commandsRef = useRef(allCommands);
   commandsRef.current = allCommands;
@@ -191,7 +184,7 @@ export function AppShell({
         dismissOverlays();
         return;
       }
-      if (useShellStore.getState().paletteOpen || useShellStore.getState().keymapOpen) return;
+      if (useShellStore.getState().paletteOpen || useShellStore.getState().keymapOpen || useShellStore.getState().libraryOpen) return;
 
       if (!editing && e.key === "?") {
         e.preventDefault();
@@ -208,40 +201,20 @@ export function AppShell({
         toggleRight();
         return;
       }
-      if (matchesChord(e, "Alt+1", mac)) {
-        e.preventDefault();
-        setMode("agent");
-        setSection("threads");
-        useShellStore.getState().setRightOpen(false);
-        return;
-      }
-      if (matchesChord(e, "Alt+2", mac)) {
-        e.preventDefault();
-        setMode("studio");
-        setSection("build");
-        useShellStore.getState().setRightOpen(true);
-        return;
-      }
-      // Studio: Alt+3 = Canvas. Agent: Alt+3 reserved (Runs coming soon).
-      if (matchesChord(e, "Alt+3", mac)) {
-        e.preventDefault();
-        if (useModeStore.getState().mode === "studio") setSection("build");
-        return;
-      }
-      if (matchesChord(e, "Alt+4", mac)) {
-        e.preventDefault();
-        setSection("providers");
-        return;
-      }
-      if (matchesChord(e, "Alt+5", mac)) {
-        e.preventDefault();
-        setSection("files");
-        return;
-      }
-      if (matchesChord(e, "Alt+6", mac)) {
-        e.preventDefault();
-        if (useModeStore.getState().mode === "agent") setSection("threads");
-        return;
+      // Alt+1..6 — the destinations, same order as the rail, everywhere.
+      const NAV_CHORDS: [string, RailSection][] = [
+        ["Alt+1", "chats"],
+        ["Alt+2", "studio"],
+        ["Alt+3", "automations"],
+        ["Alt+4", "git"],
+        ["Alt+5", "providers"],
+      ];
+      for (const [chord, target] of NAV_CHORDS) {
+        if (matchesChord(e, chord, mac)) {
+          e.preventDefault();
+          setSection(target);
+          return;
+        }
       }
       for (const c of commandsRef.current) {
         if (c.chord && !c.disabled && matchesChord(e, c.chord, mac)) {
@@ -258,7 +231,7 @@ export function AppShell({
       toggleLeft,
       toggleRight,
       setSection,
-      setMode,
+
       dismissOverlays,
     ]
   );
@@ -279,35 +252,19 @@ export function AppShell({
         mode={shellMode === "agent" ? "Agent" : "Studio"}
         running={running}
         nodeCount={nodeCount}
+        editingHarness={shellMode === "studio" && shell.studioView === "editor"}
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
       {toolbar}
 
       <div className="flex min-h-0 flex-1">
-        <ActivityRail />
-
-        {leftOpen && (
-          <>
-            <div
-              className="min-h-0 flex-none border-r border-line"
-              style={{ width: hydrated ? leftWidth : undefined, minWidth: LEFT_MIN }}
-            >
-              {left}
-            </div>
-            <Resizer
-              side="left"
-              value={leftWidth}
-              min={LEFT_MIN}
-              max={LEFT_MAX}
-              onChange={setLeftWidth}
-            />
-          </>
-        )}
+        <ActivityRail>{leftOpen && !immersive ? left : null}</ActivityRail>
+        <Resizer side="left" value={leftWidth} min={LEFT_MIN} max={LEFT_MAX} onChange={setLeftWidth} />
 
         <main className="relative min-w-0 flex-1 bg-sub-000">{stage}</main>
 
-        {rightOpen && (
+        {rightOpen && !immersive && right && (
           <>
             <Resizer
               side="right"
@@ -326,14 +283,16 @@ export function AppShell({
         )}
       </div>
 
-      <StatusBar
-        mode={`${shellMode === "agent" ? "Agent" : "Studio"} · exec ${mode}`}
-        running={running}
-        nodeCount={nodeCount}
-        edgeCount={edgeCount}
-        selectedId={selectedId}
-        backendOk={backendOk}
-      />
+      {shellMode === "studio" && shell.studioView === "editor" && (
+        <StatusBar
+          mode={`Studio · exec ${mode}`}
+          running={running}
+          nodeCount={nodeCount}
+          edgeCount={edgeCount}
+          selectedId={selectedId}
+          backendOk={backendOk}
+        />
+      )}
 
       <CommandPalette
         open={paletteOpen}
@@ -341,7 +300,7 @@ export function AppShell({
         onClose={() => setPaletteOpen(false)}
       />
       <KeymapSheet open={keymapOpen} onClose={() => setKeymapOpen(false)} />
-      <ShellOverlayHost />
+      <HarnessLibrarySheet />
     </div>
   );
 }

@@ -20,7 +20,7 @@ describe("secrets.saveSecret", () => {
     const ref = await saveSecret("openharness/openai", RAW);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/providers/openai/secret",
+      "http://127.0.0.1:8000/providers/openai/secret",
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,9 +61,25 @@ describe("secrets.saveSecret", () => {
 
     const ref = await saveSecret("openharness/ollama-cloud", "sk-or-cloudkeyZZ99");
 
-    expect(fetchMock.mock.calls[0][0]).toBe("/providers/ollama-cloud/secret");
-    expect(fetchMock.mock.calls[1][0]).toBe("/providers/connections");
-    expect(fetchMock.mock.calls[2][0]).toBe("/providers/ollama-cloud/secret");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://127.0.0.1:8000/providers/ollama-cloud/secret", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "sk-or-cloudkeyZZ99" }),
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://127.0.0.1:8000/providers/connections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: "ollama-cloud", provider: "ollama", label: "ollama-cloud",
+        residence: "cloud", endpoint: "", enabled: false,
+      }),
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "http://127.0.0.1:8000/providers/ollama-cloud/secret", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "sk-or-cloudkeyZZ99" }),
+    });
     expect(ref.service).toBe("openharness/ollama-cloud");
     expect(ref.vault).toBe("backend");
     expect(JSON.stringify(ref)).not.toContain("cloudkey");

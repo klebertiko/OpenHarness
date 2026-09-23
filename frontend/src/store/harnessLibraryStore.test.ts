@@ -52,7 +52,7 @@ describe("harnessLibraryStore", () => {
 
     await useHarnessLibraryStore.getState().hydrate();
 
-    expect(fetch).toHaveBeenCalledWith("/bundles/default", { cache: "no-store" });
+    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:8000/bundles/default", { cache: "no-store" });
     const { entries, hydrated } = useHarnessLibraryStore.getState();
     expect(hydrated).toBe(true);
     expect(entries).toHaveLength(1);

@@ -4,16 +4,17 @@ import { create } from "zustand";
 /**
  * Shell state — everything about the *frame*, nothing about the graph.
  *
- * Panel geometry is persisted because spatial memory is the whole point of a
- * desktop layout: the app must come back exactly as the user left it.
+ * There is one flat set of destinations (see ActivityRail). `section` is which
+ * one is showing. Panel geometry is persisted because spatial memory is the
+ * whole point of a desktop layout: the app comes back as the user left it.
  */
 
-export type RailSection = "build" | "runs" | "providers" | "files" | "threads";
+export type RailSection = "chats" | "studio" | "automations" | "git" | "providers";
 
-/** Transient Agent panels opened from the command palette (not persisted). */
-export type ShellOverlay = "cowork" | "automations" | "git" | null;
+/** Studio is the only destination with its own right-hand inspector. */
+export const STUDIO_SECTION: RailSection = "studio";
 
-const STORAGE_KEY = "oh.shell.v4";
+const STORAGE_KEY = "oh.shell.v8";
 
 interface Persisted {
   leftOpen: boolean;
@@ -25,13 +26,13 @@ interface Persisted {
 
 const DEFAULTS: Persisted = {
   leftOpen: true,
-  // Inspector is Studio-only; Agent lands without a dead Session column.
   rightOpen: false,
   leftWidth: 216,
   rightWidth: 264,
-  // Agent home = threads master list. Studio still uses `build` / `files`.
-  section: "threads",
+  section: "chats",
 };
+
+const SECTIONS: RailSection[] = ["chats", "studio", "automations", "git", "providers"];
 
 export const LEFT_MIN = 188;
 export const LEFT_MAX = 380;
@@ -43,7 +44,9 @@ function load(): Persisted {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Persisted>) };
+    const parsed = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Persisted>) };
+    if (!SECTIONS.includes(parsed.section)) parsed.section = DEFAULTS.section;
+    return parsed;
   } catch {
     return DEFAULTS;
   }
@@ -59,10 +62,15 @@ function save(state: Persisted) {
 }
 
 interface ShellState extends Persisted {
+  studioView: "overview" | "editor";
+  studioHasDraft: boolean;
+  setStudioView: (view: "overview" | "editor") => void;
   hydrated: boolean;
   paletteOpen: boolean;
   keymapOpen: boolean;
-  overlay: ShellOverlay;
+  /** Studio's "Open .ohm" / browse library — a sheet, not a destination:
+      picking a harness is a step inside building one, not a place you go. */
+  libraryOpen: boolean;
 
   hydrate: () => void;
   toggleLeft: () => void;
@@ -74,7 +82,7 @@ interface ShellState extends Persisted {
   setSection: (s: RailSection) => void;
   setPaletteOpen: (v: boolean) => void;
   setKeymapOpen: (v: boolean) => void;
-  setOverlay: (overlay: ShellOverlay) => void;
+  setLibraryOpen: (v: boolean) => void;
   dismissOverlays: () => void;
 }
 
@@ -92,10 +100,16 @@ function persistFrom(s: ShellState) {
 
 export const useShellStore = create<ShellState>((set, get) => ({
   ...DEFAULTS,
+  studioView: "overview",
+  studioHasDraft: false,
+  setStudioView: (studioView) => set({
+    studioView,
+    studioHasDraft: get().studioHasDraft || studioView === "editor",
+  }),
   hydrated: false,
   paletteOpen: false,
   keymapOpen: false,
-  overlay: null,
+  libraryOpen: false,
 
   // Read persisted geometry after mount so SSR and first paint agree.
   hydrate: () => set({ ...load(), hydrated: true }),
@@ -125,14 +139,13 @@ export const useShellStore = create<ShellState>((set, get) => ({
     persistFrom(get());
   },
   setSection: (section) => {
-    set({ section, leftOpen: true });
+    // Studio brings its inspector; every other destination hides it.
+    set({ section, leftOpen: true, rightOpen: section === STUDIO_SECTION });
     persistFrom(get());
   },
 
-  setPaletteOpen: (paletteOpen) => set({ paletteOpen, keymapOpen: false }),
-  setKeymapOpen: (keymapOpen) => set({ keymapOpen, paletteOpen: false }),
-  setOverlay: (overlay) =>
-    set({ overlay, paletteOpen: false, keymapOpen: false }),
-  dismissOverlays: () =>
-    set({ paletteOpen: false, keymapOpen: false, overlay: null }),
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen, keymapOpen: false, libraryOpen: false }),
+  setKeymapOpen: (keymapOpen) => set({ keymapOpen, paletteOpen: false, libraryOpen: false }),
+  setLibraryOpen: (libraryOpen) => set({ libraryOpen, paletteOpen: false, keymapOpen: false }),
+  dismissOverlays: () => set({ paletteOpen: false, keymapOpen: false, libraryOpen: false }),
 }));

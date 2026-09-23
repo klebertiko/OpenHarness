@@ -1,32 +1,68 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { GitPullRequest, MessageSquare, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Search } from "lucide-react";
 
 import { Panel } from "@/components/shell/Panel";
 import {
   defaultRepoProvider,
+  isUnsupportedByProvider,
   reposApi,
+  RepoApiError,
+  type CheckRun,
+  type Comment,
+  type Commit,
+  type DiffStat,
   type PullSummary,
+  type Review,
 } from "@/lib/reposApi";
+import { type DetailErrors, PullDetail } from "./PullDetail";
+import { formatRelativeTime } from "./time";
 
 /**
- * Agent Git panel — list / create / comment on PRs via `/repos/*` only.
- * Dev: REPO_PROVIDER=fake (NEXT_PUBLIC_REPO_PROVIDER).
+ * Hallmark · macrostructure: Review Bench (design.md).
+ *
+ * Master-detail, deliberately flatter and denser than Automate's centred
+ * list+detail rhythm: a fixed-width list rail (repo entry, search, rows)
+ * next to a detail pane that reads like a spec sheet, not a form. "Create
+ * pull" is a collapsed disclosure inside the rail — a secondary action, not
+ * co-equal real estate with the list.
+ *
+ * Detail-pane sections trace 1:1 to the six `/repos/{provider}/pulls/...`
+ * endpoints (pull, diff, checks, reviews, commits, comments); a section
+ * that a provider can't supply says so instead of going blank or faking a
+ * value. No mutate endpoints exist yet (reviewer request, status change,
+ * merge) so those Codex-reference controls are omitted rather than
+ * rendered inert-but-clickable.
+ *
+ * Nilo does not exist in this checkout yet, so the empty detail state
+ * below is plain text rather than her idle pose — add her back here once
+ * the mascot component lands.
  */
 export function GitPanel() {
   const provider = defaultRepoProvider();
   const [repo, setRepo] = useState("acme/app");
   const [pulls, setPulls] = useState<PullSummary[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [head, setHead] = useState("");
   const [base, setBase] = useState("main");
   const [body, setBody] = useState("");
   const [comment, setComment] = useState("");
+
+  const [pull, setPull] = useState<PullSummary | null>(null);
+  const [diffStat, setDiffStat] = useState<DiffStat | null>(null);
+  const [checks, setChecks] = useState<CheckRun[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [commits, setCommits] = useState<Commit[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [detailErrors, setDetailErrors] = useState<DetailErrors>({});
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!repo.trim()) return;
@@ -35,15 +71,67 @@ export function GitPanel() {
   }, [provider, repo]);
 
   useEffect(() => {
-    void refresh().catch((err: Error) => setError(err.message));
+    void refresh().catch((err: unknown) => setError(describeError(err)));
   }, [refresh]);
+
+  // Selecting a pull (or changing repo) drives a real detail fetch across
+  // all six endpoints. Each is caught independently so one provider gap
+  // (e.g. an unsupported endpoint) never blanks the sections that did load.
+  useEffect(() => {
+    if (selected == null || !repo.trim()) {
+      setPull(null);
+      setDiffStat(null);
+      setChecks([]);
+      setReviews([]);
+      setCommits([]);
+      setComments([]);
+      setDetailErrors({});
+      return;
+    }
+
+    let cancelled = false;
+    const r = repo.trim();
+    const number = selected;
+    setDetailLoading(true);
+    setDetailErrors({});
+
+    const section = <T,>(
+      key: keyof DetailErrors,
+      fn: () => Promise<T>,
+      apply: (v: T) => void
+    ) =>
+      fn()
+        .then((v) => {
+          if (!cancelled) apply(v);
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            setDetailErrors((prev) => ({ ...prev, [key]: describeError(err) }));
+          }
+        });
+
+    void Promise.all([
+      section("pull", () => reposApi.getPull(provider, number, r), (d) => setPull(d.pull)),
+      section("diff", () => reposApi.diff(provider, number, r), (d) => setDiffStat(d.diff)),
+      section("checks", () => reposApi.listChecks(provider, number, r), (d) => setChecks(d.checks)),
+      section("reviews", () => reposApi.listReviews(provider, number, r), (d) => setReviews(d.reviews)),
+      section("commits", () => reposApi.listCommits(provider, number, r), (d) => setCommits(d.commits)),
+      section("comments", () => reposApi.listComments(provider, number, r), (d) => setComments(d.comments)),
+    ]).finally(() => {
+      if (!cancelled) setDetailLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, repo, selected]);
 
   const onCreate = async () => {
     if (!title.trim() || !head.trim()) return;
     setBusy(true);
     setError("");
     try {
-      await reposApi.createPull(provider, {
+      const created = await reposApi.createPull(provider, {
         repo: repo.trim(),
         title: title.trim(),
         head: head.trim(),
@@ -53,153 +141,224 @@ export function GitPanel() {
       setTitle("");
       setHead("");
       setBody("");
+      setCreateOpen(false);
       await refresh();
+      setSelected(created.pull.number);
     } catch (err) {
-      setError((err as Error).message || "Create failed");
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }
   };
 
   const onComment = async () => {
-    if (selected == null || !comment.trim()) return;
+    if (selected == null || !comment.trim() || !repo.trim()) return;
     setBusy(true);
     setError("");
     try {
       await reposApi.comment(provider, selected, repo.trim(), comment.trim());
       setComment("");
+      // The POST response carries no comment body/id/timestamp — refetch
+      // the real list rather than fabricating those fields client-side.
+      const res = await reposApi.listComments(provider, selected, repo.trim());
+      setComments(res.comments);
+      setDetailErrors((prev) => ({ ...prev, comments: undefined }));
     } catch (err) {
-      setError((err as Error).message || "Comment failed");
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }
   };
 
+  const q = search.trim().toLowerCase();
+  const filteredPulls = q
+    ? pulls.filter((p) => `${p.title} ${p.head} ${p.base} #${p.number}`.toLowerCase().includes(q))
+    : pulls;
+
   return (
     <Panel title="Pull requests" meta={provider} className="h-full">
-      <div className="flex flex-col gap-3 p-2.5 text-[12px]">
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex min-w-[10rem] flex-1 flex-col gap-1 text-ink-mute">
-            Repo
-            <input
-              value={repo}
-              onChange={(e) => setRepo(e.target.value)}
-              className="h-[28px] rounded-control border border-line bg-sub-200 px-2 text-ink outline-none focus:border-ink-mute"
-              placeholder="owner/name"
-            />
-          </label>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setError("");
-              void refresh().catch((err: Error) => setError(err.message));
-            }}
-            className="inline-flex h-[28px] items-center gap-1 rounded-control border border-line bg-sub-200 px-2 text-ink hover:bg-sub-300"
-          >
-            <RefreshCw size={12} /> Refresh
-          </button>
-        </div>
-
-        {error && (
-          <p className="text-[11px] text-signal" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div>
-          <p className="t-meta mb-1.5 text-ink-faint">Open pulls</p>
-          <ul className="space-y-1">
-            {pulls.length === 0 && (
-              <li className="text-ink-mute">No open pulls.</li>
-            )}
-            {pulls.map((p) => (
-              <li key={p.number}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(p.number)}
-                  className={`flex w-full items-start gap-2 rounded-control px-2 py-1.5 text-left ${
-                    selected === p.number
-                      ? "bg-sub-300 text-ink"
-                      : "text-ink hover:bg-sub-200"
-                  }`}
-                >
-                  <GitPullRequest size={14} className="mt-0.5 flex-none text-ink-mute" />
-                  <span className="min-w-0 flex-1">
-                    <span className="font-[550]">#{p.number}</span> {p.title}
-                    <span className="mt-0.5 block text-[10px] text-ink-mute">
-                      {p.head} → {p.base}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="border-t border-line-soft pt-2">
-          <p className="t-meta mb-1.5 text-ink-faint">Create pull</p>
-          <div className="flex flex-col gap-1.5">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Title"
-              className="h-[28px] rounded-control border border-line bg-sub-200 px-2 text-ink outline-none focus:border-ink-mute"
-            />
-            <div className="flex gap-1.5">
+      <div className="flex h-full min-h-0">
+        <div className="flex h-full min-h-0 w-[212px] flex-none flex-col border-r border-line-soft">
+          <div className="flex-none border-b border-line-soft p-2">
+            <div className="flex items-center gap-1">
+              <label className="sr-only" htmlFor="git-panel-repo">
+                Repository
+              </label>
               <input
-                value={head}
-                onChange={(e) => setHead(e.target.value)}
-                placeholder="Head branch"
-                className="h-[28px] min-w-0 flex-1 rounded-control border border-line bg-sub-200 px-2 text-ink outline-none focus:border-ink-mute"
+                id="git-panel-repo"
+                value={repo}
+                onChange={(e) => setRepo(e.target.value)}
+                placeholder="owner/name"
+                className="h-[26px] min-w-0 flex-1 rounded-control border border-line bg-sub-200 px-2 text-[11px] text-ink outline-none focus:border-ink-mute"
               />
+              <button
+                type="button"
+                disabled={busy}
+                title="Refresh pull requests"
+                aria-label="Refresh pull requests"
+                onClick={() => {
+                  setError("");
+                  void refresh().catch((err: unknown) => setError(describeError(err)));
+                }}
+                className="oh-focus-inner flex h-[26px] w-[26px] flex-none items-center justify-center rounded-control border border-line bg-sub-200 text-ink-mute hover:bg-sub-300 hover:text-ink"
+              >
+                <RefreshCw size={12} />
+              </button>
+            </div>
+            <div className="relative mt-1.5">
+              <Search size={11} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" aria-hidden />
+              <label className="sr-only" htmlFor="git-panel-search">
+                Search pull requests
+              </label>
               <input
-                value={base}
-                onChange={(e) => setBase(e.target.value)}
-                placeholder="Base"
-                className="h-[28px] w-[7rem] rounded-control border border-line bg-sub-200 px-2 text-ink outline-none focus:border-ink-mute"
+                id="git-panel-search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search"
+                className="h-[24px] w-full rounded-control border border-line bg-sub-200 pl-6 pr-2 text-[11px] text-ink outline-none focus:border-ink-mute"
               />
             </div>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Body"
-              rows={2}
-              className="resize-none rounded-control border border-line bg-sub-200 px-2 py-1.5 text-ink outline-none focus:border-ink-mute"
-            />
+          </div>
+
+          {error && (
+            <p className="t-meta border-b border-line-soft px-2.5 py-1.5 text-fault" role="alert">
+              {error}
+            </p>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {filteredPulls.length === 0 ? (
+              <p className="t-body px-2.5 py-3 text-ink-faint">
+                {pulls.length === 0 ? "No open pulls." : "No matches."}
+              </p>
+            ) : (
+              <ul>
+                {filteredPulls.map((p) => (
+                  <li key={p.number}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(p.number)}
+                      aria-current={selected === p.number}
+                      className={`oh-focus-inner flex w-full flex-col items-start gap-0.5 px-2.5 py-2 text-left ${
+                        selected === p.number ? "bg-sub-300" : "hover:bg-sub-200"
+                      }`}
+                    >
+                      <span className="flex w-full items-center gap-1.5">
+                        <span
+                          className={`t-body min-w-0 flex-1 truncate ${
+                            selected === p.number ? "text-ink" : "text-ink-dim"
+                          }`}
+                        >
+                          {p.title}
+                        </span>
+                        {p.draft && <span className="t-meta flex-none text-warn">draft</span>}
+                      </span>
+                      <span className="t-meta w-full truncate font-mono text-ink-faint">
+                        {p.head} → {p.base}
+                      </span>
+                      <span className="t-meta text-ink-faint">
+                        #{p.number} · {formatRelativeTime(p.updatedAt || p.createdAt)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex-none border-t border-line-soft">
             <button
               type="button"
-              disabled={busy || !title.trim() || !head.trim()}
-              onClick={() => void onCreate()}
-              className="inline-flex h-[28px] items-center justify-center gap-1.5 rounded-control bg-signal px-2 font-[550] text-signal-ink hover:bg-signal-deep disabled:opacity-40"
+              onClick={() => setCreateOpen((v) => !v)}
+              aria-expanded={createOpen}
+              className="oh-focus-inner flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
             >
-              <Plus size={12} /> Create
+              {createOpen ? (
+                <ChevronDown size={12} className="flex-none text-ink-faint" aria-hidden />
+              ) : (
+                <ChevronRight size={12} className="flex-none text-ink-faint" aria-hidden />
+              )}
+              <Plus size={12} className="flex-none text-ink-faint" aria-hidden />
+              <span className="t-label text-ink-mute">New pull request</span>
             </button>
+            {createOpen && (
+              <div className="flex flex-col gap-1.5 px-2.5 pb-2.5">
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Title"
+                  aria-label="New pull request title"
+                  className="h-[26px] rounded-control border border-line bg-sub-200 px-2 text-[11px] text-ink outline-none focus:border-ink-mute"
+                />
+                <div className="flex gap-1.5">
+                  <input
+                    value={head}
+                    onChange={(e) => setHead(e.target.value)}
+                    placeholder="Head branch"
+                    aria-label="Head branch"
+                    className="h-[26px] min-w-0 flex-1 rounded-control border border-line bg-sub-200 px-2 text-[11px] text-ink outline-none focus:border-ink-mute"
+                  />
+                  <input
+                    value={base}
+                    onChange={(e) => setBase(e.target.value)}
+                    placeholder="Base"
+                    aria-label="Base branch"
+                    className="h-[26px] w-[5.5rem] rounded-control border border-line bg-sub-200 px-2 text-[11px] text-ink outline-none focus:border-ink-mute"
+                  />
+                </div>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Body"
+                  rows={2}
+                  aria-label="New pull request description"
+                  className="resize-none rounded-control border border-line bg-sub-200 px-2 py-1.5 text-[11px] text-ink outline-none focus:border-ink-mute"
+                />
+                <button
+                  type="button"
+                  disabled={busy || !title.trim() || !head.trim()}
+                  onClick={() => void onCreate()}
+                  className="inline-flex h-[26px] items-center justify-center gap-1.5 rounded-control bg-signal px-2 text-[11px] font-[550] text-signal-ink hover:bg-signal-deep disabled:opacity-40"
+                >
+                  <Plus size={12} /> Create
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="border-t border-line-soft pt-2">
-          <p className="t-meta mb-1.5 text-ink-faint">
-            Comment {selected == null ? "" : `· #${selected}`}
-          </p>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder={selected == null ? "Select a pull above" : "Review comment"}
-            rows={2}
-            disabled={selected == null}
-            className="mb-1.5 w-full resize-none rounded-control border border-line bg-sub-200 px-2 py-1.5 text-ink outline-none focus:border-ink-mute disabled:opacity-40"
-          />
-          <button
-            type="button"
-            disabled={busy || selected == null || !comment.trim()}
-            onClick={() => void onComment()}
-            className="inline-flex h-[28px] items-center justify-center gap-1.5 rounded-control border border-line bg-sub-200 px-2 text-ink hover:bg-sub-300 disabled:opacity-40"
-          >
-            <MessageSquare size={12} /> Post comment
-          </button>
+        <div className="min-h-0 flex-1">
+          {selected == null ? (
+            <div className="flex h-full min-h-0 flex-col items-start justify-center px-5">
+              <p className="t-body text-ink-mute">Select a pull request to see its details.</p>
+            </div>
+          ) : (
+            <PullDetail
+              pull={pull}
+              diff={diffStat}
+              checks={checks}
+              reviews={reviews}
+              commits={commits}
+              comments={comments}
+              errors={detailErrors}
+              loading={detailLoading}
+              comment={comment}
+              onCommentChange={setComment}
+              onPostComment={() => void onComment()}
+              busy={busy}
+            />
+          )}
         </div>
       </div>
     </Panel>
   );
+}
+
+function describeError(err: unknown): string {
+  if (err instanceof RepoApiError) {
+    if (isUnsupportedByProvider(err)) return "Not supported for this provider.";
+    return err.message || "Request failed.";
+  }
+  if (err instanceof Error) return err.message || "Request failed.";
+  return "Request failed.";
 }

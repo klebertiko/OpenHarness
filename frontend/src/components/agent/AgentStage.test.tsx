@@ -1,15 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 
+import type { Connection } from "@/components/providers/providerStore";
+import { useProviderStore } from "@/components/providers/providerStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
+import { useThreadStore } from "@/store/threadStore";
 
 import { AgentStage } from "./AgentStage";
 
+const { resetRunMock } = vi.hoisted(() => ({ resetRunMock: vi.fn() }));
+
 vi.mock("@/components/agent-run/useRunStream", () => ({
   useRunStream: () => ({
-    run: { runId: null, status: "idle" },
+    run: { runId: null, status: "idle", plan: [], totals: { tokens: 0, nodesRun: 0, elapsedMs: 0 } },
     elapsed: 0,
     live: false,
+    reset: resetRunMock,
     start: vi.fn(),
     stop: vi.fn(),
     advance: vi.fn(),
@@ -21,12 +27,16 @@ vi.mock("@/components/agent/HarnessBar", () => ({
   HarnessBar: () => <div data-testid="harness-bar" />,
 }));
 
-vi.mock("@/components/agent-run/RunControls", () => ({
-  RunControls: () => null,
+vi.mock("@/components/agent/ChatProviderPicker", () => ({
+  ChatProviderPicker: () => <div data-testid="chat-provider-picker" />,
 }));
 
-vi.mock("@/components/agent-run/RunLadder", () => ({
-  RunLadder: () => null,
+vi.mock("@/components/agent/WorkspacePicker", () => ({
+  WorkspacePicker: () => <div data-testid="workspace-picker" />,
+}));
+
+vi.mock("@/components/agent-run/Gate", () => ({
+  Gate: () => null,
 }));
 
 vi.mock("@/components/agent-run/Transcript", () => ({
@@ -42,6 +52,8 @@ describe("AgentStage chat-only surface", () => {
   });
 
   beforeEach(() => {
+    resetRunMock.mockClear();
+    useThreadStore.setState({ threads: [], activeThreadId: null, messagesByThread: {} });
     useHarnessSessionStore.setState({
       hydrated: true,
       enabled: true,
@@ -61,5 +73,101 @@ describe("AgentStage chat-only surface", () => {
     expect(screen.queryByText("Cowork")).toBeNull();
     expect(screen.queryByText("Automations")).toBeNull();
     expect(screen.queryByText("Git")).toBeNull();
+  });
+
+  it("New chat clears the previous run, empties the composer, and focuses it", () => {
+    const id = useThreadStore.getState().createThread("Existing chat");
+    useThreadStore.getState().appendMessage(id, { role: "user", content: "Keep this history" });
+    render(<AgentStage />);
+    resetRunMock.mockClear();
+
+    act(() => useThreadStore.getState().startNewChat());
+
+    const composer = screen.getByRole("textbox", { name: "Message OpenHarness" }) as HTMLTextAreaElement;
+    expect(resetRunMock).toHaveBeenCalledTimes(1);
+    expect(composer.value).toBe("");
+    expect(document.activeElement).toBe(composer);
+    expect(useThreadStore.getState().messagesByThread[id][0].content).toBe("Keep this history");
+  });
+});
+
+/** Minimal, valid Connection fixture — only the fields this stage reads. */
+function makeConnection(overrides: Partial<Connection>): Connection {
+  return {
+    id: "conn",
+    provider: "anthropic",
+    label: "Connection",
+    residence: "cloud",
+    endpoint: "",
+    secret: null,
+    health: "live",
+    detail: "",
+    probes: [],
+    facts: [],
+    models: [],
+    route: [],
+    routeSort: "price",
+    allowed: [],
+    enabled: true,
+    lastProbe: "",
+    ...overrides,
+  };
+}
+
+/**
+ * The chat composer's provider chip: `pickChatProvider` resolves the chip
+ * connection (chosen pick, or Auto — first live connection), and that id is
+ * what `bundleGraphToEngine` carries into the graph as the fallback for any
+ * unpinned node (mirrors `resolve_node_provider`'s documented precedence in
+ * backend/providers/resolution.py). Chat is never mock — with nothing
+ * connected, the composer names the gap and points at Providers instead of
+ * silently allowing a send that can't go anywhere.
+ */
+describe("AgentStage provider gating", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  beforeEach(() => {
+    useHarnessSessionStore.setState({
+      hydrated: true,
+      enabled: false,
+      activeBundle: null,
+      hydrate: async () => undefined,
+    });
+  });
+
+  it("empty state points at Providers when nothing is connected", () => {
+    useProviderStore.setState({ connections: [], selectedId: "" });
+
+    render(<AgentStage />);
+
+    expect(screen.getByText(/no provider connected/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /connect one/i })).toBeTruthy();
+  });
+
+  it("empty state shows the connected provider's label once one is live", () => {
+    useProviderStore.setState({
+      connections: [makeConnection({ id: "anthropic", label: "Anthropic", enabled: true })],
+      selectedId: "",
+    });
+
+    render(<AgentStage />);
+
+    expect(screen.queryByText(/no provider connected/i)).toBeNull();
+    expect(screen.getByText("Anthropic")).toBeTruthy();
+  });
+
+  it("send stays disabled with no instruction even when a provider is connected", () => {
+    useProviderStore.setState({
+      connections: [makeConnection({ id: "anthropic", label: "Anthropic", enabled: true })],
+      selectedId: "anthropic",
+    });
+
+    render(<AgentStage />);
+
+    expect((screen.getByRole("button", { name: /send message/i }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
   });
 });

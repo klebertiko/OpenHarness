@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import { Mark } from "./Mark";
 import { useShellStore } from "./shellStore";
 import { chordCaps, useIsMac } from "./keys";
@@ -12,10 +13,8 @@ import { chordCaps, useIsMac } from "./keys";
  * the window buttons on Windows/Linux, and a 68px inset on macOS where the
  * system draws its own traffic lights over our surface.
  *
- * The centre cell is the one idea worth defending here: it is a live readout
- * (mode · backend · nodes · last latency) that is *also* the command entry.
- * A desktop tool's title bar is prime real estate; giving it to an empty search
- * box wastes it, and giving it to a centred document title wastes it twice.
+ * Document context stays separate from command search. Browser previews omit
+ * native window actions; the desktop shell retains its actual window controls.
  */
 
 interface Props {
@@ -24,6 +23,7 @@ interface Props {
   mode: string;
   running: boolean;
   nodeCount: number;
+  editingHarness?: boolean;
   onOpenPalette: () => void;
 }
 
@@ -69,69 +69,64 @@ export function TitleBar({
   mode,
   running,
   nodeCount,
+  editingHarness,
   onOpenPalette,
 }: Props) {
   const mac = useIsMac();
   const win = useTauriWindow();
-  const { paletteOpen } = useShellStore();
+  const { paletteOpen, leftWidth, hydrated } = useShellStore();
   const caps = chordCaps("Mod+K", mac);
 
   return (
     <header
       data-tauri-drag-region
-      className="relative z-30 flex h-titlebar flex-none items-stretch border-b border-line bg-sub-100 text-ink-dim"
+      className="oh-header relative z-30 flex h-titlebar flex-none items-stretch border-b border-line-soft bg-sub-100 text-ink-dim"
     >
-      {/* macOS draws traffic lights over this inset; on Windows/Linux the mark
-          sits flush at the window edge like every other native app. */}
-      {mac && <div className="w-[68px] flex-none" aria-hidden />}
+      {mac && win && <div className="w-[68px] flex-none" aria-hidden />}
 
-      {/* ── Identity cell ───────────────────────────────────────────────── */}
       <div
         data-tauri-drag-region
-        className="flex min-w-0 flex-none items-center gap-2 border-r border-line px-3"
+        style={{ width: hydrated ? leftWidth : undefined }}
+        className="oh-header-brand flex min-w-0 flex-none items-center gap-2.5 px-4"
       >
         <Mark />
-        <span className="t-label select-none text-ink-mute">OPENHARNESS</span>
-        <span className="text-ink-faint" aria-hidden>
-          /
+        <span className="oh-wordmark select-none text-[13px] font-[600] tracking-[-0.03em] text-ink">
+          OpenHarness
         </span>
-        <input
-          value={harnessName}
-          onChange={(e) => onHarnessNameChange(e.target.value)}
-          spellCheck={false}
-          aria-label="Harness name"
-          className="t-title w-[168px] min-w-0 rounded-control bg-transparent px-1 py-[1px] text-ink outline-none transition-colors hover:bg-sub-200 focus:bg-sub-200"
-        />
       </div>
 
-      {/* ── Readout / command entry ─────────────────────────────────────── */}
-      <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center justify-center px-3">
+      <div data-tauri-drag-region className="oh-header-context flex min-w-0 flex-1 items-center gap-3 px-4">
+        <span className="oh-header-mode shrink-0 text-[12px] text-ink-mute">{mode === "Studio" ? "Harness Studio" : mode}</span>
+        {/* Name a draft in the editor, including before its first node. */}
+        {mode === "Studio" && (editingHarness ?? (nodeCount > 0)) && (
+          <>
+            <span className="text-ink-faint" aria-hidden>/</span>
+            <input
+              value={harnessName}
+              onChange={(e) => onHarnessNameChange(e.target.value)}
+              spellCheck={false}
+              aria-label="Harness name"
+              title="Rename this harness"
+              className="oh-header-name oh-focus-inner w-full max-w-[240px] min-w-0 rounded-control border border-transparent bg-sub-200/70 px-2 py-1 text-[13px] text-ink outline-none transition-colors hover:border-line hover:bg-sub-200 focus:border-line focus:bg-sub-200"
+            />
+          </>
+        )}
+        {running && <span role="status" className="shrink-0 text-[12px] text-ink-mute">Working…</span>}
+      </div>
+
+      <div data-tauri-drag-region className="flex flex-none items-center px-3">
         <button
           type="button"
           onClick={onOpenPalette}
           aria-haspopup="dialog"
           aria-expanded={paletteOpen}
-          className="oh-focus-inner group flex h-[22px] w-full max-w-[520px] items-stretch overflow-hidden rounded-control border border-line-soft bg-sub-200 transition-colors hover:border-line"
+          aria-label="Search and commands"
+          title={`Search and commands (${caps.join("+")})`}
+          className="oh-focus-inner flex h-8 items-center gap-2 rounded-control px-2 text-ink-mute transition-colors hover:bg-sub-200 hover:text-ink"
         >
-          <span className="flex items-center gap-1.5 border-r border-line-soft px-2">
-            <span
-              className="h-[5px] w-[5px] flex-none rounded-[1px]"
-              style={{ background: running ? "var(--signal)" : "var(--ink-faint)" }}
-            />
-            <span className="t-meta uppercase text-ink-dim">{running ? "running" : "idle"}</span>
-          </span>
-          <span className="t-meta flex min-w-0 flex-1 items-center gap-3 overflow-hidden whitespace-nowrap px-2.5 text-ink-mute">
-            <span className="flex-none">
-              mode <span className="text-ink-dim">{mode}</span>
-            </span>
-            <span className="flex-none">
-              nodes <span className="text-ink-dim">{String(nodeCount).padStart(2, "0")}</span>
-            </span>
-            <span className="hidden flex-none lg:inline">
-              backend <span className="text-ink-dim">127.0.0.1:8000</span>
-            </span>
-          </span>
-          <span className="flex items-center gap-[3px] border-l border-line-soft px-2 opacity-70 transition-opacity group-hover:opacity-100">
+          <Search size={15} aria-hidden="true" />
+          <span className="oh-header-search-label text-[12px]">Search</span>
+          <span aria-hidden="true" className="oh-header-shortcut flex items-center gap-1 pl-2">
             {caps.map((c) => (
               <kbd key={c} className="oh-kbd">
                 {c}
@@ -142,7 +137,7 @@ export function TitleBar({
       </div>
 
       {/* ── Window controls ─────────────────────────────────────────────── */}
-      {!mac && (
+      {!mac && win && (
         <div className="flex flex-none items-stretch border-l border-line">
           <WindowButton label="Minimise" onClick={() => win?.minimize?.()}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>

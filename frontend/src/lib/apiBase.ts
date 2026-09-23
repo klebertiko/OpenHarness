@@ -43,3 +43,53 @@ export function apiUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   return `${apiBase()}${p}`;
 }
+
+/**
+ * SEC-3 (harness Security Gate, 2026-09-11) — the sidecar now requires
+ * `Authorization: Bearer <token>` on every route but /health
+ * (backend/security/sidecar_token.py). Rather than touch every call site
+ * that does `fetch(apiUrl(...))` across this codebase, `window.fetch` is
+ * patched once, here, to inject that header on any request whose URL starts
+ * with the sidecar's own origin — every existing and future call to the
+ * sidecar gets authenticated automatically, with zero per-call-site changes.
+ *
+ * Token source, in order:
+ *   1. `window.__OH_TOKEN__` — where a real Tauri-spawns-sidecar integration
+ *      should inject it (not built yet; see next.config.ts's doc comment).
+ *   2. `NEXT_PUBLIC_OH_SIDECAR_TOKEN` — baked in at `next dev`/`next build`
+ *      time from the token file on this machine (next.config.ts). Covers
+ *      today's actual setup: dev always talks to a sidecar already running
+ *      locally.
+ * Requests to any other origin (a repo provider's real API, a CDN, …) are
+ * left untouched — this only ever adds the header for calls to this app's
+ * own sidecar.
+ */
+declare global {
+  interface Window {
+    __OH_TOKEN__?: string;
+  }
+}
+
+function sidecarToken(): string {
+  if (typeof window !== "undefined" && typeof window.__OH_TOKEN__ === "string" && window.__OH_TOKEN__) {
+    return window.__OH_TOKEN__;
+  }
+  return process.env.NEXT_PUBLIC_OH_SIDECAR_TOKEN?.trim() || "";
+}
+
+if (typeof window !== "undefined" && !(window as unknown as { __ohFetchPatched__?: boolean }).__ohFetchPatched__) {
+  (window as unknown as { __ohFetchPatched__?: boolean }).__ohFetchPatched__ = true;
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.startsWith(apiBase())) {
+      const token = sidecarToken();
+      if (token) {
+        const headers = new Headers(init?.headers ?? (typeof input === "object" && "headers" in input ? input.headers : undefined));
+        headers.set("Authorization", `Bearer ${token}`);
+        return nativeFetch(input, { ...init, headers });
+      }
+    }
+    return nativeFetch(input, init);
+  };
+}

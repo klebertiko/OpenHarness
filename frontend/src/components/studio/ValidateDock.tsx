@@ -1,273 +1,103 @@
 "use client";
-
-import { useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Download, FlaskConical, Upload } from "lucide-react";
-
-import {
-  composeBundleFromCanvas,
-  downloadOHarness,
-  fetchDefault,
-  isOHarnessBundle,
-  mockBundle,
-  validateBundle,
-  type MockStep,
-  type OHarnessBundle,
-} from "@/lib/bundlesApi";
-import type { HarnessEdge, HarnessNode } from "@/lib/types";
+import { composeBundleFromCanvas, downloadOHarness, isOHarnessBundle, mockBundle, validateBundle, type MockStep } from "@/lib/bundlesApi";
+import { openStudioBundle } from "@/lib/studio";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
-
 type DockStatus = "idle" | "working" | "ok" | "error";
-
-/**
- * Studio validate / mock / import / export strip.
- *
- * Lives under the canvas so Agent mode never mounts it. Validate and mock hit
- * the same `/bundles/*` routes Plan 01 exposed; export composes canvas graph
- * with content stubs from the active (or default) bundle.
- */
+// Selection, dragging and run telemetry do not change what was validated.
+function without(record: object, keys: string[]) {
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.includes(key)));
+}
+function draftKey() {
+  const { nodes, edges, harnessMeta } = useCanvasStore.getState();
+  const activeBundle = useHarnessSessionStore.getState().activeBundle;
+  return JSON.stringify({
+    nodes: nodes.map(node => ({ ...without(node, ["selected", "dragging", "measured"]), data: without(node.data, ["status", "output", "error", "tokens", "latencyMs"]) })),
+    edges: edges.map(edge => without(edge, ["selected"])), harnessMeta, activeBundle,
+  });
+}
 export function ValidateDock() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const requestId = useRef(0);
+  useEffect(() => () => { requestId.current++; }, []);
   const [status, setStatus] = useState<DockStatus>("idle");
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [steps, setSteps] = useState<MockStep[]>([]);
-
-  const replaceBundle = useHarnessSessionStore((s) => s.replaceBundle);
-  const activeBundle = useHarnessSessionStore((s) => s.activeBundle);
-
-  const resolveBase = useCallback(async (): Promise<OHarnessBundle> => {
-    if (activeBundle && isOHarnessBundle(activeBundle)) {
-      return activeBundle;
-    }
-    return fetchDefault();
-  }, [activeBundle]);
-
-  const composeActive = useCallback(async (): Promise<OHarnessBundle> => {
-    const base = await resolveBase();
-    const { nodes, edges, harnessMeta } = useCanvasStore.getState();
-    return composeBundleFromCanvas(base, { nodes, edges, harnessMeta });
-  }, [resolveBase]);
-
-  const onValidate = async () => {
-    setStatus("working");
-    setMessage("Validating…");
-    setErrors([]);
-    setSteps([]);
+  const [resultFor, setResultFor] = useState("");
+  const nodes = useCanvasStore(s => s.nodes);
+  const edges = useCanvasStore(s => s.edges);
+  const harnessMeta = useCanvasStore(s => s.harnessMeta);
+  const running = useCanvasStore(s => s.isRunning);
+  const activeBundle = useHarnessSessionStore(s => s.activeBundle);
+  const key = draftKey();
+  const fresh = resultFor === key;
+  const busy = fresh && status === "working";
+  const compose = () => composeBundleFromCanvas(isOHarnessBundle(activeBundle) ? activeBundle : null, { nodes, edges, harnessMeta });
+  function begin(label: string) {
+    const ticket = ++requestId.current, stamp = draftKey();
+    setResultFor(stamp); setStatus("working"); setMessage(label); setErrors([]); setSteps([]);
+    return () => ticket === requestId.current && stamp === draftKey();
+  }
+  function fail(error: unknown) { setStatus("error"); setMessage(error instanceof Error ? error.message : "Operation failed"); }
+  async function inspect(kind: "validate" | "mock") {
+    if (useCanvasStore.getState().isRunning) return;
+    const current = begin(kind === "validate" ? "Validating…" : "Planning simulation…");
     try {
-      const bundle = await composeActive();
-      const result = await validateBundle(bundle);
-      if (result.ok) {
-        setStatus("ok");
-        setMessage("Bundle valid");
-        setErrors([]);
+      const bundle = compose();
+      if (kind === "validate") {
+        const result = await validateBundle(bundle); if (!current()) return;
+        setStatus(result.ok ? "ok" : "error"); setMessage(result.ok ? "Bundle valid" : "Validation failed"); setErrors(result.errors ?? []);
       } else {
-        setStatus("error");
-        setMessage("Validation failed");
-        setErrors(result.errors ?? []);
+        const result = await mockBundle(bundle); if (!current()) return;
+        setStatus(result.ok ? "ok" : "error");
+        setMessage(result.ok ? "Simulation plan · " + result.steps.length + " step(s) · no provider called" : "Simulation rejected");
+        setErrors(result.errors ?? []); setSteps(result.steps ?? []);
       }
-    } catch (err) {
-      setStatus("error");
-      setMessage((err as Error).message || "Validate failed");
-      setErrors([]);
-    }
-  };
-
-  const onMock = async () => {
-    setStatus("working");
-    setMessage("Planning mock run…");
-    setErrors([]);
-    setSteps([]);
+    } catch (error) { if (current()) fail(error); }
+  }
+  function onExport() {
+    begin("Exporting…");
+    try { downloadOHarness(compose()); setStatus("ok"); setMessage("Downloaded .ohm"); }
+    catch (error) { fail(error); }
+  }
+  async function onImportFile(file: File) {
+    if (useCanvasStore.getState().isRunning) return;
+    const current = begin("Importing " + file.name + "…");
     try {
-      const bundle = await composeActive();
-      const result = await mockBundle(bundle);
-      setSteps(result.steps ?? []);
-      if (result.ok) {
-        setStatus("ok");
-        setMessage(`Mock planned · ${result.steps.length} step(s)`);
-        setErrors([]);
-      } else {
-        setStatus("error");
-        setMessage("Mock rejected");
-        setErrors(result.errors ?? []);
-      }
-    } catch (err) {
-      setStatus("error");
-      setMessage((err as Error).message || "Mock failed");
-      setErrors([]);
-    }
-  };
-
-  const onExport = async () => {
-    setStatus("working");
-    setMessage("Exporting…");
-    try {
-      const bundle = await composeActive();
-      downloadOHarness(bundle);
-      setStatus("ok");
-      setMessage("Downloaded .oharness");
-    } catch (err) {
-      setStatus("error");
-      setMessage((err as Error).message || "Export failed");
-    }
-  };
-
-  const onImportFile = async (file: File) => {
-    setStatus("working");
-    setMessage(`Importing ${file.name}…`);
-    setErrors([]);
-    setSteps([]);
-    try {
-      const text = await file.text();
-      const parsed: unknown = JSON.parse(text);
+      const parsed: unknown = JSON.parse(await file.text());
       const result = await validateBundle(parsed);
-      if (!result.ok) {
-        setStatus("error");
-        setMessage("Import failed validation");
-        setErrors(result.errors ?? []);
-        return;
-      }
-      if (!isOHarnessBundle(parsed)) {
-        setStatus("error");
-        setMessage("Not a recognizable .oharness bundle");
-        return;
-      }
-      replaceBundle(parsed as unknown as HarnessBundle);
-      const graph = parsed.graph;
-      const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-      const edges = Array.isArray(graph?.edges) ? graph.edges : [];
-      const canvasReady = nodes.every(
-        (n) =>
-          n &&
-          typeof n === "object" &&
-          "position" in (n as object) &&
-          "type" in (n as object)
-      );
-      if (canvasReady) {
-        useCanvasStore
-          .getState()
-          .loadGraph(nodes as HarnessNode[], edges as HarnessEdge[]);
-      }
-      useCanvasStore.getState().setHarnessMeta({
-        id: parsed.manifest.id,
-        name: parsed.manifest.name,
-        description: parsed.manifest.description,
-      });
-      setStatus("ok");
-      setMessage(`Imported · ${parsed.manifest.id}`);
-    } catch (err) {
-      setStatus("error");
-      setMessage((err as Error).message || "Import failed");
-    }
-  };
-
-  return (
-    <div className="flex flex-none flex-col border-t border-line bg-sub-100">
-      <div className="flex h-[32px] items-center gap-1 border-b border-line-soft px-2">
-        <span className="t-label mr-1 text-ink-faint">BUNDLE</span>
-        <DockAction
-          icon={CheckCircle2}
-          label="Validate"
-          onClick={onValidate}
-          disabled={status === "working"}
-        />
-        <DockAction
-          icon={FlaskConical}
-          label="Mock"
-          onClick={onMock}
-          disabled={status === "working"}
-        />
-        <span className="mx-1 h-[14px] w-px bg-line-soft" aria-hidden />
-        <DockAction
-          icon={Download}
-          label="Export .oharness"
-          onClick={onExport}
-          disabled={status === "working"}
-        />
-        <DockAction
-          icon={Upload}
-          label="Import .oharness"
-          onClick={() => fileRef.current?.click()}
-          disabled={status === "working"}
-        />
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".oharness,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) void onImportFile(file);
-          }}
-        />
-        <span className="flex-1" />
-        {message && (
-          <span
-            className={`t-meta truncate ${
-              status === "error"
-                ? "text-fault"
-                : status === "ok"
-                  ? "text-signal"
-                  : "text-ink-mute"
-            }`}
-            title={message}
-          >
-            {message}
-          </span>
-        )}
-      </div>
-
-      {(errors.length > 0 || steps.length > 0) && (
-        <div className="max-h-[120px] overflow-y-auto px-2.5 py-1.5">
-          {errors.length > 0 && (
-            <ul className="space-y-0.5">
-              {errors.map((err) => (
-                <li key={err} className="t-meta text-fault">
-                  {err}
-                </li>
-              ))}
-            </ul>
-          )}
-          {steps.length > 0 && (
-            <ol className="space-y-0.5">
-              {steps.map((step, i) => (
-                <li key={`${step.nodeId}-${i}`} className="t-meta text-ink-dim">
-                  <span className="text-ink-faint">{i + 1}.</span> {step.role}{" "}
-                  <span className="text-ink-faint">({step.nodeId})</span> — {step.status}
-                  {step.note ? ` · ${step.note}` : ""}
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      )}
+      if (!current() || useCanvasStore.getState().isRunning) return;
+      if (!result.ok) { setStatus("error"); setMessage("Import failed validation"); setErrors(result.errors ?? []); return; }
+      if (!isOHarnessBundle(parsed)) { setStatus("error"); setMessage("Not a recognizable .ohm bundle"); return; }
+      openStudioBundle(parsed as unknown as HarnessBundle);
+      setResultFor(draftKey()); setStatus("ok"); setMessage("Imported · " + parsed.manifest.id);
+    } catch (error) { if (current()) fail(error); }
+  }
+  return <div className="flex flex-none flex-col border-t border-line bg-sub-100">
+    <div className="flex min-h-[36px] flex-wrap items-center gap-1 border-b border-line-soft px-2 py-1">
+      <span className="t-label mr-1 text-ink-faint">BUNDLE</span>
+      <DockAction icon={CheckCircle2} label="Validate" onClick={() => void inspect("validate")} disabled={busy || running} />
+      <DockAction icon={FlaskConical} label="Plan simulation" onClick={() => void inspect("mock")} disabled={busy || running} />
+      <span className="mx-1 h-[14px] w-px bg-line-soft" aria-hidden />
+      <DockAction icon={Download} label="Export .ohm" onClick={onExport} disabled={busy} />
+      <DockAction icon={Upload} label="Import .ohm" onClick={() => fileRef.current?.click()} disabled={busy || running} />
+      <input ref={fileRef} type="file" accept=".ohm,.oharness,application/json" className="hidden" disabled={running}
+        onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onImportFile(file); }} />
+      <span className="flex-1" />
+      {fresh && message && <span role="status" className={"t-meta min-w-0 truncate " + (status === "error" ? "text-fault" : status === "ok" ? "text-signal" : "text-ink-mute")} title={message}>{message}</span>}
     </div>
-  );
+    {fresh && (errors.length > 0 || steps.length > 0) && <div className="max-h-[120px] overflow-y-auto px-2.5 py-1.5">
+      {errors.length > 0 && <ul className="space-y-0.5">{errors.map((error, i) => <li key={i} className="t-meta text-fault">{error}</li>)}</ul>}
+      {steps.length > 0 && <ol className="space-y-0.5">{steps.map((step, i) => <li key={step.nodeId + i} className="t-meta text-ink-dim">{i + 1}. {step.role} ({step.nodeId}) — {step.status}{step.note ? " · " + step.note : ""}</li>)}</ol>}
+    </div>}
+  </div>;
 }
-
-function DockAction({
-  icon: Icon,
-  label,
-  onClick,
-  disabled,
-}: {
-  icon: typeof CheckCircle2;
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex h-[24px] items-center gap-1 rounded-control px-1.5 text-ink-mute transition-colors hover:bg-sub-300 hover:text-ink disabled:opacity-40"
-    >
-      <Icon size={12} strokeWidth={1.6} absoluteStrokeWidth />
-      <span className="t-meta">{label}</span>
-    </button>
-  );
+function DockAction({ icon: Icon, label, onClick, disabled }: { icon: typeof CheckCircle2; label: string; onClick: () => void; disabled?: boolean }) {
+  return <button type="button" title={label} aria-label={label} disabled={disabled} onClick={onClick}
+    className="flex h-[24px] items-center gap-1 whitespace-nowrap rounded-control px-1.5 text-ink-mute transition-colors hover:bg-sub-300 hover:text-ink disabled:opacity-40">
+    <Icon size={12} strokeWidth={1.6} absoluteStrokeWidth /><span className="t-meta">{label}</span>
+  </button>;
 }

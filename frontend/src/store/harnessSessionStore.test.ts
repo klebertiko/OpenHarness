@@ -65,7 +65,7 @@ describe("harnessSessionStore", () => {
 
     await useHarnessSessionStore.getState().hydrate();
 
-    expect(fetch).toHaveBeenCalledWith("/bundles/default");
+    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:8000/bundles/default");
     expect(useHarnessSessionStore.getState().activeBundle).toEqual(defaultBundle);
     expect(useHarnessSessionStore.getState().hydrated).toBe(true);
   });
