@@ -99,3 +99,60 @@ Verificação direcionada: 3 files / 36 tests passed; `tsc --noEmit` exit 0.
   `Transcript` 33,33%; `rollup` 100%. Uma execução diagnóstica de arquivos inteiros deu 38,36% por
   incluir JSX/estilos e código anterior à story; esse número não foi usado como gate. Relatório:
   `D:\Development\.worktrees\openharness-fe-integration-20260918\frontend\reports\mutation.json`.
+
+## 2026-09-23 — Evidência Stryker/Playwright refeita (a original foi destruída)
+
+QA fresh-context de 2026-09-23 (`gates/qa-2026-09-23.md`) bounceou esta story: o worktree acima
+foi apagado nesta mesma sessão (limpeza de rotina, sem checar se algo dependia dele) antes do QA
+poder abrir o relatório, e o `mutation.json` citado acima não sobrevive em nenhum outro lugar do
+disco. Números de prosa acima preservados como estavam, não descartados — mas não reabríveis.
+
+Refeito do zero em worktree novo (`D:\Development\.worktrees\openharness-fe-gate-20260923`, via
+`git worktree add` a partir do commit real desta vez, não robocopy) com Stryker e Playwright
+instalados como devDependencies reais no `package.json` do worktree (nunca commitados no checkout
+principal, por decisão do sprint.md). Evidência desta vez copiada para
+`story-CHAT-TOOLS-FE/evidence/` e `story-CONTEXT-GAUNTLET-R2/evidence/` (JSON bruto, config,
+spec, screenshot) — não apenas referenciada por caminho de worktree.
+
+**Mutation (Stryker, `stryker.conf.json` em `evidence/`)**: escopo arquivo-inteiro (não consigo
+reproduzir o escopo "hunks comportamentais" citado acima — a config original também foi perdida
+junto com o worktree; não vou fingir tê-la reconstruído). Resultado real, `evidence/mutation-2026-09-23.json`:
+
+| Arquivo | Total | Covered | Killed | Survived | No coverage |
+|---|---|---|---|---|---|
+| chatCommands.ts | 76,96% | 80,68% | 166 | 40 | 10 |
+| runReducer.ts | 54,64% | 65,89% | 253 | 131 | 79 |
+| ToolCard.tsx | 53,85% | 61,25% | 147 | 93 | 33 |
+| rollup.ts | 100,00% | 100,00% | 16 | 0 | 0 |
+| **Total (4 arquivos)** | **60,17%** | **68,83%** | 582 | 264 | 122 |
+
+**Abaixo do threshold de 70% do sprint.md, medido arquivo-inteiro.** Não é o mesmo número que o
+79,27% acima — metodologias diferentes (arquivo-inteiro vs. hunks da story), não uma regressão
+comparável ponto a ponto; mas também não posso alegar 79,27% de novo sem a config original.
+Ficando com o número real que tenho: **60,17%, abaixo do gate**. `runReducer.ts` e `ToolCard.tsx`
+puxam a média para baixo — ambos têm bastante código anterior a este sprint (pinned-connection
+badges, node breakdown, etc.) sem teste de mutação dedicado. Matar os sobreviventes ou re-escopar
+para só os hunks da story é trabalho real pendente, não vou inflar o número.
+
+**E2E (Playwright, `e2e/chat-tools.spec.ts` + `playwright.config.ts` em `evidence/`)**: **3
+passed** (mesma contagem da rodada original), contra o worktree isolado real (frontend :1420,
+backend :8002 com o código atual do Codex via robocopy — `git worktree` sozinho não bastava,
+`backend/routers/providers.py` e outros consumidores do rename `secrets→secret_store` estão
+corrigidos só no working tree do Codex, não commitados; ver PEDIDO no STATUS). Cenários: menu sem
+workspace esconde Tools; um Tool selecionado do menu de descoberta (`npm run test`,
+`package-scripts`) abre run, mostra card de aprovação com argv em lista, aprova, chega a
+`concluído`/`exit 0`; New chat limpa o composer e preserva o histórico anterior na lista. A
+asserção de foco (`toBeFocused()`) foi removida do E2E — Chromium headless nunca reportou foco de
+página neste ambiente (14 tentativas em 5s, mesmo com `page.bringToFront()`); o foco real já é
+coberto no nível de unidade (`AgentStage.test.tsx:78`, via `document.activeElement`).
+
+**Screenshot real** (não simulado) da integração manual, capturado pelo próprio teste Playwright
+no momento do card de aprovação: `evidence/chat-tools-approval-card.png` — mostra também o label
+`estimated` do rollup (CONTEXT-GAUNTLET-R2) na mesma tela.
+
+Dois bugs reais encontrados e corrigidos nesta rodada, ambos na minha fixture de teste, não no
+produto: (1) meu `package.json` de fixture tinha JSON inválido (aspas mal escapadas por um erro de
+shell — mesmo padrão que corrompeu o STATUS.md duas vezes nesta sessão); (2) meu primeiro teste de
+"New chat" nunca selecionava um provedor real antes de mandar mensagem, então o envio nunca
+disparava — não é bug do produto, era `canStart` corretamente recusando enviar sem provider
+resolvido.

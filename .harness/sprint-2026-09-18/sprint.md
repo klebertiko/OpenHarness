@@ -56,10 +56,10 @@ Uma linha por story; só o dono move a própria linha. Colunas: Sprint Backlog �
 |---|---|---|---|
 | CHAT-TOOLS-CONTRACT | claude | QA | 2026-09-23 QA-BOUNCE: contract.md/threat-model.md/ADR 0004 nunca commitados (DoD explícito) |
 | CHAT-TOOLS-BE | codex | QA | 2026-09-23 QA-BOUNCE: backend/sandbox+chat_tools.py+testes nunca commitados (DoD explícito); AC/testes em si verificados |
-| CHAT-TOOLS-FE | claude | QA | 2026-09-23 QA-BOUNCE: código não commitado + evidência Stryker/Playwright destruída (worktree apagado, ferramentas ausentes do package.json) + sem screenshot da integração manual |
+| CHAT-TOOLS-FE | claude | QA | 2026-09-23 ATENDIDO parcial: commitado (03c91ba), Playwright 3/3 real + screenshot refeitos (evidence/); mutation Stryker real = 60,17% (abaixo do gate 70%, ver ledger) — ainda não Ready for QA |
 | DIRECT-HISTORY | codex | ARCH | 2026-09-23 QA-PASS (evidência reproduzida independente: E2E 28/28, mutation 84,91% exato) |
 | AUTOMATE-CHECKPOINT | codex | ARCH | 2026-09-23 QA-PASS (58/58 testes reproduzidos, AC#4 vacuamente satisfeito) |
-| CONTEXT-GAUNTLET-R2 | claude | QA | 2026-09-23 QA-BOUNCE: AC#4 crítico nunca rodou; evidência Stryker destruída (worktree apagado) |
+| CONTEXT-GAUNTLET-R2 | claude | QA | 2026-09-23 ATENDIDO: AC#4 crítico rodou e WON (4/4 pieces), mutation rollup.ts refeita 16/16=100%, commitado (03c91ba) — Ready for QA de novo |
 | STUDIO-REDESIGN | claude | Sprint Backlog | 2026-09-18 planning |
 | DOSSIER-CRED-LENGTH | claude | ARCH | 2026-09-23 QA-PASS (fix de CredentialSeal.tsx confirmado por leitura de código) |
 

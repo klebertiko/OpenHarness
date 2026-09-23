@@ -37,3 +37,29 @@ sem `harness_done` fica `estimated` — honesto: o backend nunca confirmou.
   módulo puro `rollup.ts`, que contém toda a regra de proveniência. Relatório bruto preservado em
   `D:\Development\.worktrees\openharness-fe-integration-20260918\frontend\reports\mutation.json`.
 - AC#4 permanece reservado ao crítico fresh-context do gate QA/ARCH.
+
+## 2026-09-23 — AC#4 fechado: crítico fresh-context rodou
+
+Crítico blind rodou (`p4-critic-r2`), fresh context, bar re-fetchado ao vivo hoje (DeepSeek
+Harness `docs/subsystems/token-meter.md` + Discussion #1530). Confirmou ao vivo: `rollup.ts`
+(`rollupTotals`) + `Transcript.tsx` (`RunRollup`) implementados, 17/17 testes verdes
+(`rollup.test.ts` + `Transcript.test.tsx`), `tsc --noEmit` limpo, e o label `• estimated`
+observado de fato na tela num run real (chat enviado contra dev server ao vivo, run falhou por
+falta de credencial no sandbox — mesmo estado honesto do round 1, `—`/`0` nunca fabricado).
+**WINNER: B (nosso lado) — Piece 4 exits WON. Score: 4/4 pieces won.** Veredito completo (GAP/
+EVIDENCE) registrado no ledger original da story-mãe:
+`../../sprint-2026-09-15/story-CONNECTION-CONTEXT-GAUNTLET/ledger.md`, entrada
+"## 2026-09-23 — Piece 4 (`p4-critic-r2`) — Round 2". Não duplicado aqui.
+
+## 2026-09-23 — Mutation refeita (evidência original destruída, ver nota em CHAT-TOOLS-FE)
+
+QA fresh-context de 2026-09-23 bounceou esta story por dois motivos: AC#4 crítico nunca tinha
+rodado (fechado acima, WON) e evidência de mutation do `rollup.ts` inacessível — o worktree citado
+no ledger anterior (`openharness-fe-integration-20260918`) foi apagado nesta sessão antes do QA
+conseguir abrir o relatório. Refeito junto com o Stryker da CHAT-TOOLS-FE (mesmo worktree novo,
+mesma config, `rollup.ts` no escopo): **`rollup.ts` → 16/16 mutants killed, 100,00%**, exact match
+ao número anterior. Relatório bruto preservado desta vez em `evidence/mutation-2026-09-23.json`
+(cópia do mesmo arquivo da story CHAT-TOOLS-FE — mutation rodou nos 4 arquivos juntos).
+
+Com AC#4 fechado (WON) e mutation reproduzida, os dois motivos do bounce estão endereçados. Falta
+apenas o gate seguinte (ARCH/SEC) e o commit (já feito, ver STATUS) para re-sinalizar Ready for QA.
