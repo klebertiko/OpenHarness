@@ -54,14 +54,14 @@ Uma linha por story; só o dono move a própria linha. Colunas: Sprint Backlog �
 
 | Story | Dono | Coluna | Última mudança |
 |---|---|---|---|
-| CHAT-TOOLS-CONTRACT | claude | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
-| CHAT-TOOLS-BE | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
-| CHAT-TOOLS-FE | claude | SEC | 2026-09-24 ARCH-PASS (addendum em gates/arch-2026-09-24.md); PR #2 (a75f0ac). Aguardando SEC fresh-context |
-| DIRECT-HISTORY | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
-| AUTOMATE-CHECKPOINT | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
-| CONTEXT-GAUNTLET-R2 | claude | SEC | 2026-09-24 ARCH-PASS (addendum em gates/arch-2026-09-24.md); PR #2 (a75f0ac). Aguardando SEC fresh-context |
+| CHAT-TOOLS-CONTRACT | claude | HITL | 2026-09-24 SEC-PASS (gates/sec-2026-09-24.md); sem P0/P1. Carrega P2-1/P2-2 (denylist estreitada vs threat model; regex de redação falha em chave entre aspas) a fechar nesta sprint |
+| CHAT-TOOLS-BE | codex | HITL | 2026-09-24 SEC-PASS (gates/sec-2026-09-24.md); implementação fiel ao contrato, contenção de raiz/401/gate de exec verificados ao vivo. Herda P2-1/P2-2 (fix em backend/sandbox/secrets.py) |
+| CHAT-TOOLS-FE | claude | HITL | 2026-09-24 SEC-PASS; P2-FE-1 e P2-FE-2 fechados (commit 3a41508) — runId propagado até ToolCard, token comparado por origem. Regressão limpa. Pronta para merge |
+| DIRECT-HISTORY | codex | HITL | 2026-09-24 SEC-PASS (gates/sec-2026-09-24.md); logs atrás do token, eventos persistidos redigidos, erros de provider sanitizados. P3-4 no backlog (redigir também sem broker) |
+| AUTOMATE-CHECKPOINT | codex | HITL | 2026-09-24 SEC-PASS (gates/sec-2026-09-24.md); auditoria, só teste novo. Scheduler reusa _validated_project_cwd e automação agendada não constrói ToolBroker — não dispara exec |
+| CONTEXT-GAUNTLET-R2 | claude | HITL | 2026-09-24 SEC-PASS (gates/sec-fe-2026-09-24.md); nenhum achado de nenhuma severidade — aritmética pura sobre estado do cliente, rótulo de proveniência de união fechada renderizado como texto, sem entrada/rede/persistência |
 | STUDIO-REDESIGN | claude | Sprint Backlog | 2026-09-18 planning |
-| DOSSIER-CRED-LENGTH | claude | SEC | 2026-09-24 ARCH-PASS (fix pequeno, sem violação de padrão); PR #2. Aguardando SEC fresh-context |
+| DOSSIER-CRED-LENGTH | claude | HITL | 2026-09-24 SEC-PASS (gates/sec-2026-09-24.md); length:null melhora honestidade sem piorar disclosure — só prefix+4 últimos, input type=password, valor limpo do DOM, nunca entra em state |
 
 ## Propriedade de arquivos — mudanças não sobrepostas
 
