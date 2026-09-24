@@ -55,7 +55,7 @@ Uma linha por story; só o dono move a própria linha. Colunas: Sprint Backlog �
 | Story | Dono | Coluna | Última mudança |
 |---|---|---|---|
 | CHAT-TOOLS-CONTRACT | claude | QA | 2026-09-23 QA-BOUNCE: contract.md/threat-model.md/ADR 0004 nunca commitados (DoD explícito) |
-| CHAT-TOOLS-BE | codex | QA | 2026-09-23 QA-BOUNCE: backend/sandbox+chat_tools.py+testes nunca commitados (DoD explícito); AC/testes em si verificados |
+| CHAT-TOOLS-BE | codex | ARCH | 2026-09-24 commit adf02de (excepcional, autorizado pelo HITL — Codex no limite de uso) fecha o único gap que o QA de 23/09 apontou; AC/testes já verificados naquele QA |
 | CHAT-TOOLS-FE | claude | QA | 2026-09-23 ATENDIDO parcial: commitado (03c91ba), Playwright 3/3 real + screenshot refeitos (evidence/); mutation Stryker real = 60,17% (abaixo do gate 70%, ver ledger) — ainda não Ready for QA |
 | DIRECT-HISTORY | codex | ARCH | 2026-09-23 QA-PASS (evidência reproduzida independente: E2E 28/28, mutation 84,91% exato) |
 | AUTOMATE-CHECKPOINT | codex | ARCH | 2026-09-23 QA-PASS (58/58 testes reproduzidos, AC#4 vacuamente satisfeito) |
