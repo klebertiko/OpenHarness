@@ -63,3 +63,11 @@ ao número anterior. Relatório bruto preservado desta vez em `evidence/mutation
 
 Com AC#4 fechado (WON) e mutation reproduzida, os dois motivos do bounce estão endereçados. Falta
 apenas o gate seguinte (ARCH/SEC) e o commit (já feito, ver STATUS) para re-sinalizar Ready for QA.
+
+## 2026-09-24 — mutation re-rodada junto com o fechamento de CHAT-TOOLS-FE
+
+CHAT-TOOLS-FE precisou de uma segunda rodada de Stryker (re-escopo de `runReducer.ts` para hunks +
+17 testes novos em outros arquivos) para fechar o gate de 70%. `rollup.ts` estava no mesmo escopo
+e saiu **de novo 16/16 = 100,00%**, sem mudança — nenhum teste desta story foi tocado nesta rodada.
+Relatório atualizado: `evidence/mutation-2026-09-24-final.json` (substitui o de 23/09, mesmo
+resultado para este arquivo). Nada pendente nesta story.

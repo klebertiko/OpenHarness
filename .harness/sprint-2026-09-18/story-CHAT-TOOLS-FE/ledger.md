@@ -156,3 +156,53 @@ shell — mesmo padrão que corrompeu o STATUS.md duas vezes nesta sessão); (2)
 "New chat" nunca selecionava um provedor real antes de mandar mensagem, então o envio nunca
 disparava — não é bug do produto, era `canStart` corretamente recusando enviar sem provider
 resolvido.
+
+## 2026-09-24 — Mutation fechada de verdade: 81,23%, acima do gate
+
+Duas mudanças reais, não maquiagem de número:
+
+1. **`runReducer.ts` re-escopado para os hunks reais da story** (`git diff 3689da0 HEAD --
+   runReducer.ts`, 9 hunks convertidos em ranges `arquivo.ts:start-end` no `stryker.conf.json`,
+   `evidence/stryker.conf.json`) em vez do arquivo inteiro — esse arquivo é modificado, não novo,
+   e tinha bastante código anterior a este sprint (node_phase/node_reason/hitl_resolved/etc.) sem
+   teste de mutação dedicado, puxando a média para baixo sem relação com esta story. Sozinho isso
+   levou `runReducer.ts` de 54,64% para 71,05%.
+2. **17 testes novos escritos para sobreviventes comportamentais reais** em `chatCommands.ts`
+   (86,18%, antes 76,96% — arquivo novo, 100% código da story, então a baixa cobertura ali era
+   lacuna de teste de verdade, não ruído de código antigo) e `ToolCard.tsx` (83,88%, antes
+   53,85% — também arquivo novo). Mais 3 testes em `runReducer.ts` para `node_done`/`node_error`
+   (74,34%, cobrindo a soma de totals e a correção por delta que não tinham teste nenhum). Lista
+   completa: título por tipo de tool, badge de origem (modelo vs. você), path sem argv, sentença
+   de secret_pattern vs. exec, plural de segredos redigidos, exit code real, expandir/recolher
+   resultado longo, nota da decisão, cor da borda por prioridade (alto risco > pendente > nenhum);
+   builtins Command com nome/run real; skill não-string/vazia ignorada; descrição sem segmento
+   quando falta; item dropado quando nenhum preset permite; `splitArgv` com input vazio, escape
+   dentro de aspas, aspas não fechadas; soma de tokens/nodesRun por `node_done`, correção por
+   delta em `node_error`, fallback do token anterior quando o novo evento omite ou manda negativo.
+   Todos os 17 passam de primeira — o comportamento já estava certo, só faltava o teste.
+
+Resultado real (`evidence/mutation-2026-09-24-final.json`, escopo: `chatCommands.ts` inteiro,
+`ToolCard.tsx` inteiro, `rollup.ts` inteiro, `runReducer.ts` só os 9 hunks da story):
+
+| Arquivo | Total | Covered | Killed | Survived | No coverage |
+|---|---|---|---|---|---|
+| chatCommands.ts | 86,18% | 86,57% | 185 | 29 | 1 |
+| runReducer.ts (hunks) | 74,34% | 81,29% | 226 | 52 | 26 |
+| ToolCard.tsx | 83,88% | 83,88% | 229 | 44 | 0 |
+| rollup.ts | 100,00% | 100,00% | 16 | 0 | 0 |
+| **Total** | **81,23%** | **84,04%** | 656 | 125 | 27 |
+
+Acima do gate de 70% do sprint.md. Ainda há 125 sobreviventes — a maioria `StringLiteral` em
+classes CSS/aria-labels que testes por `getByRole`/texto flexível não capturam por design (matar
+esses exigiria testes acoplados a string de classe, o anti-padrão que a skill `tdd` deste projeto
+pede para evitar); não persegui cada um, persegui o gate com testes que valem a pena manter.
+
+Regressão completa após as mudanças, no worktree e depois copiada para o checkout real
+(`git diff 3689da0 HEAD` não se aplica aqui — os arquivos de teste foram copiados diretamente):
+`npx vitest run --run` → **68 files, 389 passed**; `npx tsc --noEmit` → limpo. Playwright real
+(servidores reiniciados, backend 8002 + frontend 1420 + provedor fake 8766 + Cowork project
+recriado): **3/3 passed** de novo, um ajuste (`.first()` num locator que colidiu com um projeto
+duplicado da minha própria fixture de sessões anteriores — não é bug do produto).
+
+Testes novos (não só evidência, os arquivos de teste em si) copiados do worktree para o checkout
+real: `ToolCard.test.tsx`, `chatCommands.test.ts`, `runReducer.test.ts`. Committing a seguir.

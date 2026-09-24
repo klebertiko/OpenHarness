@@ -8,8 +8,13 @@
   "mutate": [
     "src/components/agent/chatCommands.ts",
     "src/components/agent-run/ToolCard.tsx",
-    "src/components/agent-run/runReducer.ts",
-    "src/components/agent-run/rollup.ts"
+    "src/components/agent-run/rollup.ts",
+    "src/components/agent-run/runReducer.ts:18-31",
+    "src/components/agent-run/runReducer.ts:61-89",
+    "src/components/agent-run/runReducer.ts:102-142",
+    "src/components/agent-run/runReducer.ts:161-267",
+    "src/components/agent-run/runReducer.ts:284-318",
+    "src/components/agent-run/runReducer.ts:350-356"
   ],
   "thresholds": { "high": 80, "low": 70, "break": 0 },
   "timeoutMS": 30000,

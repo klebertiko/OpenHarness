@@ -54,14 +54,14 @@ Uma linha por story; só o dono move a própria linha. Colunas: Sprint Backlog �
 
 | Story | Dono | Coluna | Última mudança |
 |---|---|---|---|
-| CHAT-TOOLS-CONTRACT | claude | ARCH | 2026-09-23 commit dd4e186 fechou o único gap do QA (commit); AC#1-6 já verificados naquele QA. SEC fresh-context segue pendente para o Gate 4, não bloqueia Gate 3 |
-| CHAT-TOOLS-BE | codex | ARCH | 2026-09-24 commit adf02de (excepcional, autorizado pelo HITL — Codex no limite de uso) fecha o único gap que o QA de 23/09 apontou; AC/testes já verificados naquele QA |
-| CHAT-TOOLS-FE | claude | QA | 2026-09-23 ATENDIDO parcial: commitado (03c91ba), Playwright 3/3 real + screenshot refeitos (evidence/); mutation Stryker real = 60,17% (abaixo do gate 70%, ver ledger) — ainda não Ready for QA |
-| DIRECT-HISTORY | codex | ARCH | 2026-09-23 QA-PASS (evidência reproduzida independente: E2E 28/28, mutation 84,91% exato) |
-| AUTOMATE-CHECKPOINT | codex | ARCH | 2026-09-23 QA-PASS (58/58 testes reproduzidos, AC#4 vacuamente satisfeito) |
+| CHAT-TOOLS-CONTRACT | claude | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
+| CHAT-TOOLS-BE | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
+| CHAT-TOOLS-FE | claude | QA | 2026-09-24 READY-FOR-QA: mutation real 81,23% (runReducer re-escopado p/ hunks + 17 testes novos, ver ledger); Playwright 3/3, vitest 389/389, tsc limpo, commitado |
+| DIRECT-HISTORY | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
+| AUTOMATE-CHECKPOINT | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
 | CONTEXT-GAUNTLET-R2 | claude | QA | 2026-09-23 ATENDIDO: AC#4 crítico rodou e WON (4/4 pieces), mutation rollup.ts refeita 16/16=100%, commitado (03c91ba) — Ready for QA de novo |
 | STUDIO-REDESIGN | claude | Sprint Backlog | 2026-09-18 planning |
-| DOSSIER-CRED-LENGTH | claude | ARCH | 2026-09-23 QA-PASS (fix de CredentialSeal.tsx confirmado por leitura de código) |
+| DOSSIER-CRED-LENGTH | claude | SEC | 2026-09-24 ARCH-PASS (fix pequeno, sem violação de padrão); PR #2. Aguardando SEC fresh-context |
 
 ## Propriedade de arquivos — mudanças não sobrepostas
 

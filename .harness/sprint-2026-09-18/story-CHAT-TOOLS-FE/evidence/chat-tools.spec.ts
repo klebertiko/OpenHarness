@@ -28,7 +28,7 @@ test.describe("Chat tools broker — real E2E", () => {
   test("Selecting a Tool starts a run, shows approval, and renders the result", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: /Working folder/ }).click();
-    await page.getByRole("listbox", { name: "Chat working folder" }).getByRole("option", { name: "Gate FE" }).click();
+    await page.getByRole("listbox", { name: "Chat working folder" }).getByRole("option", { name: "Gate FE" }).first().click();
     await page.getByRole("button", { name: /Chat provider/ }).click();
     await page.getByRole("listbox", { name: "Chat provider" }).getByRole("option", { name: "Ollama local" }).click();
 
