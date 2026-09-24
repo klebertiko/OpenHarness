@@ -1,0 +1,4 @@
+-r requirements.txt
+# mutmut 3 does not support native Windows. Run only inside an isolated worktree.
+mutmut[patch]==2.4.5
+pytest-timeout==2.4.0

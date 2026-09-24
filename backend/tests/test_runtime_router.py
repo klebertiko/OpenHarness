@@ -6,7 +6,6 @@ import asyncio
 
 import pytest
 
-from adapters.cli_claude import LIVE_SPAWN, CliClaudeStub
 from engine import RunControl, execute_harness
 from runtime.cli_probe import KNOWN_CLIS, probe_cli
 from runtime.router import RuntimeChoice, select_runtime
@@ -67,15 +66,6 @@ def test_select_runtime_user_pref_cli_overrides_bundle_api() -> None:
         probe=lambda name: f"/usr/bin/{name}",
     )
     assert choice == RuntimeChoice(kind="cli", name="codex", reason="")
-
-
-def test_cli_claude_stub_records_argv_when_live_gated() -> None:
-    assert LIVE_SPAWN is False
-    stub = CliClaudeStub()
-    result = stub.spawn(["claude", "-p", "hello"], mock=True)
-    assert result.argv == ["claude", "-p", "hello"]
-    assert result.spawned is False
-    assert stub.recorded == [["claude", "-p", "hello"]]
 
 
 def test_execute_emits_runtime_selected() -> None:

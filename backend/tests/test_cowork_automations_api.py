@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -123,3 +125,43 @@ def test_cowork_project_not_found(client: TestClient) -> None:
 
 def test_automation_job_not_found(client: TestClient) -> None:
     assert client.get("/automations/missing").status_code == 404
+
+
+def test_update_endpoints_do_not_emit_utcnow_deprecation_warning(client: TestClient) -> None:
+    project = client.post(
+        "/cowork/projects",
+        json={
+            "name": "Warning check",
+            "rootPath": "/tmp/warncheck",
+            "instructions": "",
+            "memoryJson": {},
+            "harnessEnabled": False,
+        },
+    ).json()
+
+    job = client.post(
+        "/automations/",
+        json={
+            "name": "Warning check job",
+            "cron": "0 9 * * *",
+            "projectId": project["id"],
+            "harnessBundleId": None,
+            "harnessEnabled": False,
+        },
+    ).json()
+
+    harness = client.post(
+        "/harnesses/",
+        json={"name": "Warning check harness", "description": "", "graph_json": {}},
+    ).json()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert client.put(f"/cowork/projects/{project['id']}", json={"name": "v2"}).status_code == 200
+        assert client.put(f"/automations/{job['id']}", json={"name": "v2"}).status_code == 200
+        assert client.put(f"/harnesses/{harness['id']}", json={"name": "v2"}).status_code == 200
+
+    utcnow_warnings = [
+        w for w in caught if issubclass(w.category, DeprecationWarning) and "utcnow" in str(w.message)
+    ]
+    assert not utcnow_warnings, [str(w.message) for w in utcnow_warnings]

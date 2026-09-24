@@ -76,12 +76,19 @@ def validate_dict(data: dict) -> ValidateResult:
 
 
 def validate_path(path: Path) -> ValidateResult:
+    """Accepts both native YAML and legacy pretty-printed JSON `.ohm`/
+    `.oharness` files -- the file extension does not select a parser
+    (ohm-yaml-migration.md P1 step 3). Parsing goes through
+    ``oharness.codec``'s restricted YAML 1.2 profile, so a legacy JSON file
+    with duplicate keys, for instance, is now rejected here exactly like a
+    YAML file would be, instead of silently keeping the last value.
+    """
     if not path.is_file():
         return ValidateResult(False, [f"file not found: {path}"])
+    from . import codec  # local import: codec imports validate_dict from here
+
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as ex:
-        return ValidateResult(False, [f"invalid JSON: {ex.msg}"])
-    if not isinstance(data, dict):
-        return ValidateResult(False, ["root document must be a JSON object"])
+        data = codec.decode_bytes(path.read_bytes())
+    except codec.CodecError as ex:
+        return ValidateResult(False, [str(ex)])
     return validate_dict(data)

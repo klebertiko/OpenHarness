@@ -10,9 +10,14 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from adapters.catalog import list_catalog
-from secrets.base import SecretsStore
+from adapters import AdapterConfig, get_adapter
+from adapters.catalog import get_provider, list_catalog
+from database import get_db
+from providers import store as connection_store
+from providers.resolution import ADAPTER_BY_PROVIDER
+from secret_store.base import SecretsStore
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
@@ -26,6 +31,12 @@ class ConnectionCreate(BaseModel):
     residence: Residence = "cloud"
     endpoint: str = ""
     enabled: bool = False
+    # HTTP-based providers (Ollama/OpenRouter/OpenAI-compatible) reject a
+    # request with no model — "model is required" — unlike the CLI adapters,
+    # which fall back to their own default when a node pins none. A graph
+    # node's own `model` still wins when it has one; this is only the
+    # fallback (see resolve_node_provider in providers/resolution.py).
+    defaultModel: str = ""
 
 
 class ConnectionUpdate(BaseModel):
@@ -33,6 +44,7 @@ class ConnectionUpdate(BaseModel):
     residence: Residence | None = None
     endpoint: str | None = None
     enabled: bool | None = None
+    defaultModel: str | None = None
 
 
 class SecretBody(BaseModel):
@@ -63,6 +75,7 @@ def _public_connection(row: dict[str, Any]) -> dict[str, Any]:
         "endpoint": row["endpoint"],
         "enabled": row.get("enabled", False),
         "secretRef": row.get("secretRef"),
+        "defaultModel": row.get("defaultModel", ""),
     }
 
 
@@ -80,6 +93,7 @@ async def list_connections(connections: dict = Depends(get_connections)):
 async def create_connection(
     body: ConnectionCreate,
     connections: dict = Depends(get_connections),
+    db: AsyncSession = Depends(get_db),
 ):
     if body.id in connections:
         raise HTTPException(409, f"Connection '{body.id}' already exists")
@@ -91,8 +105,10 @@ async def create_connection(
         "endpoint": body.endpoint,
         "enabled": body.enabled,
         "secretRef": None,
+        "defaultModel": body.defaultModel,
     }
     connections[body.id] = row
+    await connection_store.upsert(db, row)
     return _public_connection(row)
 
 
@@ -112,6 +128,7 @@ async def update_connection(
     connection_id: str,
     body: ConnectionUpdate,
     connections: dict = Depends(get_connections),
+    db: AsyncSession = Depends(get_db),
 ):
     row = connections.get(connection_id)
     if not row:
@@ -124,6 +141,9 @@ async def update_connection(
         row["endpoint"] = body.endpoint
     if body.enabled is not None:
         row["enabled"] = body.enabled
+    if body.defaultModel is not None:
+        row["defaultModel"] = body.defaultModel
+    await connection_store.upsert(db, row)
     return _public_connection(row)
 
 
@@ -132,6 +152,7 @@ async def delete_connection(
     connection_id: str,
     connections: dict = Depends(get_connections),
     store: SecretsStore = Depends(get_secrets_store),
+    db: AsyncSession = Depends(get_db),
 ):
     row = connections.pop(connection_id, None)
     if not row:
@@ -139,7 +160,49 @@ async def delete_connection(
     ref = row.get("secretRef")
     if ref:
         store.delete(ref)
+    await connection_store.delete(db, connection_id)
     return None
+
+
+@router.post("/{connection_id}/probe")
+async def probe_connection(
+    connection_id: str,
+    connections: dict = Depends(get_connections),
+    store: SecretsStore = Depends(get_secrets_store),
+):
+    """
+    Reachability + credential check — never spends tokens (`ProbeResult`'s own
+    contract, `backend/adapters/base.py`). For a CLI-backed connection
+    (anthropic, cursor) this runs the vendor CLI's own lightweight auth-status
+    command; there is no key to validate. For an api-key connection this hits
+    the vendor's own no-cost `GET /models`, with the stored key attached so a
+    bad or missing credential surfaces as a real 401 rather than looking live.
+    """
+    row = connections.get(connection_id)
+    if not row:
+        raise HTTPException(404, "Connection not found")
+
+    # Same translation resolve_node_provider() applies for a run: get_adapter()
+    # is keyed by CLI/wire-protocol name ("claude"), not connection.provider
+    # ("anthropic") — skipping it silently probes MockAdapter instead of the
+    # real adapter and reports a false "not implemented".
+    adapter_name = ADAPTER_BY_PROVIDER.get(row["provider"], row["provider"])
+    adapter = get_adapter(adapter_name)
+
+    api_key = ""
+    spec = get_provider(row["provider"]) or {}
+    if spec.get("credential", {}).get("kind") == "api-key" and row.get("secretRef"):
+        api_key = store.get(row["secretRef"]) or ""
+
+    config = AdapterConfig(adapter=adapter_name, model="", endpoint=row.get("endpoint", ""), api_key=api_key)
+    result = await adapter.probe(config)
+    return {
+        "ok": result.ok,
+        "health": result.health,
+        "detail": result.detail,
+        "latencyMs": result.latency_ms,
+        "facts": [{"k": k, "v": v, "tone": tone} for k, v, tone in result.facts],
+    }
 
 
 @router.post("/{connection_id}/secret")
@@ -148,6 +211,7 @@ async def put_secret(
     body: SecretBody,
     connections: dict = Depends(get_connections),
     store: SecretsStore = Depends(get_secrets_store),
+    db: AsyncSession = Depends(get_db),
 ):
     row = connections.get(connection_id)
     if not row:
@@ -159,4 +223,5 @@ async def put_secret(
     store.put(ref, value)
     row["secretRef"] = ref
     row["enabled"] = True
+    await connection_store.upsert(db, row)
     return {"secretRef": ref}

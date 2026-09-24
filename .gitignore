@@ -28,3 +28,7 @@ backend/venv/
 *.log
 .DS_Store
 Thumbs.db
+
+# Backend build/test cache artifacts (regenerable, not source)
+backend/build/
+backend/.mutmut-cache

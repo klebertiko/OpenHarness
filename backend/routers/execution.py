@@ -1,18 +1,31 @@
 import asyncio
 import json
+import re
 import uuid
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+import anyio
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse, JSONResponse
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import usage_tracking
 from database import SessionLocal, get_db
-from models import Harness, ExecutionLog
+from models import Harness, ExecutionLog, CoworkProject
 from adapters import get_adapter, AdapterConfig
 from engine import RUNS, RunControl, STATUS_COMPLETE, STATUS_ERROR, STATUS_STOPPED, _sse, execute_harness
+from triage import route_message
+from usage_tracking import BudgetExceededError
+from providers.resolution import ProviderResolutionError, resolve_node_provider
+from providers.outcomes import failure_details
+from sandbox.approval import ApprovalConflict
+from sandbox.broker import ToolBroker, redact_value
+from sandbox.schemas import ToolsRequest
 
 router = APIRouter(prefix="/execute", tags=["execution"])
 
@@ -23,16 +36,50 @@ class ExecuteRequest(BaseModel):
     mode: str = "mock"  # mock | live | local
     step: bool = False
     instruction: str | None = None
+    cwd: str | None = None
 
 
 class DirectRequest(BaseModel):
     """One adapter turn — no harness graph. Same SSE vocabulary as /execute/."""
 
     instruction: str
+    connection_id: str | None = None
     mode: str = "mock"  # mock | live | local
     adapter: str | None = None
     model: str | None = None
     step: bool = False
+    cwd: str | None = None
+    tools: Any = None
+
+
+async def _validated_project_cwd(db: AsyncSession, requested: str | None) -> str | None:
+    """`ExecuteRequest.cwd` / `DirectRequest.cwd` are a raw string off the
+    wire — the composer's WorkspacePicker only ever sends a real Cowork
+    project's `rootPath`, but the sidecar endpoint itself has no way to know
+    that the caller was the app's own frontend rather than anything else on
+    the machine that can reach localhost:8000. So this is the one place that
+    trust decision gets made: `requested` is only ever honored when it is
+    the exact `root_path` of a project that still exists in `cowork_projects`
+    *and* still resolves to a real directory on this disk — anything else
+    (never registered, renamed, deleted since it was picked) degrades to
+    None, the same "safe default, no error" treatment `cli_shared.resolve_cwd`
+    already gives an unresolvable cwd downstream. The validated, resolved
+    path is what every downstream caller (`resolve_node_provider`, direct
+    mode, `triage.route_message`'s intake call) receives as both
+    `extra["cwd"]` and `extra["cwd_root"]` — never the raw, unvalidated
+    request string."""
+    if not requested:
+        return None
+    result = await db.execute(select(CoworkProject).where(CoworkProject.root_path == requested))
+    if result.scalars().first() is None:
+        return None
+    try:
+        p = Path(requested).resolve()
+        if p.is_dir():
+            return str(p)
+    except OSError:
+        pass
+    return None
 
 
 class ControlRequest(BaseModel):
@@ -40,6 +87,154 @@ class ControlRequest(BaseModel):
     decision: str | None = None  # approve | reject  (hitl only)
     note: str | None = None
     text: str | None = None  # message (steering) only
+    call_id: str | None = None
+
+
+def _parse_sse_chunk(chunk: str) -> dict | None:
+    """Reverse `engine._sse()` — `"event: X\\ndata: Y\\n\\n"` back to
+    `{"event": X, "data": <parsed Y>}`. Mirrors the frontend's own parsing in
+    `runClient.ts`'s `pumpSse` (same wire format, same tolerance: an
+    unparseable frame is dropped, not fatal to the run)."""
+    event_match = re.search(r"^event: (.+)$", chunk, re.MULTILINE)
+    data_match = re.search(r"^data: (.+)$", chunk, re.MULTILINE)
+    if not event_match or not data_match:
+        return None
+    try:
+        data = json.loads(data_match.group(1))
+    except ValueError:
+        return None
+    return {"event": event_match.group(1).strip(), "data": data}
+
+
+def _first_provider_ids(graph: dict) -> list[str]:
+    """The connection routing (and a chat-only reply, if routing decides
+    this doesn't need the full graph) should use — every real node the
+    composer builds pins the same connection, so the first node with any
+    `providerIds` speaks for the whole run."""
+    for node in graph.get("nodes", []):
+        ids = node.get("data", {}).get("providerIds")
+        if ids:
+            return list(ids)
+    return []
+
+
+async def _enforce_node_budget(model: str | None, residence: str | None) -> None:
+    """`engine.execute_harness`'s `enforce_budget` callback for a harness
+    graph run — called once per real node, from inside the node loop
+    itself, right after that node's own `resolve_node_provider()` result is
+    known. Opens its own fresh session, the same reason the
+    `event_stream()` finally-block below does: the request-scoped `db`
+    dependency is torn down long before the node loop — which runs inside
+    the SSE generator — gets to it. Reuses `usage_tracking.
+    enforce_budget_or_raise` unchanged; the only thing that moved is *when*
+    and *with which node's* model/residence it gets called (SEC P2-4
+    re-review, 2026-09-15 — see that function's own docstring for the
+    unpriced/non-local refusal it performs, and the removed
+    `_first_provider_model_and_residence` this replaces for why sampling
+    one node up front to preview the whole graph was unsafe)."""
+    async with SessionLocal() as session:
+        # model_expected=True: this callback only ever fires after a real
+        # resolve_node_provider() succeeded for this node, so an empty model
+        # means a CLI adapter falling back to its own invisible default, not
+        # "nothing known yet" — see enforce_budget_or_raise's own docstring
+        # (QA re-review, 2026-09-15: this was the OpenAI-shaped silent gap).
+        await usage_tracking.enforce_budget_or_raise(
+            session, model=model, residence=residence, model_expected=True
+        )
+
+
+def _reply_only_events(run_id: str, mode: str, routed) -> list[dict]:
+    """The full SSE event sequence for a routed-direct reply — same shape a
+    real one-node harness run would produce (run_start/node_start/
+    node_phase/node_stream/node_done/harness_done), so the frontend needs no
+    special case: `Transcript`/`HistoricalRunDetail` render this exactly
+    like any other run. No second adapter call — `routed.reply` already IS
+    the answer (triage.route_message's whole point)."""
+    node_view = {
+        "node_id": "reply",
+        "type": "agent",
+        "label": "Nilo",
+        "adapter": routed.adapter_name,
+        "model": routed.model,
+        "connection_id": routed.connection_id,
+        "intrinsic": False,
+    }
+    return [
+        {
+            "event": "run_start",
+            "data": {"run_id": run_id, "mode": mode, "step": False, "order": [node_view], "unreachable": []},
+        },
+        {"event": "node_start", "data": node_view},
+        {"event": "node_phase", "data": {"node_id": "reply", "phase": "writing", "detail": routed.adapter_name}},
+        {"event": "node_stream", "data": {"node_id": "reply", "chunk": routed.reply}},
+        {
+            "event": "node_done",
+            "data": {"node_id": "reply", "output": routed.reply, "tokens": routed.tokens,
+                     "latency_ms": 0, "connection_id": routed.connection_id,
+                     "provider_verified": bool(routed.connection_id)},
+        },
+        {
+            "event": "harness_done",
+            "data": {"status": "complete", "total_tokens": routed.tokens, "elapsed_ms": 0, "nodes_run": 1},
+        },
+    ]
+
+
+def _usage_rows_from_events(
+    events: list[dict], *, run_id: str, source: str, connections: dict[str, dict] | None
+) -> list[dict]:
+    """Turn one run's already-collected SSE events into ledger-row kwargs for
+    `usage_tracking.record_usage_rows`.
+
+    Pairs each `node_start` (the only event carrying adapter/model/
+    connection_id) with the `node_done` *or* `node_error` that follows it
+    for the same `node_id` (an over-limit node — engine.py's per-agent
+    token-limit check — reports real spend on `node_error` too, via its
+    `tokens` field, precisely so this still counts it). Nothing else here
+    decides what counts as real spend: `usage_tracking.record_usage` already
+    refuses `tokens <= 0` and the `mock`/`unresolved` adapters, so this is
+    just assembly, not a second policy."""
+    connections = connections or {}
+    starts: dict[str, dict] = {}
+    rows: list[dict] = []
+    for evt in events:
+        name, data = evt.get("event"), evt.get("data") or {}
+        node_id = data.get("node_id")
+        if not node_id:
+            continue
+        if name == "node_start":
+            starts[node_id] = data
+        elif name in ("node_done", "node_error"):
+            tokens = int(data.get("tokens", 0) or 0)
+            if tokens <= 0:
+                continue
+            start = starts.get(node_id, {})
+            connection_id = start.get("connection_id")
+            provider = (connections.get(connection_id) or {}).get("provider", "") if connection_id else ""
+            rows.append(
+                dict(
+                    run_id=run_id,
+                    node_id=node_id,
+                    source=source,
+                    connection_id=connection_id,
+                    provider=provider,
+                    adapter=start.get("adapter", ""),
+                    model=start.get("model", ""),
+                    tokens_total=tokens,
+                )
+            )
+    return rows
+
+
+def _budget_warning_event(status: usage_tracking.BudgetStatus) -> dict:
+    return {
+        "event": "budget_warning",
+        "data": {
+            "spentUsd": round(status.spent_usd, 2),
+            "limitUsd": status.limit_usd,
+            "pct": status.pct,
+        },
+    }
 
 
 def _apply_instruction(graph: dict, instruction: str | None) -> dict:
@@ -66,7 +261,7 @@ def _apply_instruction(graph: dict, instruction: str | None) -> dict:
 
 
 @router.post("/")
-async def run_harness(body: ExecuteRequest, db: AsyncSession = Depends(get_db)):
+async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if body.harness_id:
         h = await db.get(Harness, body.harness_id)
         if not h:
@@ -80,6 +275,64 @@ async def run_harness(body: ExecuteRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(400, "Provide harness_id or graph_json")
 
     graph = _apply_instruction(graph, body.instruction)
+
+    connections = getattr(request.app.state, "provider_connections", None)
+    secrets_store = getattr(request.app.state, "secrets_store", None)
+    cwd = await _validated_project_cwd(db, body.cwd)
+
+    # Global budget gate — checked before *any* real spend, including the
+    # routing call just below (it already invokes a real adapter). "mock" is
+    # Studio's own authoring/testing mode: it never reaches a real vendor and
+    # never costs anything, so it is never blocked by a budget that exists to
+    # cap real spend. `budget_status` (None in mock mode) rides into
+    # event_stream() below to surface a non-blocking 80%-threshold warning.
+    #
+    # This no longer previews a model/residence: a graph is a walk, and no
+    # single node up front can honestly speak for what every node will
+    # resolve to (SEC P2-4 re-review, 2026-09-15 — the prior
+    # `_first_provider_model_and_residence` sampled the first node with a
+    # `providerIds` field, which a later unpriced node or an intrinsic decoy
+    # node could defeat). This call now only refuses a run outright when the
+    # budget is already exhausted/invalid — a check that has no positional
+    # problem, since it doesn't depend on which node is about to spend. The
+    # per-node, engine-resolved version of the unpriced-model check now lives
+    # in `execute_harness`'s node loop itself, via `_enforce_node_budget`
+    # below — see engine.py's `enforce_budget` parameter.
+    budget_status: usage_tracking.BudgetStatus | None = None
+    if body.mode != "mock":
+        try:
+            budget_status = await usage_tracking.enforce_budget_or_raise(db)
+        except BudgetExceededError as exc:
+            raise HTTPException(402, str(exc)) from exc
+
+    # Route: skip the full 9-role graph (and its HITL gate) for a message
+    # that plainly isn't a work item — "mock" is Studio's own authoring/
+    # testing mode and always runs the graph as drawn, unaffected by this.
+    # One call decides *and*, when it doesn't route to the harness, already
+    # contains the final answer — see triage.route_message's module
+    # docstring for why this isn't a separate classify-then-reply round trip.
+    routed = None
+    if body.mode in ("live", "local") and body.instruction:
+        try:
+            routed = await route_message(
+                body.instruction,
+                _first_provider_ids(graph),
+                connections=connections,
+                secrets_store=secrets_store,
+                cwd=cwd,
+                # SEC P2-5, 2026-09-15: this call already spends real tokens
+                # regardless of which way routing decides, and it used to run
+                # completely outside the budget gate — the most common path
+                # of all (plain chat) was silently unprotected. Same callback
+                # the harness node loop uses; a refusal here means "this
+                # single intake call is refused", never "fall back to the
+                # harness" (see route_message's own docstring for why).
+                enforce_budget=_enforce_node_budget,
+            )
+        except BudgetExceededError as exc:
+            raise HTTPException(402, str(exc)) from exc
+        if not routed.engage_harness:
+            name = "Nilo reply (no harness)"
 
     run_id = str(uuid.uuid4())
     log = ExecutionLog(
@@ -96,19 +349,41 @@ async def run_harness(body: ExecuteRequest, db: AsyncSession = Depends(get_db)):
 
     async def event_stream():
         status = "error"
-        chunks = 0
+        # The step-by-step run detail (`Show run detail` in the chat panel)
+        # only ever lived in the frontend's in-memory reducer — a page reload
+        # lost it even though the chat bubble's summary text survived. Record
+        # the real events here (not just a count, which is what this used to
+        # store) so GET /execute/logs/{id} can replay them into the same
+        # reducer client-side after a reload.
+        events: list[dict] = []
         try:
-            async for chunk in execute_harness(
-                graph, execution_mode=body.mode, control=control, run_id=run_id
-            ):
-                chunks += 1
-                if chunk.startswith("event: harness_done"):
-                    try:
-                        payload = json.loads(chunk.split("data: ", 1)[1].strip())
-                        status = payload.get("status", "complete")
-                    except (IndexError, ValueError):
-                        status = "complete"
-                yield chunk
+            if budget_status is not None and budget_status.state == "warning":
+                warn_evt = _budget_warning_event(budget_status)
+                events.append(warn_evt)
+                yield _sse(warn_evt["event"], warn_evt["data"])
+            if routed is not None and not routed.engage_harness:
+                for evt in _reply_only_events(run_id, body.mode, routed):
+                    events.append(evt)
+                    if evt["event"] == "harness_done":
+                        status = evt["data"]["status"]
+                    yield _sse(evt["event"], evt["data"])
+            else:
+                async for chunk in execute_harness(
+                    graph,
+                    execution_mode=body.mode,
+                    control=control,
+                    run_id=run_id,
+                    connections=connections,
+                    secrets_store=secrets_store,
+                    cwd=cwd,
+                    enforce_budget=_enforce_node_budget,
+                ):
+                    parsed = _parse_sse_chunk(chunk)
+                    if parsed:
+                        events.append(parsed)
+                        if parsed["event"] == "harness_done":
+                            status = parsed["data"].get("status", "complete")
+                    yield chunk
         except asyncio.CancelledError:
             # The client hung up. Unwind the run rather than leaking a control
             # handle that nothing will ever release.
@@ -125,9 +400,45 @@ async def run_harness(body: ExecuteRequest, db: AsyncSession = Depends(get_db)):
                 finished = await session.get(ExecutionLog, run_id)
                 if finished:
                     finished.status = status
-                    finished.result_json = json.dumps({"events": chunks})
+                    finished.result_json = json.dumps({"events": events})
                     finished.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                    await session.commit()
+                # The run's outcome is known now — this is the ledger's one
+                # write point (see models.UsageRecord's docstring). Real
+                # spend only: usage_tracking.record_usage already refuses
+                # zero-token and mock/unresolved turns, so mock-mode runs
+                # and a run that failed before any adapter call contribute
+                # nothing here, by construction rather than a special case.
+                usage_rows = _usage_rows_from_events(
+                    events, run_id=run_id, source="harness", connections=connections
+                )
+                # The triage/intake call above (if any) already spent real
+                # tokens deciding whether to engage the harness. When it
+                # routed to a direct reply instead, that spend is already in
+                # `events` above (via `_reply_only_events`, tagged
+                # source="harness"). When it decided to engage the harness,
+                # `routed` was otherwise only read for its `.engage_harness`
+                # flag and this real spend was silently dropped — recorded
+                # here, under its own `source="triage"`, so it is never lost
+                # (SEC P3-2). `record_usage` already refuses a zero-token or
+                # no-adapter row, same guard `_usage_rows_from_events` above
+                # already relies on for the same reason.
+                if routed is not None and routed.engage_harness and routed.tokens > 0:
+                    usage_rows.append(
+                        dict(
+                            run_id=run_id,
+                            node_id=None,
+                            source="triage",
+                            connection_id=routed.connection_id or None,
+                            provider=(
+                                (connections or {}).get(routed.connection_id) or {}
+                            ).get("provider", "") if routed.connection_id else "",
+                            adapter=routed.adapter_name,
+                            model=routed.model,
+                            tokens_total=routed.tokens,
+                        )
+                    )
+                await usage_tracking.record_usage_rows(session, usage_rows)
+                await session.commit()
 
     return StreamingResponse(
         event_stream(),
@@ -142,7 +453,7 @@ async def run_harness(body: ExecuteRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/direct")
-async def run_direct(body: DirectRequest):
+async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """
     Thin passthrough: one synthetic llm node, one adapter turn, no graph walk.
 
@@ -153,32 +464,95 @@ async def run_direct(body: DirectRequest):
     import time
 
     prompt = (body.instruction or "").strip()
-    if not prompt:
+    try:
+        tool_options = ToolsRequest.model_validate(body.tools) if body.tools is not None else None
+    except ValidationError:
+        return JSONResponse({'error': 'invalid_argument'}, status_code=400)
+    preset_only = tool_options is not None and tool_options.preset is not None and not tool_options.summarize
+    if not prompt and not (tool_options and tool_options.preset):
         raise HTTPException(400, "instruction is required")
 
+    cwd = await _validated_project_cwd(db, body.cwd)
+    connections = getattr(request.app.state, "provider_connections", {}) or {}
+
+    # Same global budget gate as POST /execute/ — see that handler's comment
+    # for why "mock" is exempt. Checked *after* real resolution, not a
+    # pre-resolution guess (SEC P2-5, 2026-09-15): a preview built from
+    # `body.model`/the connection's `defaultModel` was almost always empty
+    # in practice — the composer never sends a model at all, and no UI
+    # surface writes `defaultModel` — so the check silently never fired for
+    # the single most common path (plain chat, no harness). Using
+    # `resolved`'s own values, with `model_expected=True`, treats "resolved
+    # a connection but still don't know its model" as the least-known case
+    # there is, matching `engine.py`'s per-node harness-loop check exactly.
+    node_id = "direct"
+    connection_id = None
+    budget_status: usage_tracking.BudgetStatus | None = None
+    if body.mode == "mock":
+        adapter_name = "mock"
+        adapter = get_adapter("mock")
+        config = AdapterConfig(adapter="mock", model=body.model or "mock-1")
+    else:
+        try:
+            resolved = resolve_node_provider(
+                {"providerIds": [body.connection_id] if body.connection_id else [], "model": body.model},
+                "llm", "Nilo", connections=connections,
+                secrets_store=getattr(request.app.state, "secrets_store", None), cwd=cwd,
+            )
+        except ProviderResolutionError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        adapter_name, adapter, config = resolved.adapter_name, resolved.adapter, resolved.config
+        connection_id = resolved.connection_id
+        try:
+            budget_status = None if preset_only else await usage_tracking.enforce_budget_or_raise(
+                db,
+                model=config.model or None,
+                residence=connections.get(connection_id, {}).get("residence"),
+                model_expected=True,
+            )
+        except BudgetExceededError as exc:
+            raise HTTPException(402, str(exc)) from exc
+    model = config.model
     run_id = str(uuid.uuid4())
+    db.add(ExecutionLog(
+        id=run_id, harness_id="direct", harness_name="Direct execution", status="running",
+        result_json=json.dumps({"source": "direct", "events": []}),
+    ))
+    await db.commit()
     control = RunControl(run_id, step=body.step)
     RUNS[run_id] = control
-
-    node_id = "direct"
-    adapter_name = "mock" if body.mode == "mock" else (body.adapter or "mock")
-    model = body.model or ("mock-1" if adapter_name == "mock" else "")
+    control.tool_mode = tool_options is not None
+    broker = ToolBroker(cwd, adapter_name, control, tool_options) if tool_options else None
     node_view = {
         "node_id": node_id,
         "type": "llm",
         "label": "Direct",
         "adapter": adapter_name,
         "model": model,
+        "connection_id": connection_id,
         "intrinsic": False,
     }
 
     async def event_stream():
         status = STATUS_COMPLETE
         total_tokens = 0
+        node_tokens = 0
+        collected: list[str] = []
         nodes_run = 0
         started = time.time()
+        events: list[dict] = []
+
+        def emit(event: str, data: dict) -> str:
+            events.append({"event": event, "data": redact_value(data) if broker else data})
+            return _sse(event, data)
+
         try:
-            yield _sse(
+            if broker:
+                yield emit('capabilities', {'node_id': node_id, **broker.capabilities})
+            if budget_status is not None and budget_status.state == "warning":
+                warn_evt = _budget_warning_event(budget_status)
+                yield emit(warn_evt["event"], warn_evt["data"])
+            yield emit(
                 "run_start",
                 {
                     "run_id": run_id,
@@ -191,27 +565,20 @@ async def run_direct(body: DirectRequest):
 
             if control.stop.is_set():
                 status = STATUS_STOPPED
-                yield _sse("run_stopped", {"at_node": node_id})
+                yield emit("run_stopped", {"at_node": node_id})
             else:
-                adapter = get_adapter(adapter_name)
-                config = AdapterConfig(
-                    adapter=adapter_name,
-                    model=model,
-                    extra={"node_type": "llm", "label": "Direct"},
-                )
-                yield _sse("node_start", node_view)
+                yield emit("node_start", node_view)
                 node_start = time.time()
-                collected: list[str] = []
-                node_tokens = 0
 
                 try:
-                    async for ev in adapter.stream_events(prompt, config):
-                        if control.stop.is_set():
-                            break
+                    stream = broker.stream(prompt, adapter, config) if broker else adapter.stream_events(prompt, config)
+                    async for ev in control.stream_until_stopped(stream):
                         kind = ev.get("kind")
-                        if kind == "phase":
+                        if broker and (kind.startswith('tool_') or kind == 'capabilities'):
+                            yield emit(kind, {'node_id': node_id, **{k: v for k, v in ev.items() if k != 'kind'}})
+                        elif kind == "phase":
                             control.phase = ev.get("phase", "")
-                            yield _sse(
+                            yield emit(
                                 "node_phase",
                                 {
                                     "node_id": node_id,
@@ -220,18 +587,18 @@ async def run_direct(body: DirectRequest):
                                 },
                             )
                         elif kind == "reason":
-                            yield _sse(
+                            yield emit(
                                 "node_reason",
                                 {"node_id": node_id, "chunk": ev.get("text", "")},
                             )
                         elif kind == "text":
                             collected.append(ev.get("text", ""))
-                            yield _sse(
+                            yield emit(
                                 "node_stream",
                                 {"node_id": node_id, "chunk": ev.get("text", "")},
                             )
                         elif kind == "tool_call":
-                            yield _sse(
+                            yield emit(
                                 "tool_call",
                                 {
                                     "node_id": node_id,
@@ -241,7 +608,7 @@ async def run_direct(body: DirectRequest):
                                 },
                             )
                         elif kind == "tool_result":
-                            yield _sse(
+                            yield emit(
                                 "tool_result",
                                 {
                                     "node_id": node_id,
@@ -255,7 +622,7 @@ async def run_direct(body: DirectRequest):
                             node_tokens = int(ev.get("tokens", 0))
 
                     output = "".join(collected)
-                    if not node_tokens:
+                    if not node_tokens and (not broker or broker.provider_called):
                         node_tokens = max(1, len(output) // 4)
                     total_tokens = node_tokens
                     nodes_run = 1 if not control.stop.is_set() else 0
@@ -263,7 +630,7 @@ async def run_direct(body: DirectRequest):
 
                     if control.stop.is_set():
                         status = STATUS_STOPPED
-                        yield _sse(
+                        yield emit(
                             "node_done",
                             {
                                 "node_id": node_id,
@@ -272,23 +639,29 @@ async def run_direct(body: DirectRequest):
                                 "latency_ms": latency,
                             },
                         )
-                        yield _sse("run_stopped", {"at_node": node_id})
+                        yield emit("run_stopped", {"at_node": node_id})
                     else:
-                        yield _sse(
+                        yield emit(
                             "node_done",
                             {
                                 "node_id": node_id,
                                 "output": output,
                                 "tokens": node_tokens,
                                 "latency_ms": latency,
+                                "connection_id": connection_id,
+                                "provider_verified": connection_id is not None and (not broker or broker.provider_called),
                             },
                         )
                 except Exception as exc:  # noqa: BLE001
                     status = STATUS_ERROR
-                    yield _sse("node_error", {"node_id": node_id, "error": str(exc)})
+                    total_tokens = node_tokens
+                    yield emit("node_error", {
+                        "node_id": node_id, "tokens": node_tokens,
+                        "connection_id": connection_id, **failure_details(exc),
+                    })
 
             control.phase = "done"
-            yield _sse(
+            yield emit(
                 "harness_done",
                 {
                     "status": status,
@@ -299,11 +672,43 @@ async def run_direct(body: DirectRequest):
             )
         except asyncio.CancelledError:
             control.stop.set()
+            status = STATUS_STOPPED
+            total_tokens = node_tokens or len("".join(collected)) // 4
+            # There is no client left to receive these terminal replay events.
+            emit("run_stopped", {"at_node": node_id})
+            emit("harness_done", {"status": status, "total_tokens": total_tokens,
+                                  "elapsed_ms": int((time.time() - started) * 1000), "nodes_run": 0})
             raise
         except Exception as exc:  # noqa: BLE001
-            yield _sse("error", {"error": str(exc)})
+            status = STATUS_ERROR
+            yield emit("error", failure_details(exc))
         finally:
             RUNS.pop(run_id, None)
+            # One synthetic node, one possible turn — real spend only:
+            # record_usage already refuses a mock/unresolved adapter or zero
+            # tokens (a stopped-before-anything-streamed run), so this needs
+            # no extra guard to keep the ledger real-usage-only.
+            # Starlette cancels the response scope on disconnect; finish the log anyway.
+            with anyio.CancelScope(shield=True):
+                async with SessionLocal() as session:
+                    finished = await session.get(ExecutionLog, run_id)
+                    if finished:
+                        finished.status = "failed" if status == STATUS_ERROR else status
+                        finished.result_json = json.dumps({"source": "direct", "events": events})
+                        finished.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    await session.commit()
+                    if total_tokens > 0:
+                        await usage_tracking.record_usage(
+                            session,
+                            run_id=run_id,
+                            node_id=node_id,
+                            source="direct",
+                            connection_id=connection_id,
+                            provider=connections.get(connection_id, {}).get("provider", ""),
+                            adapter=adapter_name,
+                            model=model,
+                            tokens_total=total_tokens,
+                        )
 
     return StreamingResponse(
         event_stream(),
@@ -335,6 +740,14 @@ async def control_run(run_id: str, body: ControlRequest):
         control.stop.set()
         control.release()
     elif action in ("step", "resume"):
+        if control.tool_mode and (body.decision or body.call_id or control.tool_approval.pending):
+            try:
+                control.tool_approval.decide(body.call_id, body.decision or '', body.note or '')
+            except ApprovalConflict as exc:
+                return JSONResponse({'error': str(exc), 'pending_call_id': control.tool_approval.pending}, status_code=409)
+            except ValueError:
+                return JSONResponse({'error': 'invalid_argument'}, status_code=400)
+            return {'ok': True, 'run_id': run_id, 'action': action}
         if body.decision:
             control.decision = {"decision": body.decision, "note": body.note or ""}
         control.release()
@@ -366,9 +779,27 @@ async def list_logs(db: AsyncSession = Depends(get_db)):
             "id": lg.id,
             "harness_id": lg.harness_id,
             "harness_name": lg.harness_name,
+            "source": json.loads(lg.result_json or "{}").get("source", "harness"),
             "status": lg.status,
             "started_at": lg.started_at.isoformat() if lg.started_at else None,
             "finished_at": lg.finished_at.isoformat() if lg.finished_at else None,
         }
         for lg in logs
     ]
+
+
+@router.get("/logs/{log_id}")
+async def get_log_detail(log_id: str, db: AsyncSession = Depends(get_db)):
+    lg = await db.get(ExecutionLog, log_id)
+    if not lg:
+        raise HTTPException(404, f"Run '{log_id}' not found")
+    return {
+        "id": lg.id,
+        "harness_id": lg.harness_id,
+        "harness_name": lg.harness_name,
+        "source": json.loads(lg.result_json or "{}").get("source", "harness"),
+        "status": lg.status,
+        "started_at": lg.started_at.isoformat() if lg.started_at else None,
+        "finished_at": lg.finished_at.isoformat() if lg.finished_at else None,
+        "result": json.loads(lg.result_json) if lg.result_json else None,
+    }

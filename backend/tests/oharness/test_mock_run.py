@@ -1,17 +1,17 @@
-import json
 from pathlib import Path
 
+from oharness import codec
 from oharness.mock_run import plan_mock_run
 from oharness.models import HarnessBundle
 
 TEST_FIXTURES = Path(__file__).parent / "fixtures"
 PKG_FIXTURES = Path(__file__).resolve().parents[2] / "oharness" / "fixtures"
 HELLO = TEST_FIXTURES / "valid-hello.oharness"
-DEFAULT = PKG_FIXTURES / "default-agile.oharness"
+DEFAULT = PKG_FIXTURES / "default-agile.ohm"
 
 
 def _load_bundle(path: Path) -> HarnessBundle:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = codec.load_path(path)
     return HarnessBundle.model_validate(data)
 
 
@@ -32,7 +32,8 @@ def test_plan_mock_run_default_agile_no_cycle():
     report = plan_mock_run(bundle)
 
     assert report.ok is True
-    assert len(report.steps) == 8
+    # 8 agent roles + the HITL merge-authority node (SEC -> HITL edge).
+    assert len(report.steps) == 9
     assert all(step.status == "planned" for step in report.steps)
     assert {step.nodeId for step in report.steps} == {
         "PO",
@@ -43,6 +44,7 @@ def test_plan_mock_run_default_agile_no_cycle():
         "ARCH",
         "TW",
         "SEC",
+        "HITL",
     }
     assert all(step.role == step.nodeId for step in report.steps)
 

@@ -7,7 +7,7 @@ import shutil
 import sys
 from typing import Callable
 
-from repos.base import DiffStat, PullSummary, RepoError
+from repos.base import CheckRun, Comment, Commit, DiffStat, PullSummary, RepoError, Review
 
 PlatformFn = Callable[[], str]
 IsWslFn = Callable[[], bool]
@@ -97,4 +97,44 @@ class OriginRepoProvider:
         raise RepoError(
             "origin_not_implemented",
             f"Origin diff stat for {repo}#{number} is not wired yet (CLI present).",
+        )
+
+    async def get_pull(self, repo: str, number: int) -> PullSummary:
+        self._ensure_supported()
+        self._ensure_cli()
+        raise RepoError(
+            "origin_not_implemented",
+            f"Origin pull detail for {repo}#{number} is not wired yet (CLI present).",
+        )
+
+    async def list_comments(self, repo: str, number: int) -> list[Comment]:
+        self._ensure_supported()
+        self._ensure_cli()
+        raise RepoError(
+            "origin_not_implemented",
+            f"Origin comments for {repo}#{number} are not wired yet (CLI present).",
+        )
+
+    async def list_reviews(self, repo: str, number: int) -> list[Review]:
+        self._ensure_supported()
+        self._ensure_cli()
+        raise RepoError(
+            "origin_not_implemented",
+            f"Origin reviews for {repo}#{number} are not wired yet (CLI present).",
+        )
+
+    async def list_checks(self, repo: str, number: int) -> list[CheckRun]:
+        self._ensure_supported()
+        self._ensure_cli()
+        raise RepoError(
+            "origin_not_implemented",
+            f"Origin checks for {repo}#{number} are not wired yet (CLI present).",
+        )
+
+    async def list_commits(self, repo: str, number: int) -> list[Commit]:
+        self._ensure_supported()
+        self._ensure_cli()
+        raise RepoError(
+            "origin_not_implemented",
+            f"Origin commits for {repo}#{number} are not wired yet (CLI present).",
         )

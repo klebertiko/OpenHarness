@@ -39,3 +39,15 @@ def test_cli_validate_missing_file():
     out = json.loads(p.stdout)
     assert out["ok"] is False
     assert any("file not found" in e.lower() for e in out["errors"])
+
+
+def test_cli_validate_ok_on_native_yaml_default_bundle():
+    # The packaged default is now authored as YAML (ADR 0003) -- the CLI
+    # must accept it exactly like the legacy-JSON fixtures above, with no
+    # extension-based branching (ohm-yaml-migration.md P1 step 3).
+    default_ohm = BACKEND / "oharness" / "fixtures" / "default-agile.ohm"
+    p = run_validate(default_ohm)
+    assert p.returncode == 0
+    out = json.loads(p.stdout)
+    assert out["ok"] is True
+    assert out["errors"] == []

@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from secrets.memory import MemorySecrets
+from secret_store.memory import MemorySecrets
 
 RAW_KEY = "sk-ant-TEST-SECRET-VALUE-NEVER-LEAK-9f3a"
 
@@ -135,3 +135,50 @@ def test_get_connections_never_contains_sk_material(client: TestClient) -> None:
 def test_post_secret_unknown_connection_404(client: TestClient) -> None:
     r = client.post("/providers/missing/secret", json={"key": RAW_KEY})
     assert r.status_code == 404
+
+
+def test_probe_unknown_connection_404(client: TestClient) -> None:
+    r = client.post("/providers/missing/probe")
+    assert r.status_code == 404
+
+
+def test_probe_reports_fault_when_the_endpoint_is_unreachable(client: TestClient) -> None:
+    # ollama's adapter probes a real GET /models — point it at a port nothing
+    # listens on and confirm an honest "unreachable" fault, never a
+    # fabricated success and never a hang (it must still be fast + tokenless).
+    client.post(
+        "/providers/connections",
+        json={
+            "id": "ollama-local",
+            "provider": "ollama",
+            "label": "Ollama local",
+            "residence": "local",
+            "endpoint": "http://127.0.0.1:1",
+        },
+    )
+    r = client.post("/providers/ollama-local/probe")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False
+    assert body["health"] == "fault"
+
+
+def test_probe_returns_honest_not_implemented_for_an_adapter_without_one(client: TestClient) -> None:
+    # A provider this backend has no adapter mapping for at all still gets an
+    # honest "we do not know" rather than a fabricated success or a 500.
+    client.post(
+        "/providers/connections",
+        json={
+            "id": "mystery",
+            "provider": "mystery-vendor",
+            "label": "Mystery vendor",
+            "residence": "cloud",
+            "endpoint": "",
+        },
+    )
+    r = client.post("/providers/mystery/probe")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False
+    assert body["health"] == "setup"
+    assert "mystery-vendor" in body["detail"]

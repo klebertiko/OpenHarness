@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -104,7 +104,7 @@ async def update_project(
         project.harness_bundle_id = body.harnessBundleId
     if body.harnessEnabled is not None:
         project.harness_enabled = body.harnessEnabled
-    project.updated_at = datetime.utcnow()
+    project.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(project)
     return _public(project)

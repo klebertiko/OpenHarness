@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from main import app
 from repos.base import DiffStat, PullSummary
 from repos.fake import FakeRepoProvider
-from secrets.memory import MemorySecrets
+from secret_store.memory import MemorySecrets
 
 
 @pytest.fixture()
@@ -70,6 +70,37 @@ def test_list_create_comment_via_fake(client: TestClient) -> None:
     diff = client.get("/repos/fake/pulls/1/diff", params={"repo": "acme/app"})
     assert diff.status_code == 200
     assert diff.json()["diff"]["changedFiles"] == 2
+
+
+def test_get_pull_comments_reviews_checks_commits_via_fake(client: TestClient) -> None:
+    detail = client.get("/repos/fake/pulls/1", params={"repo": "acme/app"})
+    assert detail.status_code == 200
+    pull = detail.json()["pull"]
+    assert pull["number"] == 1
+    assert pull["title"] == "Seeded PR"
+    assert "author" in pull and "mergeable" in pull and "headSha" in pull
+
+    comments = client.get("/repos/fake/pulls/1/comments", params={"repo": "acme/app"})
+    assert comments.status_code == 200
+    assert comments.json()["comments"] == []
+
+    reviews = client.get("/repos/fake/pulls/1/reviews", params={"repo": "acme/app"})
+    assert reviews.status_code == 200
+    assert reviews.json()["reviews"] == []
+
+    checks = client.get("/repos/fake/pulls/1/checks", params={"repo": "acme/app"})
+    assert checks.status_code == 200
+    assert checks.json()["checks"] == []
+
+    commits = client.get("/repos/fake/pulls/1/commits", params={"repo": "acme/app"})
+    assert commits.status_code == 200
+    assert commits.json()["commits"] == []
+
+
+def test_get_pull_missing_returns_404(client: TestClient) -> None:
+    r = client.get("/repos/fake/pulls/999", params={"repo": "acme/app"})
+    assert r.status_code == 404
+    assert r.json()["detail"]["code"] == "pull_not_found"
 
 
 def test_pr_watch_stub(client: TestClient) -> None:

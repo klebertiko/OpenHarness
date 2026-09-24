@@ -56,7 +56,12 @@ _PROCESS_DOCS = (
 
 
 def _read_utf8(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    # `Path.read_text()` opens in universal-newlines text mode, which
+    # silently rewrites CRLF/CR line endings to LF -- exactly the kind of
+    # byte loss the OHM preservation contract forbids for prompt/agent/skill
+    # content (ohm-yaml-migration.md P1 step 4). Read raw bytes and decode
+    # UTF-8 ourselves so a CRLF-authored markdown source round-trips as CRLF.
+    return path.read_bytes().decode("utf-8")
 
 
 def compile_skills_harness(src_dir: Path) -> dict:

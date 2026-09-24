@@ -18,7 +18,11 @@ Catalogue = Literal["fixed", "installed", "hosted", "routed", "agent-only"]
 
 
 class CredentialSpec(TypedDict, total=False):
-    kind: Literal["api-key", "none"]
+    # "cli" — no secret stored by this app at all; the connection rides
+    # whatever session the vendor's own CLI is already logged into on this
+    # machine (`claude login` / `cursor-agent login`). `where` names the login
+    # command instead of a key-retrieval URL.
+    kind: Literal["api-key", "cli", "none"]
     prefix: str
     where: str
     env: str
@@ -51,18 +55,20 @@ PROVIDERS: dict[ProviderId, ProviderSpec] = {
         "monogram": "AN",
         "residence": "cloud",
         "capabilities": ["chat"],
-        "billing": "metered",
+        "billing": "subscription",
         "catalogue": "fixed",
         "credential": {
-            "kind": "api-key",
-            "prefix": "sk-ant-",
-            "where": "console.anthropic.com → Settings → API keys",
-            "env": "ANTHROPIC_API_KEY",
+            "kind": "cli",
+            "where": "Run `claude login` (or open Claude Code once and sign in).",
         },
-        "endpoint": {"default": "https://api.anthropic.com", "editable": True},
+        "endpoint": {"default": "https://api.anthropic.com", "editable": False},
         "summary": (
-            "Claude models over the Messages API. "
-            "Billed per token against the key's workspace."
+            "Claude models via the local `claude` CLI, non-interactive print mode. "
+            "Runs on your Claude Pro/Max seat, not a metered API key."
+        ),
+        "caveat": (
+            "Tool execution is disabled on every call (`--tools \"\"`) — this connection "
+            "answers chat completions, it does not run commands or touch files."
         ),
         "docs": "https://docs.anthropic.com",
     },
@@ -75,19 +81,19 @@ PROVIDERS: dict[ProviderId, ProviderSpec] = {
         "billing": "subscription",
         "catalogue": "agent-only",
         "credential": {
-            "kind": "api-key",
-            "prefix": "crsr_",
-            "where": "cursor.com dashboard → API Keys (user key or service account)",
-            "env": "CURSOR_API_KEY",
+            "kind": "cli",
+            "where": "Run `cursor-agent login` (or sign in once from the Cursor desktop app).",
         },
         "endpoint": {"default": "https://api.cursor.com", "editable": False},
         "summary": (
-            "Cloud Agents API and the headless cursor-agent CLI, "
-            "both on your Cursor seat."
+            "The headless `cursor-agent` CLI, non-interactive print mode. "
+            "Runs on your Cursor seat, not a metered API key."
         ),
         "caveat": (
-            "Cursor publishes no chat-completions endpoint — its API runs agents, "
-            "not models. An LLM node cannot target this connection; a Delegate node can."
+            "Cursor publishes no chat-completions endpoint — its CLI runs agents, "
+            "not models. An LLM node cannot target this connection; a Delegate node can. "
+            "Tool execution stays on for that delegated task (file/shell access), scoped "
+            "to a pinned working directory."
         ),
         "docs": "https://cursor.com/docs/api",
     },
@@ -97,18 +103,21 @@ PROVIDERS: dict[ProviderId, ProviderSpec] = {
         "monogram": "OA",
         "residence": "cloud",
         "capabilities": ["chat", "embed"],
-        "billing": "metered",
+        "billing": "subscription",
         "catalogue": "fixed",
         "credential": {
-            "kind": "api-key",
-            "prefix": "sk-",
-            "where": "platform.openai.com → API keys",
-            "env": "OPENAI_API_KEY",
+            "kind": "cli",
+            "where": "Run `codex login` (or open the Codex app once and sign in).",
         },
         "endpoint": {"default": "https://api.openai.com/v1", "editable": True},
         "summary": (
-            "GPT models over the Chat Completions API. "
-            "Billed per token against the project."
+            "GPT models via the local `codex` CLI, non-interactive exec mode. "
+            "Runs on your ChatGPT seat, not a metered API key."
+        ),
+        "caveat": (
+            "Shell commands the model chooses to run go through a read-only "
+            "sandbox (`--sandbox read-only`) and a pinned working directory — "
+            "this connection answers chat completions, it does not write files."
         ),
         "docs": "https://platform.openai.com/docs",
     },
@@ -128,7 +137,9 @@ PROVIDERS: dict[ProviderId, ProviderSpec] = {
             ),
             "env": "OLLAMA_API_KEY",
         },
-        "endpoint": {"default": "http://127.0.0.1:11434", "editable": True},
+        # /v1 is Ollama's OpenAI-compat surface — what every adapter call
+        # (probe included) actually speaks; the bare daemon root 404s it.
+        "endpoint": {"default": "http://127.0.0.1:11434/v1", "editable": True},
         "summary": "The daemon on this machine. Nothing leaves the device; nothing is billed.",
         "docs": "https://docs.ollama.com",
     },
@@ -190,3 +201,46 @@ def get_provider(provider_id: str) -> ProviderSpec | None:
     if provider_id in PROVIDERS:
         return PROVIDERS[provider_id]  # type: ignore[index]
     return None
+
+
+# ── Per-model pricing ────────────────────────────────────────────────────────
+# USD per million tokens, (input, output). Mirrors
+# `frontend/src/components/providers/providerStore.ts`'s `seed` catalog
+# exactly — same models, same numbers — because that file is the hand-
+# maintained source of truth for real vendor prices, and the budget/cost
+# engine (`backend/usage_tracking.py`) needs the same real numbers, not a
+# second, drifting guess. A model absent here has *unknown* pricing to this
+# backend, which is not the same as free: `usage_tracking.compute_cost`
+# returns `(0.0, None)` for it, and callers must not read that `None` as
+# "genuinely free" (that reading only holds for a local/on-device model,
+# which naturally has no entry here either, distinguished by the caller via
+# the connection's `residence`, not by anything in this table).
+#
+# Deliberately not populated for OpenAI or Ollama Cloud: nothing in this
+# codebase has ever read a real price for either of those (no adapter probe
+# populates `ModelInfo.price`, and the frontend seed carries none for them
+# either) — inventing numbers here would be exactly the fabricated-price
+# mistake this feature is required to avoid.
+MODEL_PRICES: dict[str, tuple[float, float]] = {
+    # Anthropic (direct)
+    "claude-opus-5": (15, 75),
+    "claude-sonnet-5": (3, 15),
+    "claude-fable-5-1": (1, 5),
+    "claude-haiku-4-5": (0.8, 4),
+    # OpenRouter (routed — model ids carry the upstream vendor prefix)
+    "anthropic/claude-opus-5": (15, 75),
+    "openai/gpt-5-6-sol": (10, 40),
+    "google/gemini-3-1-pro": (2.5, 12),
+    "deepseek/deepseek-v4": (0.28, 1.1),
+    "meta-llama/llama-4.2-405b": (0.9, 0.9),
+    "qwen/qwen3.5-max": (1.2, 6),
+    "mistralai/mistral-large-3": (2, 6),
+    "x-ai/grok-4-6": (5, 15),
+}
+
+
+def get_model_price(model_id: str) -> tuple[float, float] | None:
+    """USD per million tokens, (input, output) — or None when `model_id`'s
+    price is not in the catalog (see `MODEL_PRICES`'s docstring for why that
+    is never the same thing as "this model is free")."""
+    return MODEL_PRICES.get(model_id)

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from secrets.base import SecretsStore
-from secrets.file_store import FileSecrets
-from secrets.memory import MemorySecrets
+from secret_store.base import SecretsStore
+from secret_store.file_store import FileSecrets
+from secret_store.memory import MemorySecrets
 
 
 SECRET_VALUE = "sk-test-NEVER-LOG-THIS-VALUE-9f3a"

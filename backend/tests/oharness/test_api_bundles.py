@@ -33,7 +33,8 @@ def test_mock_endpoint_default():
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
-    assert len(body["steps"]) == 8
+    # 8 agent roles + the HITL merge-authority node (SEC -> HITL edge).
+    assert len(body["steps"]) == 9
     assert all(step["status"] == "planned" for step in body["steps"])
 
 

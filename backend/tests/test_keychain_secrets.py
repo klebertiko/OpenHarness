@@ -6,10 +6,10 @@ import importlib.util
 
 import pytest
 
-from secrets.factory import build_secrets_store
-from secrets.file_store import FileSecrets
-from secrets.keychain import KeychainSecrets
-from secrets.memory import MemorySecrets
+from secret_store.factory import build_secrets_store
+from secret_store.file_store import FileSecrets
+from secret_store.keychain import KeychainSecrets
+from secret_store.memory import MemorySecrets
 
 
 SECRET_VALUE = "sk-test-NEVER-LOG-THIS-VALUE-9f3a"
@@ -77,7 +77,7 @@ def test_build_secrets_store_keychain_uses_keychain_type(
     def _fake_default():
         return fake
 
-    monkeypatch.setattr("secrets.keychain._default_keyring", _fake_default)
+    monkeypatch.setattr("secret_store.keychain._default_keyring", _fake_default)
     store = build_secrets_store("keychain")
     assert isinstance(store, KeychainSecrets)
     store.put(SECRET_REF, SECRET_VALUE)

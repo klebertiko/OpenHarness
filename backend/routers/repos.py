@@ -9,9 +9,17 @@ from pydantic import BaseModel
 
 from automations.pr_watch import stub_pr_watch
 from repos.base import RepoError
-from repos.factory import build_provider, diff_to_dict, pull_to_dict
+from repos.factory import (
+    build_provider,
+    check_to_dict,
+    comment_to_dict,
+    commit_to_dict,
+    diff_to_dict,
+    pull_to_dict,
+    review_to_dict,
+)
 from repos.fake import FakeRepoProvider
-from secrets.memory import MemorySecrets
+from secret_store.memory import MemorySecrets
 
 router = APIRouter(prefix="/repos", tags=["repos"])
 
@@ -113,6 +121,97 @@ async def pull_diff(
     except RepoError as exc:
         raise _http_error(exc) from exc
     return {"provider": provider, "number": number, "diff": diff_to_dict(stat)}
+
+
+@router.get("/{provider}/pulls/{number}")
+async def get_pull(
+    provider: str,
+    number: int,
+    request: Request,
+    repo: str = Query(...),
+) -> dict[str, Any]:
+    adapter = _provider(request, provider)
+    try:
+        pull = await adapter.get_pull(repo, number)
+    except RepoError as exc:
+        raise _http_error(exc) from exc
+    return {"provider": provider, "pull": pull_to_dict(pull)}
+
+
+@router.get("/{provider}/pulls/{number}/comments")
+async def list_comments(
+    provider: str,
+    number: int,
+    request: Request,
+    repo: str = Query(...),
+) -> dict[str, Any]:
+    adapter = _provider(request, provider)
+    try:
+        comments = await adapter.list_comments(repo, number)
+    except RepoError as exc:
+        raise _http_error(exc) from exc
+    return {
+        "provider": provider,
+        "number": number,
+        "comments": [comment_to_dict(c) for c in comments],
+    }
+
+
+@router.get("/{provider}/pulls/{number}/reviews")
+async def list_reviews(
+    provider: str,
+    number: int,
+    request: Request,
+    repo: str = Query(...),
+) -> dict[str, Any]:
+    adapter = _provider(request, provider)
+    try:
+        reviews = await adapter.list_reviews(repo, number)
+    except RepoError as exc:
+        raise _http_error(exc) from exc
+    return {
+        "provider": provider,
+        "number": number,
+        "reviews": [review_to_dict(r) for r in reviews],
+    }
+
+
+@router.get("/{provider}/pulls/{number}/checks")
+async def list_checks(
+    provider: str,
+    number: int,
+    request: Request,
+    repo: str = Query(...),
+) -> dict[str, Any]:
+    adapter = _provider(request, provider)
+    try:
+        checks = await adapter.list_checks(repo, number)
+    except RepoError as exc:
+        raise _http_error(exc) from exc
+    return {
+        "provider": provider,
+        "number": number,
+        "checks": [check_to_dict(c) for c in checks],
+    }
+
+
+@router.get("/{provider}/pulls/{number}/commits")
+async def list_commits(
+    provider: str,
+    number: int,
+    request: Request,
+    repo: str = Query(...),
+) -> dict[str, Any]:
+    adapter = _provider(request, provider)
+    try:
+        commits = await adapter.list_commits(repo, number)
+    except RepoError as exc:
+        raise _http_error(exc) from exc
+    return {
+        "provider": provider,
+        "number": number,
+        "commits": [commit_to_dict(c) for c in commits],
+    }
 
 
 @router.post("/{provider}/pr-watch")

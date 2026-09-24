@@ -10,7 +10,7 @@ from repos.fake import FakeRepoProvider
 from repos.github import GitHubRepoProvider
 from repos.gitlab import GitLabRepoProvider
 from repos.origin import OriginRepoProvider
-from secrets.base import SecretsStore
+from secret_store.base import SecretsStore
 
 
 def default_provider_name() -> str:
@@ -52,6 +52,14 @@ def pull_to_dict(pull: Any) -> dict[str, Any]:
         "base": pull.base,
         "url": pull.url,
         "body": pull.body,
+        "author": pull.author,
+        "authorAvatarUrl": pull.author_avatar_url,
+        "createdAt": pull.created_at,
+        "updatedAt": pull.updated_at,
+        "draft": pull.draft,
+        "merged": pull.merged,
+        "mergeable": pull.mergeable,
+        "headSha": pull.head_sha,
     }
 
 
@@ -60,4 +68,42 @@ def diff_to_dict(stat: Any) -> dict[str, Any]:
         "additions": stat.additions,
         "deletions": stat.deletions,
         "changedFiles": stat.changed_files,
+    }
+
+
+def comment_to_dict(comment: Any) -> dict[str, Any]:
+    return {
+        "id": comment.id,
+        "author": comment.author,
+        "authorAvatarUrl": comment.author_avatar_url,
+        "body": comment.body,
+        "createdAt": comment.created_at,
+    }
+
+
+def review_to_dict(review: Any) -> dict[str, Any]:
+    return {
+        "id": review.id,
+        "author": review.author,
+        "authorAvatarUrl": review.author_avatar_url,
+        "state": review.state,
+        "submittedAt": review.submitted_at,
+    }
+
+
+def check_to_dict(check: Any) -> dict[str, Any]:
+    return {
+        "name": check.name,
+        "status": check.status,
+        "conclusion": check.conclusion,
+        "url": check.url,
+    }
+
+
+def commit_to_dict(commit: Any) -> dict[str, Any]:
+    return {
+        "sha": commit.sha,
+        "message": commit.message,
+        "author": commit.author,
+        "authoredAt": commit.authored_at,
     }

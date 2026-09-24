@@ -34,6 +34,17 @@ def test_native_windows_raises_origin_unsupported_platform() -> None:
             await provider.get_diff_stat("acme/app", 1)
         assert exc4.value.code == "origin_unsupported_platform"
 
+        for op in (
+            provider.get_pull,
+            provider.list_comments,
+            provider.list_reviews,
+            provider.list_checks,
+            provider.list_commits,
+        ):
+            with pytest.raises(RepoError) as exc5:
+                await op("acme/app", 1)
+            assert exc5.value.code == "origin_unsupported_platform"
+
         payload = exc.value.to_dict()
         assert payload == {
             "code": "origin_unsupported_platform",

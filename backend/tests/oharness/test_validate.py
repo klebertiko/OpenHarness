@@ -41,9 +41,13 @@ def test_invalid_missing_manifest():
 
 
 def test_invalid_json():
+    # `invalid-json.oharness` ("{ not valid json") is neither valid legacy
+    # JSON nor valid YAML -- validate_path now parses both formats through
+    # the same restricted YAML 1.2 profile (oharness.codec), so the
+    # diagnostic is a YAML syntax error rather than a JSON-specific one.
     r = validate_path(FIXTURES / "invalid-json.oharness")
     assert not r.ok
-    assert any("invalid json" in e.lower() for e in r.errors)
+    assert any("syntax error" in e.lower() for e in r.errors)
 
 
 def test_missing_file():
