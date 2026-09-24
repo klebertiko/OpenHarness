@@ -82,8 +82,14 @@ function Marker({ segment }: { segment: Segment }) {
    One line per call. Machine-written throughout, so mono throughout: the name
    at ink, the arguments dimmed behind it, the result and duration hanging off
    the right edge where they line up into a column you can scan. */
-function ToolRow({ call }: { call: ToolCall }) {
-  const runId = useActiveRunStore((s) => s.runId);
+function ToolRow({ call, transcriptRunId }: { call: ToolCall; transcriptRunId: string | null }) {
+  const activeRunId = useActiveRunStore((s) => s.runId);
+  // SEC gate 2026-09-24 (P2-FE-1): a control decision only ever targets the
+  // *live* run — this card must not offer one for a replayed historical run
+  // (HistoricalRunDetail.tsx) just because some *other* run happens to be
+  // live right now. `runId` reaching ToolCard is null (buttons disabled)
+  // unless this Transcript's own run genuinely is the active one.
+  const runId = transcriptRunId !== null && transcriptRunId === activeRunId ? activeRunId : null;
   const [open, setOpen] = useState(false);
   // The composer's currently-selected connection — what a read result is fed
   // back to, hence what the card must disclose for a remote provider.
@@ -180,8 +186,8 @@ function Reasoning({ text, done }: { text: string; done: boolean }) {
   );
 }
 
-function BlockView({ block, streaming }: { block: Block; streaming: boolean }) {
-  if (block.kind === "tool") return <ToolRow call={block.call} />;
+function BlockView({ block, streaming, runId }: { block: Block; streaming: boolean; runId: string | null }) {
+  if (block.kind === "tool") return <ToolRow call={block.call} transcriptRunId={runId} />;
   if (block.kind === "reason") return <Reasoning text={block.text} done={!streaming} />;
   const paras = paragraphs(block.text);
   return (
@@ -202,11 +208,13 @@ function SegmentView({
   first,
   last,
   onResolve,
+  runId,
 }: {
   segment: Segment;
   first: boolean;
   last: boolean;
   onResolve: (decision: "approve" | "reject", note: string) => void;
+  runId: string | null;
 }) {
   const Icon = ROLE_ICON[segment.type] ?? ROLE_ICON.agent;
   const role = ROLE_VAR[segment.type] ?? "var(--ink-faint)";
@@ -249,7 +257,7 @@ function SegmentView({
         </div>
 
         {segment.blocks.map((b, i) => (
-          <BlockView key={i} block={b} streaming={running && i === lastBlockIndex} />
+          <BlockView key={i} block={b} streaming={running && i === lastBlockIndex} runId={runId} />
         ))}
 
         {/* An intrinsic node has no adapter and therefore no stream — its
@@ -472,6 +480,7 @@ export function Transcript({
           first={i === 0}
           last={i === visible.length - 1}
           onResolve={onResolve}
+          runId={run.runId}
         />
       ))}
 

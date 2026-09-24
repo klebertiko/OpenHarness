@@ -5,6 +5,7 @@ import { emptyRun } from "./runReducer";
 import type { RunState, Segment } from "./types";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import { useChatProviderStore } from "@/store/chatProviderStore";
+import { useActiveRunStore } from "@/store/activeRunStore";
 
 function conn(overrides: Partial<Connection>): Connection {
   return {
@@ -206,5 +207,42 @@ describe("Transcript — trajectory breakdown", () => {
     expect(screen.queryByText("elapsed")).toBeNull();
     expect(screen.queryByText("tok")).toBeNull();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  // SEC gate 2026-09-24 (gates/sec-fe-2026-09-24.md, P2-FE-1): a replayed
+  // historical run's approval card used to always read the *global* active
+  // run id, not the id of the run it was actually drawing — so approving a
+  // pending tool call on a stale, replayed card could silently resume a
+  // completely different, currently-live run's HITL gate.
+  describe("approval card runId — never controls a run other than the one shown", () => {
+    afterEach(() => useActiveRunStore.getState().setRunId(null));
+
+    it("disables the approve/reject buttons when this Transcript's run is not the active one", () => {
+      useActiveRunStore.getState().setRunId("some-other-live-run");
+      const run = makeRun({
+        runId: "historical-run",
+        plan: [seg({ nodeId: "n", state: "done", blocks: [{ kind: "tool", call: {
+          callId: "c1", name: "exec", args: "{}", argv: ["npm", "run", "test"],
+          approval: { reason: "exec", risk: "normal", riskHints: [] },
+        } }] })],
+      });
+      render(<Transcript run={run} onResolve={() => {}} />);
+      const approve = screen.getByRole("button", { name: "Aprovar" }) as HTMLButtonElement;
+      expect(approve.disabled).toBe(true);
+    });
+
+    it("enables the approve/reject buttons when this Transcript's run is genuinely the active one", () => {
+      useActiveRunStore.getState().setRunId("live-run");
+      const run = makeRun({
+        runId: "live-run",
+        plan: [seg({ nodeId: "n", state: "done", blocks: [{ kind: "tool", call: {
+          callId: "c1", name: "exec", args: "{}", argv: ["npm", "run", "test"],
+          approval: { reason: "exec", risk: "normal", riskHints: [] },
+        } }] })],
+      });
+      render(<Transcript run={run} onResolve={() => {}} />);
+      const approve = screen.getByRole("button", { name: "Aprovar" }) as HTMLButtonElement;
+      expect(approve.disabled).toBe(false);
+    });
   });
 });

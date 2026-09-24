@@ -206,3 +206,38 @@ duplicado da minha própria fixture de sessões anteriores — não é bug do pr
 
 Testes novos (não só evidência, os arquivos de teste em si) copiados do worktree para o checkout
 real: `ToolCard.test.tsx`, `chatCommands.test.ts`, `runReducer.test.ts`. Committing a seguir.
+
+## 2026-09-24 — Dois P2 do SEC gate fechados (gates/sec-fe-2026-09-24.md)
+
+**P2-FE-1 — card de aprovação replayado podia controlar um run vivo diferente.** `ToolRow` lia
+`useActiveRunStore` global direto, sem checar se o run que o `Transcript` estava mostrando era de
+fato o run ativo. `HistoricalRunDetail.tsx` reproduz um run antigo pelo mesmo `Transcript`; se um
+tool call ficou com `tool_approval_required` pendente no log persistido (o backend não emite
+`tool_denied` em desconexão no meio do gate) e havia outro run vivo *sem* tools no momento, clicar
+"Aprovar" no card histórico mandava uma decisão de controle sem `call_id` real — que o backend
+aceita para o HITL legado — resumindo o gate do run errado.
+- RED: `Transcript.test.tsx`, dois testes novos (`describe("approval card runId...")`) — botão
+  Aprovar precisa estar desabilitado quando `run.runId` ≠ run ativo, habilitado quando bate.
+  Primeiro teste falhou como esperado (`expected false to be true`, botão habilitado quando não
+  devia); segundo só revelou um bug de digitação meu na primeira tentativa do fix (destructure
+  `runId: transcriptRunId` contra uma prop chamada `transcriptRunId`, não `runId` — `tsc` pegou).
+- GREEN: `run.runId` propagado de `Transcript` → `SegmentView` → `BlockView` → `ToolRow` (nova
+  prop `transcriptRunId` em cada nível); `ToolRow` só passa um `runId` não-nulo para `ToolCard`
+  quando `transcriptRunId === activeRunId` — senão `null`, e `ToolCard` já desabilita os botões
+  nesse caso (`!runId` já fazia parte do disabled). `Transcript.test.tsx`+`HistoricalRunDetail.test.tsx`
+  → 16 passed; `tsc --noEmit` limpo.
+
+**P2-FE-2 — token do sidecar anexado por prefixo de string, não por origem.** `apiBase.ts` decidia
+anexar o Bearer token com `url.startsWith(apiBase())` — `http://127.0.0.1:8000@attacker.tld/x`
+bate no prefixo (sintaxe de userinfo) mas o navegador manda para `attacker.tld`. Não explorável
+hoje (todo endpoint é loopback fixo), mas `openai`/`ollama` têm `endpoint.editable: true` — a um
+passo de vazar o token.
+- RED: `apiBase.test.ts` (novo arquivo, 4 testes) — reproduz o ataque de userinfo e um host que só
+  compartilha um prefixo de string (`http://127.0.0.1:8000.attacker.tld/x`) → 2 failed.
+- GREEN: `sameOrigin(url, base)` novo, compara `new URL(url).origin` contra `new URL(base).origin`
+  em vez de prefixo de string. `apiBase.test.ts` → 4 passed.
+
+Regressão completa após os dois fixes: `npx vitest run --run` → **69 files, 395 passed**;
+`npx tsc --noEmit` → limpo; `npm run lint` (o comando real do projeto, `next lint` — invocar
+`npx eslint src` direto bateu num problema de resolução de binário sem relação com o código) →
+**No ESLint warnings or errors**. PR #2 atualizado.

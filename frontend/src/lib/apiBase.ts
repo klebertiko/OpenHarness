@@ -77,12 +77,32 @@ function sidecarToken(): string {
   return process.env.NEXT_PUBLIC_OH_SIDECAR_TOKEN?.trim() || "";
 }
 
+/**
+ * SEC gate 2026-09-24 (gates/sec-fe-2026-09-24.md, P2-FE-2) — `url.startsWith
+ * (apiBase())` was a string-prefix check, not an origin check. Userinfo
+ * syntax defeats it: `http://127.0.0.1:8000@attacker.tld/x` starts with the
+ * sidecar's origin character-for-character while the browser sends the
+ * request to `attacker.tld`. Not exploitable while every connection is
+ * hardcoded loopback, but `openai`/`ollama` connections have
+ * `endpoint.editable: true` — one repointed endpoint away from leaking the
+ * bearer token off-machine. `new URL(...).origin` normalizes userinfo,
+ * path and query away, leaving only scheme+host+port to compare — the
+ * property that actually decides where a request goes.
+ */
+function sameOrigin(url: string, base: string): boolean {
+  try {
+    return new URL(url, typeof window !== "undefined" ? window.location.href : base).origin === new URL(base).origin;
+  } catch {
+    return false;
+  }
+}
+
 if (typeof window !== "undefined" && !(window as unknown as { __ohFetchPatched__?: boolean }).__ohFetchPatched__) {
   (window as unknown as { __ohFetchPatched__?: boolean }).__ohFetchPatched__ = true;
   const nativeFetch = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (url.startsWith(apiBase())) {
+    if (sameOrigin(url, apiBase())) {
       const token = sidecarToken();
       if (token) {
         const headers = new Headers(init?.headers ?? (typeof input === "object" && "headers" in input ? input.headers : undefined));
