@@ -56,10 +56,10 @@ Uma linha por story; só o dono move a própria linha. Colunas: Sprint Backlog �
 |---|---|---|---|
 | CHAT-TOOLS-CONTRACT | claude | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
 | CHAT-TOOLS-BE | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
-| CHAT-TOOLS-FE | claude | QA | 2026-09-24 READY-FOR-QA: mutation real 81,23% (runReducer re-escopado p/ hunks + 17 testes novos, ver ledger); Playwright 3/3, vitest 389/389, tsc limpo, commitado |
+| CHAT-TOOLS-FE | claude | SEC | 2026-09-24 ARCH-PASS (addendum em gates/arch-2026-09-24.md); PR #2 (a75f0ac). Aguardando SEC fresh-context |
 | DIRECT-HISTORY | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
 | AUTOMATE-CHECKPOINT | codex | SEC | 2026-09-24 ARCH-PASS (gates/arch-2026-09-24.md); PR #2 aberto. Aguardando SEC fresh-context |
-| CONTEXT-GAUNTLET-R2 | claude | QA | 2026-09-23 ATENDIDO: AC#4 crítico rodou e WON (4/4 pieces), mutation rollup.ts refeita 16/16=100%, commitado (03c91ba) — Ready for QA de novo |
+| CONTEXT-GAUNTLET-R2 | claude | SEC | 2026-09-24 ARCH-PASS (addendum em gates/arch-2026-09-24.md); PR #2 (a75f0ac). Aguardando SEC fresh-context |
 | STUDIO-REDESIGN | claude | Sprint Backlog | 2026-09-18 planning |
 | DOSSIER-CRED-LENGTH | claude | SEC | 2026-09-24 ARCH-PASS (fix pequeno, sem violação de padrão); PR #2. Aguardando SEC fresh-context |
 
