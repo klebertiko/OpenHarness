@@ -1,6 +1,6 @@
 # ADR 0004 — O backend é o broker de ferramentas do chat; aprovação por ação pelo canal do run
 
-Status: Proposto (2026-09-18) · Sprint 2026-09-18 · Stories: `CHAT-TOOLS-CONTRACT`, `CHAT-TOOLS-BE`, `CHAT-TOOLS-FE`
+Status: Aceito (2026-09-24, Gate 3 ARCH) · Sprint 2026-09-18 · Stories: `CHAT-TOOLS-CONTRACT`, `CHAT-TOOLS-BE`, `CHAT-TOOLS-FE`
 Contrato completo: `.harness/sprint-2026-09-18/story-CHAT-TOOLS-CONTRACT/contract.md` · Threat-model: `threat-model.md` ao lado
 
 ## Contexto
