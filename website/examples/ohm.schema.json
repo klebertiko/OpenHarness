@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openharness.dev/schema/oharness/v1.0.0.json",
+  "title": "OpenHarness Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "manifest",
+    "graph",
+    "content",
+    "runtime",
+    "validation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Semver of the OpenHarness bundle schema."
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "description", "license", "tags"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "description": { "type": "string" },
+        "license": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "properties": {
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompts",
+        "agents",
+        "skills",
+        "hooks",
+        "commands",
+        "scripts"
+      ],
+      "properties": {
+        "prompts": { "type": "object" },
+        "agents": { "type": "object" },
+        "skills": { "type": "object" },
+        "hooks": { "type": "object" },
+        "commands": { "type": "object" },
+        "scripts": { "type": "object" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preferred", "cli", "env", "secrets"],
+      "properties": {
+        "preferred": { "type": "string" },
+        "cli": { "type": ["string", "null"] },
+        "env": { "type": "array" },
+        "secrets": { "type": "array" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mockProfile"],
+      "properties": {
+        "mockProfile": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useThreadStore } from "@/store/threadStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 import { useCanvasStore } from "@/store/canvasStore";
-import { startDirectRun, startRun, sendControl } from "@/components/agent-run/runClient";
+import { startDirectRun } from "@/components/agent-run/runClient";
 import { AgentStage } from "./AgentStage";
 
 // Keep the real stores, run reducer, gate and transcript; substitute the sidecar boundary.

@@ -1,0 +1,66 @@
+name: OWASP Dependency-Check
+
+on:
+  schedule:
+    - cron: "7 2 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Full dependency scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run OWASP Dependency-Check 12.1.8
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports dependency-check-data
+          nvd_args=()
+          if [[ -n "${NVD_API_KEY}" ]]; then nvd_args=(--nvdApiKey "${NVD_API_KEY}"); fi
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            -v "$PWD/reports:/report" \
+            -v "$PWD/dependency-check-data:/usr/share/dependency-check/data" \
+            owasp/dependency-check@sha256:f213d2be6c6027571876741cc92f0ccd22fcbe3e51c6b47df1f9dae7b687154e \
+            --scan /src --out /report --format ALL --project OpenHarness \
+            --failOnCVSS 7 --enableExperimental "${nvd_args[@]}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: owasp-dependency-check
+          path: reports/
+          if-no-files-found: error
+          retention-days: 30
+
+  issue:
+    name: Upsert failure issue
+    needs: scan
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Create or update deterministic tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "[security][owasp] Dependency-Check found high-severity risk"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          body="OWASP Dependency-Check failed its CVSS >= 7 policy. Review the report artifact: ${RUN_URL}\n\nFingerprint: owasp-dependency-check/high-or-critical"
+          number="$(gh issue list --state open --search "${TITLE} in:title" --json number,title --jq ".[] | select(.title == \"${TITLE}\") | .number" | head -n1)"
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$TITLE" --body "$body" --label security
+          fi

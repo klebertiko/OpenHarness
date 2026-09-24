@@ -79,7 +79,7 @@ export function AutomationsPanel() {
           }}
         />
       ) : (
-        <Listing jobs={jobs} error={error} onOpen={setOpenId} onNew={() => setOpenId(DRAFT_ID)} />
+        <Listing jobs={jobs} error={error} onOpen={setOpenId} />
       )}
     </Panel>
   );
@@ -98,12 +98,10 @@ function Listing({
   jobs,
   error,
   onOpen,
-  onNew,
 }: {
   jobs: AutomationJob[] | null;
   error: string;
   onOpen: (id: string) => void;
-  onNew: () => void;
 }) {
   if (jobs === null) return <p className="px-3 py-3 text-[12px] text-ink-mute">Loading…</p>;
 

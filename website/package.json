@@ -1,0 +1,19 @@
+{
+  "name": "openharness-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-locales.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "dev": "node serve.mjs",
+    "start": "node serve.mjs",
+    "test:playback": "node tests/playback.cjs",
+    "test:i18n": "node tests/i18n.cjs",
+    "test:security": "node tests/security.cjs",
+    "test:publication": "node tests/publication.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

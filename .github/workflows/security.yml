@@ -1,0 +1,172 @@
+name: Security
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "19 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency delta
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@595b5aeba73380359d98a5e087f648dbb0edce1b # v4.7.3
+        with:
+          fail-on-severity: high
+          deny-licenses: AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@0b1f0509b2ddb4dc7bd94367abfe7ad1d8a1b810 # v3.30.5
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+      - uses: github/codeql-action/analyze@0b1f0509b2ddb4dc7bd94367abfe7ad1d8a1b810 # v3.30.5
+        with:
+          category: /language:${{ matrix.language }}
+
+  opengrep:
+    name: OpenGrep SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install verified OpenGrep 1.22.0
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://github.com/opengrep/opengrep/releases/download/v1.22.0/opengrep_manylinux_x86 \
+            --output "${RUNNER_TEMP}/opengrep"
+          echo "45bcd58440e397ed52c50e953ccf5948909ea77087c9186fc7d277216f62e319  ${RUNNER_TEMP}/opengrep" | sha256sum --check --strict
+          chmod +x "${RUNNER_TEMP}/opengrep"
+          "${RUNNER_TEMP}/opengrep" --version
+      - name: Scan
+        run: |
+          "${RUNNER_TEMP}/opengrep" scan --config auto --error --sarif --output opengrep.sarif \
+            --exclude .next --exclude node_modules --exclude target --exclude backend/build .
+      - uses: github/codeql-action/upload-sarif@0b1f0509b2ddb4dc7bd94367abfe7ad1d8a1b810 # v3.30.5
+        if: always() && hashFiles('opengrep.sarif') != ''
+        with:
+          sarif_file: opengrep.sarif
+          category: opengrep
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: opengrep-results
+          path: opengrep.sarif
+          if-no-files-found: error
+          retention-days: 14
+
+  trivy:
+    name: Trivy repository scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+          exit-code: "1"
+      - uses: github/codeql-action/upload-sarif@0b1f0509b2ddb4dc7bd94367abfe7ad1d8a1b810 # v3.30.5
+        if: always() && hashFiles('trivy.sarif') != ''
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
+
+  secrets:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  workflow-security:
+    name: Zizmor Actions audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.4
+        with:
+          inputs: .github/workflows/
+
+  required:
+    name: Required
+    if: always()
+    needs: [dependency-review, codeql, opengrep, trivy, secrets, workflow-security]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce security results
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          results = json.loads(os.environ["RESULTS"])
+          allowed = {"success"}
+          if os.environ["EVENT_NAME"] != "pull_request":
+              allowed.add("skipped")
+          failed = {name: job["result"] for name, job in results.items() if job["result"] not in allowed}
+          if failed:
+              print(f"Security jobs did not succeed: {failed}", file=sys.stderr)
+              sys.exit(1)
+          PY

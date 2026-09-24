@@ -13,7 +13,7 @@ const capabilities = {
 const discover = { root: "D:\\Development", items: [{ kind: "command", name: "test", path: "package.json", argv: ["npm", "run", "test"], source: "package-scripts" }], truncated: false, scanned_dirs: 3 };
 
 function stub(routes: Record<string, unknown>) {
-  const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+  const fetchMock = vi.fn(async (url: string) => {
     const key = Object.keys(routes).find((k) => String(url).includes(k));
     if (!key) return new Response(JSON.stringify({ error: "not_found" }), { status: 404 });
     return new Response(JSON.stringify(routes[key]), { status: 200 });

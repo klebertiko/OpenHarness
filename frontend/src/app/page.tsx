@@ -90,7 +90,6 @@ export default function Home() {
     const p = HARNESS_PRESETS.find((x) => x.id === id);
     if (!p) return;
     openStudioPreset(p);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

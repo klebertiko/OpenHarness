@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-11",
+  "scope": "website",
+  "design_system": "../design.md",
+  "fonts": [
+    "Sora",
+    "IBM Plex Mono"
+  ],
+  "palette": "warm ivory / graphite / mineral teal",
+  "framework": "static HTML, independent of desktop Next.js",
+  "motion": "native CSS + interactive diagram, respects reduced motion",
+  "assets": "canonical brand plus isolated product captures"
+}
