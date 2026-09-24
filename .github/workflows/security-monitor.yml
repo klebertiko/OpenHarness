@@ -1,4 +1,4 @@
-name: Dependency Security Monitor
+name: Dependency audit
 
 on:
   schedule:
@@ -57,15 +57,16 @@ jobs:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Create or update deterministic tracking issue
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TITLE: "[security][dependencies] Scheduled audit requires attention"
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
-          gh label create security --color B60205 --description "Security finding or hardening work" --force
-          body="One or more npm, pip or Cargo audits failed. Review the retained machine-readable reports: ${RUN_URL}\n\nFingerprint: dependency-monitor/high-or-critical"
-          number="$(gh issue list --state open --search "${TITLE} in:title" --json number,title --jq ".[] | select(.title == \"${TITLE}\") | .number" | head -n1)"
-          if [[ -n "$number" ]]; then gh issue comment "$number" --body "$body"; else gh issue create --title "$TITLE" --body "$body" --label security; fi
+          bash .github/scripts/upsert-security-issue.sh \
+            "[security][dependencies] Scheduled audit requires attention" \
+            "dependency-monitor/high-or-critical" \
+            "One or more npm, pip or Cargo audits failed. Review the retained machine-readable reports: ${RUN_URL}"

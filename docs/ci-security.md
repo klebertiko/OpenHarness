@@ -6,23 +6,25 @@ OpenHarness uses independent quality, security, supply-chain, and release workfl
 
 Protect `main`, require pull requests and code-owner review, dismiss stale approvals, block force pushes/deletion, and require these stable checks:
 
-- `CI / Required`
-- `Security / Required`
+- `Quality / required`
+- `Security scan / required`
 
 Enable GitHub Code Scanning, Dependabot alerts, dependency graph, secret scanning with push protection, private vulnerability reporting, and immutable releases in repository settings. GitHub settings are not created by workflow files and must be enabled by an administrator.
 
 ## Coverage
 
-| Workflow | Purpose | Merge blocking |
-| --- | --- | --- |
-| `ci.yml` | frontend, backend, Rust/Tauri, website, Compose | Yes |
-| `security.yml` | dependency delta, CodeQL, OpenGrep, Trivy, Gitleaks, zizmor | Yes |
-| `scorecard.yml` | OpenSSF repository posture | Scheduled evidence |
-| `sbom.yml` | CycloneDX SBOMs for npm, Python and Cargo | Main/scheduled evidence |
-| `owasp.yml` | OWASP Dependency-Check defense in depth | Scheduled; opens an issue on failure |
-| `security-monitor.yml` | npm, pip and RustSec audits | Scheduled; opens an issue on failure |
-| `release.yml` | version gate, NSIS build, smoke, checksum, SBOM and attestations | Tag-only release gate |
-| `laya-shadow.yml` | optional issue-triage research artifact | Never |
+| Workflow | Display name | Purpose | Merge blocking |
+| --- | --- | --- | --- |
+| `ci.yml` | Quality | frontend, backend, Rust/Tauri, website, Compose | Yes |
+| `security.yml` | Security scan | Dependency review, CodeQL, OpenGrep, Trivy, Gitleaks, Zizmor; failed scanners upsert Issues | Yes |
+| `scorecards.yml` | Scorecards supply-chain security | OpenSSF repository posture | Scheduled evidence |
+| `sbom.yml` | SBOM CycloneDX | CycloneDX SBOMs for npm, Python and Cargo | Main/scheduled evidence |
+| `owasp.yml` | OWASP Dependency-Check | OWASP Dependency-Check defense in depth | Scheduled; opens an issue on failure |
+| `security-monitor.yml` | Dependency audit | npm, pip and RustSec audits | Scheduled; opens an issue on failure |
+| `release.yml` | Release | version gate, NSIS build, smoke, checksum, SBOM and attestations | Tag-only release gate |
+| `laya-shadow.yml` | Laya triage | optional issue-triage research artifact | Never |
+
+Failed security scanners open or update a deterministic GitHub Issue via `.github/scripts/upsert-security-issue.sh` (title + fingerprint). SARIF uploads to Code Scanning remain the alert surface; Issues are the work-tracking surface.
 
 All external Actions are pinned to full commit SHAs. Dependabot proposes reviewed pin updates. Checkout credentials are not persisted. Jobs receive the smallest practical permissions, and issue-writing/release-writing jobs are separated from scanners.
 
@@ -63,7 +65,7 @@ None known after the 2026-09-24 finish pass (`cargo fmt` on `src-tauri/src/lib.r
 After these workflows land on the default branch:
 
 1. Protect `main`: require PRs, CODEOWNERS review, dismiss stale approvals, block force-push/deletion.
-2. Require status checks: `CI / Required`, `Security / Required`.
+2. Require status checks: `Quality / required`, `Security scan / required`.
 3. Enable Code Scanning, Dependabot alerts, dependency graph, secret scanning + push protection, private vulnerability reporting.
 4. Create protected Environment `release` with required reviewers.
 5. Optionally set `ENABLE_LAYA_SHADOW=true` only when collecting advisory issue-triage artifacts.

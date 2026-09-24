@@ -1,4 +1,4 @@
-name: CI
+name: Quality
 
 on:
   workflow_call:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -21,7 +21,7 @@ env:
 
 jobs:
   frontend:
-    name: Frontend
+    name: eslint typecheck test build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -45,7 +45,7 @@ jobs:
       - run: npm run build
 
   backend:
-    name: Backend
+    name: pytest
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -76,7 +76,7 @@ jobs:
           retention-days: 7
 
   rust-tauri:
-    name: Rust and Tauri
+    name: cargo fmt clippy test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -94,7 +94,7 @@ jobs:
       - run: cargo test --locked --all-features
 
   website:
-    name: Website
+    name: website build playwright
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -131,7 +131,7 @@ jobs:
           npm run test:security
 
   compose:
-    name: Compose validation
+    name: compose config
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -141,7 +141,7 @@ jobs:
       - run: docker compose config --quiet
 
   required:
-    name: Required
+    name: required
     if: always()
     needs: [frontend, backend, rust-tauri, website, compose]
     runs-on: ubuntu-latest

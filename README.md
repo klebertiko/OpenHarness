@@ -201,9 +201,9 @@ Quality and security are **independent** required checks. Probabilistic classifi
 
 | Check | Role |
 | --- | --- |
-| `CI / Required` | Frontend, backend, Rust/Tauri, website, Compose |
-| `Security / Required` | Dependency review, CodeQL, OpenGrep, Trivy, Gitleaks, zizmor |
-| Scheduled | CycloneDX SBOMs, OWASP Dependency-Check, OpenSSF Scorecard, npm/pip/cargo audits |
+| `Quality / required` | Frontend, backend, Rust, website, Compose |
+| `Security scan / required` | Dependency review, CodeQL, OpenGrep, Trivy, Gitleaks, Zizmor |
+| Scheduled | SBOM CycloneDX, OWASP Dependency-Check, Scorecards supply-chain security, Dependency audit |
 | Tag `vX.Y.Z` | Version gate → Windows NSIS → smoke → checksums → SBOM + attestations |
 
 Package installs in CI go through **Aikido Safe Chain** (checksum-pinned installer). External Actions are pinned to full commit SHAs.

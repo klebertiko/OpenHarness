@@ -1,4 +1,4 @@
-name: CycloneDX SBOM
+name: SBOM CycloneDX
 
 on:
   push:

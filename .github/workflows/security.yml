@@ -1,4 +1,4 @@
-name: Security
+name: Security scan
 
 on:
   workflow_call:
@@ -13,12 +13,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: security-scan-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   dependency-review:
-    name: Dependency delta
+    name: Dependency review
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -32,8 +32,31 @@ jobs:
           fail-on-severity: high
           deny-licenses: AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later
 
+  dependency-review-issue:
+    name: Track Dependency review
+    needs: dependency-review
+    if: failure() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Upsert tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash .github/scripts/upsert-security-issue.sh \
+            "[security][dependency-review] PR dependency review failed" \
+            "dependency-review/high-or-denied-license" \
+            "Dependency review failed (high severity and/or denied licenses). Enable Dependency graph + GitHub Advanced Security if the action cannot run. Run: ${RUN_URL}"
+
   codeql:
-    name: CodeQL (${{ matrix.language }})
+    name: CodeQL · ${{ matrix.language }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -56,7 +79,7 @@ jobs:
           category: /language:${{ matrix.language }}
 
   opengrep:
-    name: OpenGrep SAST
+    name: OpenGrep
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -93,8 +116,31 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  opengrep-issue:
+    name: Track OpenGrep
+    needs: opengrep
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Upsert tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash .github/scripts/upsert-security-issue.sh \
+            "[security][opengrep] OpenGrep SAST findings" \
+            "opengrep/sast-findings" \
+            "OpenGrep failed with findings (also uploaded as SARIF to Code Scanning when available). Triage and fix or document exceptions. Run: ${RUN_URL}"
+
   trivy:
-    name: Trivy repository scan
+    name: Trivy
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -120,6 +166,29 @@ jobs:
           sarif_file: trivy.sarif
           category: trivy
 
+  trivy-issue:
+    name: Track Trivy
+    needs: trivy
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Upsert tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash .github/scripts/upsert-security-issue.sh \
+            "[security][trivy] HIGH/CRITICAL filesystem findings" \
+            "trivy/fs-high-critical" \
+            "Trivy filesystem scan failed on HIGH/CRITICAL (vuln/secret/misconfig). SARIF also goes to Code Scanning. Run: ${RUN_URL}"
+
   secrets:
     name: Gitleaks
     runs-on: ubuntu-latest
@@ -133,8 +202,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+  secrets-issue:
+    name: Track Gitleaks
+    needs: secrets
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Upsert tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash .github/scripts/upsert-security-issue.sh \
+            "[security][gitleaks] Secret detection findings" \
+            "gitleaks/secret-findings" \
+            "Gitleaks reported leaked secrets or failed the scan. Rotate any real credentials immediately; do not paste secret values into the issue. Run: ${RUN_URL}"
+
   workflow-security:
-    name: Zizmor Actions audit
+    name: Zizmor
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -148,13 +240,36 @@ jobs:
         with:
           inputs: .github/workflows/
 
+  workflow-security-issue:
+    name: Track Zizmor
+    needs: workflow-security
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Upsert tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash .github/scripts/upsert-security-issue.sh \
+            "[security][zizmor] Workflow security findings" \
+            "zizmor/workflow-audit" \
+            "Zizmor Actions audit failed. Harden the flagged workflows. Run: ${RUN_URL}"
+
   required:
-    name: Required
+    name: required
     if: always()
     needs: [dependency-review, codeql, opengrep, trivy, secrets, workflow-security]
     runs-on: ubuntu-latest
     steps:
-      - name: Enforce security results
+      - name: Enforce required results
         env:
           EVENT_NAME: ${{ github.event_name }}
           RESULTS: ${{ toJSON(needs) }}
@@ -167,6 +282,6 @@ jobs:
               allowed.add("skipped")
           failed = {name: job["result"] for name, job in results.items() if job["result"] not in allowed}
           if failed:
-              print(f"Security jobs did not succeed: {failed}", file=sys.stderr)
+              print(f"Security scan jobs did not succeed: {failed}", file=sys.stderr)
               sys.exit(1)
           PY

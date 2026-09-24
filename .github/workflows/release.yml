@@ -9,17 +9,18 @@ permissions:
 
 jobs:
   quality:
-    name: Quality gates
+    name: Quality
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
 
   security:
-    name: Security gates
+    name: Security scan
     uses: ./.github/workflows/security.yml
     permissions:
       contents: read
       security-events: write
+      issues: write
 
   validate-version:
     name: Version consistency

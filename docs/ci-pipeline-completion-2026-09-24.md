@@ -9,15 +9,16 @@ Chain, CycloneDX, OWASP Dependency-Check, and optional Laya shadow.
 
 | Artifact | Role |
 | --- | --- |
-| `.github/workflows/ci.yml` | Frontend, backend, Rust/Tauri, website, Compose → `CI / Required` |
-| `.github/workflows/security.yml` | Dependency-review, CodeQL, OpenGrep 1.22.0, Trivy, Gitleaks, zizmor → `Security / Required` |
-| `.github/actions/setup-safe-chain/action.yml` | Aikido Safe Chain 1.5.15 with SHA-256 verify (Unix + Windows) |
-| `.github/workflows/sbom.yml` | CycloneDX for root/frontend/website npm, backend pip, Tauri cargo |
-| `.github/workflows/owasp.yml` | Dependency-Check 12.1.8; opens tracking issue on CVSS ≥ 7 |
-| `.github/workflows/scorecard.yml` | OpenSSF Scorecard SARIF → Code Scanning |
-| `.github/workflows/security-monitor.yml` | Scheduled npm / pip-audit / cargo-audit + issue upsert |
-| `.github/workflows/release.yml` | Tag `vX.Y.Z` → reusable CI+Security → Windows NSIS + smoke + attestations |
-| `.github/workflows/laya-shadow.yml` | Advisory issue triage only (`ENABLE_LAYA_SHADOW`); never merge authority |
+| `.github/workflows/ci.yml` | Quality — Frontend, Backend, Rust, Website, Compose → `Quality / required` |
+| `.github/workflows/security.yml` | Security scan — Dependency review, CodeQL, OpenGrep, Trivy, Gitleaks, Zizmor → `Security scan / required`; failed scanners upsert Issues |
+| `.github/actions/setup-safe-chain/action.yml` | Aikido Safe Chain 1.5.15 with SHA-256 verify (Unix + Windows); PATH fixed same-step |
+| `.github/scripts/upsert-security-issue.sh` | Title-primary issue upsert with Fingerprint body marker |
+| `.github/workflows/sbom.yml` | SBOM CycloneDX for root/frontend/website npm, backend pip, Tauri cargo |
+| `.github/workflows/owasp.yml` | OWASP Dependency-Check 12.1.8; opens tracking issue on CVSS ≥ 7 |
+| `.github/workflows/scorecards.yml` | Scorecards supply-chain security — SARIF → Code Scanning |
+| `.github/workflows/security-monitor.yml` | Dependency audit — scheduled npm / pip-audit / cargo-audit + issue upsert |
+| `.github/workflows/release.yml` | Tag `vX.Y.Z` → reusable Quality + Security scan → Windows NSIS + smoke + attestations |
+| `.github/workflows/laya-shadow.yml` | Advisory · Laya issue triage (`ENABLE_LAYA_SHADOW`); never merge authority |
 | `.github/dependabot.yml` | npm ×3, pip, cargo, github-actions |
 | `.github/CODEOWNERS` | `@klebertiko` on `*`, `.github/`, sandbox/security/Tauri surfaces |
 | `docs/ci-security.md` | Policy + admin checklist |

@@ -1,4 +1,4 @@
-name: Laya Shadow Issue Triage
+name: Laya triage
 
 on:
   issues:

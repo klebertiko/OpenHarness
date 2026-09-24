@@ -16,7 +16,11 @@ runs:
         echo "de0565e3d6346407a604e84e639e95fea8758748063da2216bbfdca5feda5dd2  $installer" | sha256sum --check --strict
         sh "$installer" --ci
         rm "$installer"
-        safe-chain --version
+        # GITHUB_PATH applies to later steps only — use absolute path in this step.
+        echo "$HOME/.safe-chain/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.safe-chain/shims" >> "$GITHUB_PATH"
+        export PATH="$HOME/.safe-chain/bin:$HOME/.safe-chain/shims:$PATH"
+        "$HOME/.safe-chain/bin/safe-chain" --version
     - name: Install Aikido Safe Chain 1.5.15 (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
@@ -28,4 +32,9 @@ runs:
         if ($actual -ne $expected) { throw "Safe Chain installer checksum mismatch" }
         & $installer -ci
         Remove-Item -LiteralPath $installer
-        safe-chain --version
+        $bin = Join-Path $env:USERPROFILE ".safe-chain\bin"
+        $shims = Join-Path $env:USERPROFILE ".safe-chain\shims"
+        Add-Content -Path $env:GITHUB_PATH -Value $bin
+        Add-Content -Path $env:GITHUB_PATH -Value $shims
+        $env:Path = "$bin;$shims;$env:Path"
+        & (Join-Path $bin "safe-chain.exe") --version
