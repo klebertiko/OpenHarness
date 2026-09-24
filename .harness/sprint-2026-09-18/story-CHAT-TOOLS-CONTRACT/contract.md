@@ -1,6 +1,6 @@
 # Contrato — Chat Tools Broker
 
-Versão 1.1 · 2026-09-18 · Dono: Claude · Consumidores: `story-CHAT-TOOLS-BE` (Codex), `story-CHAT-TOOLS-FE` (Claude)
+Versão 1.1.1 · 2026-09-24 · Dono: Claude · Consumidores: `story-CHAT-TOOLS-BE` (Codex), `story-CHAT-TOOLS-FE` (Claude)
 Threat-model: `threat-model.md` · ADR: `docs/adr/0004-chat-tools-broker.md` · Cenários BDD: `features/*.feature`
 Mudanças: Claude edita; Codex propõe em `contract-proposals.md` (append). Toda mudança entra no §Changelog.
 
@@ -216,12 +216,21 @@ fixo quando `instruction` contém `[tool-demo]`, para E2E sem provedor real.
 4. Devolve `resolved`; o caminho reportado ao cliente é `resolved.relative_to(root)` com `/`.
 
 **`secrets.py`** — denylist de leitura automática (glob, case-insensitive):
-`.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.kdbx`, `id_rsa*`, `id_ed25519*`,
-`**/.ssh/**`, `**/.aws/**`, `.git/config`, `**/secrets/**`, `*secret*`, `*credential*`,
+`.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.kdbx`, `id_*`,
+`**/.ssh/**`, `**/.aws/**`, `**/.kube/**`, `**/.docker/**`, `.git/config`, `**/secrets/**`,
+`*secret*`, `*credential*`, `.npmrc`, `.netrc`, `.pypirc`, `terraform.tfstate*`,
 e o diretório do `FileSecretsStore` quando `OH_SECRETS=file`.
+Corrigido no SEC gate de 2026-09-24 (`gates/sec-2026-09-24.md`, P2-1): a versão anterior tinha
+estreitado `id_*` para só `id_rsa*`/`id_ed25519*` (perdendo `id_ecdsa`/`id_dsa`) sem justificativa
+contra `threat-model.md` §2, e nunca cobria `.npmrc`/`.netrc`/`.pypirc`/`.kube`/`.docker`/
+`terraform.tfstate` — credenciais reais e comuns.
 Redação de saída (`redact(text) -> (text, n)`): `sk-[A-Za-z0-9]{20,}`, `sk-or-[A-Za-z0-9-]{20,}`,
 `AKIA[0-9A-Z]{16}`, `ghp_[A-Za-z0-9]{36}`, `xox[abprs]-[A-Za-z0-9-]{10,}`,
-`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END`, `(?i)(api[_-]?key|token|secret|password)\s*[=:]\s*\S{8,}`.
+`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END`,
+`(?i)(api[_-]?key|token|secret|password)["']?\s*[=:]\s*["']?\S{8,}?["']?(?=[\s,}]|$)` — aceita uma
+aspa opcional de cada lado do nome/valor (corrigido no mesmo SEC gate, P2-2: a versão anterior só
+casava valor colado direto no separador, então `"api_key": "sk-..."` — a forma exata que
+`docker inspect`/`npm config list --json`/`kubectl get secret -o json` imprimem — passava cru).
 Substitui por `[redacted:<kind>]`. Aplica-se a `read.content` e a `exec.result`.
 
 **`exec.py`** — `run(argv, cwd, timeout_s)`: `shell=False`; `env = scrub_env()`; cwd validado por
@@ -271,6 +280,13 @@ Todos os eventos de §2.5 entram em `ExecutionLog.result.events` do run. Para o 
   dep nova no worktree): menu `/` mostra `Tool`, card de aprovação, 403 visível, stop mata processo.
 
 ## Changelog
+- 1.1.1 (2026-09-24, Claude, a partir do SEC gate `gates/sec-2026-09-24.md`, P2-1/P2-2): denylist
+  de `secrets.py` corrigida de `id_rsa*`/`id_ed25519*` para `id_*` (bate com `threat-model.md` §2)
+  e ganhou `.npmrc`/`.netrc`/`.pypirc`/`.kube`/`.docker`/`terraform.tfstate*`; regex de redação de
+  `assignment` aceita aspa opcional de cada lado (chave/valor citados em JSON/YAML, forma que
+  `docker inspect`/`npm config list --json`/`kubectl get secret -o json` imprimem, não passava).
+  Sem mudança de shape de API — só a implementação de `sandbox/secrets.py` ficou mais fiel ao que
+  o contrato já prometia.
 - 1.1 (2026-09-18, Claude, a partir de `contract-proposals.md` §1–6 do Codex — todas aceitas):
   `call_id` obrigatório na decisão + 409 + evento `tool_approval_decision`; `preset.*` separado de
   `tools.*` em capabilities, preset válido em CLI, simulado em mock; capabilities sempre completo no

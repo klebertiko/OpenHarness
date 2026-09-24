@@ -45,3 +45,35 @@ def test_file_secret_store_directory_requires_approval(tmp_path, monkeypatch, ba
     monkeypatch.setenv("OH_SECRETS_DIR", str(tmp_path / "vault"))
     assert requires_approval(tmp_path / "vault" / "opaque.json")
     assert not requires_approval(tmp_path / "public.md")
+
+
+# SEC gate 2026-09-24 (gates/sec-2026-09-24.md, P2-1): the denylist matched the
+# contract's narrowed `id_rsa*`/`id_ed25519*` instead of threat-model.md §2's
+# original `id_*`, and missed common real credential files entirely.
+@pytest.mark.parametrize("name", [
+    "id_ecdsa", "id_ecdsa.pub", "id_dsa", "id_dsa.pub",
+    ".npmrc", "a/.npmrc", ".netrc", ".pypirc",
+    ".kube/config", "a/.kube/config",
+    ".docker/config.json", "a/.docker/config.json",
+    "terraform.tfstate", "terraform.tfstate.backup",
+])
+def test_additional_real_credential_files_require_approval(name):
+    assert requires_approval(Path(name))
+
+
+# SEC gate 2026-09-24 (P2-2): the assignment pattern required the value to sit
+# directly against the separator, so a JSON/YAML-quoted secret — exactly what
+# `docker inspect`, `npm config list --json`, `kubectl get secret -o json`
+# print — slipped through unredacted.
+@pytest.mark.parametrize("secret", [
+    '"api_key": "sk-whatever12345678"',
+    "'password': 'hunter2hunter2'",
+    '"token":"abcdefghij"',
+])
+def test_quoted_key_value_pairs_are_redacted(secret):
+    result, count = redact("prefix " + secret + " suffix")
+    assert "sk-whatever12345678" not in result
+    assert "hunter2hunter2" not in result
+    assert "abcdefghij" not in result
+    assert "[redacted:" in result
+    assert count == 1

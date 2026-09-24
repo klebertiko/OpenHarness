@@ -84,3 +84,26 @@ asserção integral do contrato publicado. Testes direcionados após as mudança
 Regressão backend final após os testes de mutation: **607 passed, 34 skipped in 44.18s**. Os 34
 skips continuam sendo 28 E2E reservados à cópia isolada e 6 symlinks sem privilégio; os 28 E2E
 passaram na execução isolada registrada acima.
+
+## 2026-09-24 — Correção de SEC gate (Claude, autorizado pelo HITL — Codex indisponível)
+
+SEC fresh-context (`gates/sec-2026-09-24.md`) achou dois P2 reais em `sandbox/secrets.py`, ambos
+com fix roteado para `@BE`. Como o Codex bateu limite de uso e o humano pediu para eu terminar as
+implementações em aberto, corrigi eu mesmo — é território dele por convenção, não por regra dura,
+e a correção é pequena e bem especificada pelo próprio SEC.
+
+- RED: 17 testes novos (`tests/test_sandbox_secrets.py`) cobrindo os achados exatos do SEC:
+  `id_ecdsa`/`id_dsa`/`.npmrc`/`.netrc`/`.pypirc`/`.kube/config`/`.docker/config.json`/
+  `terraform.tfstate*` sem gate, e três formas de chave/valor citados (`"api_key": "sk-..."`,
+  `'password': '...'`, `"token":"..."`) passando sem redação → **17 failed**.
+- GREEN: `_NAMES` trocou `id_rsa*`/`id_ed25519*` por `id_*` (bate com `threat-model.md` §2, que o
+  contrato tinha estreitado sem motivo) e ganhou `.npmrc`/`.netrc`/`.pypirc`/`terraform.tfstate*`;
+  novo `_DIRS` (`.kube`, `.docker`, além de `.ssh`/`.aws`/`secrets` que já existiam) para os
+  arquivos de config que não têm nome fixo; regex `assignment` ganhou aspa opcional de cada lado
+  do separador. Primeira rodada: 4 dos 17 ainda falhavam (`.kube`/`.docker`) — `_DIRS` estava
+  definido mas a função ainda checava o set antigo hardcoded; corrigido para usar `_DIRS` de
+  verdade. `pytest tests/test_sandbox_secrets.py` → **54 passed**.
+- Regressão completa: `pytest -q` → **625 passed, 34 skipped in 41.42s** (era 607 antes; +17 dos
+  testes novos, mesma contagem de skip, sem regressão).
+- `contract.md` atualizado para 1.1.1 (Claude, território dele) com a denylist/regex corrigidas
+  e uma entrada no Changelog citando o SEC gate — sem mudança de shape de API.
