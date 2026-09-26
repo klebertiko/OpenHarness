@@ -132,3 +132,64 @@ def test_repo_provider_env_defaults_to_fake() -> None:
     assert default_provider_name() == "fake"
     os.environ["REPO_PROVIDER"] = "fake"
     assert default_provider_name() == "fake"
+
+
+# ── repo format validation (CodeQL py/partial-ssrf, Security review 2026-09-26) ─
+#
+# `repo` used to reach GitHubRepoProvider/GitLabRepoProvider as a raw,
+# unvalidated f-string path segment (`f"/repos/{repo}/pulls"`,
+# `f"/projects/{quote(repo)}/merge_requests"`). A `repo` containing `../`
+# segments lets the caller redirect the app's own stored provider token at an
+# arbitrary GitHub/GitLab API endpoint instead of the intended repo — a
+# confused-deputy path injection reachable from anything holding the
+# sidecar's bearer token, not just the app's own UI. Every endpoint below
+# takes `repo` from the same untrusted boundary (query or body), so one
+# malformed value is enough to prove the class; the fix validates centrally
+# in routers/repos.py, before any adapter is touched.
+
+
+@pytest.mark.parametrize(
+    "repo",
+    [
+        "../orgs/acme/members",
+        "acme/../../rate_limit",
+        "acme/app/../../../user",
+        "/acme/app",
+        "acme/app/",
+        "acme//app",
+        "acme",
+        "",
+        "acme/.",
+        "acme/..",
+    ],
+)
+def test_malformed_repo_is_rejected_before_reaching_any_adapter(client: TestClient, repo: str) -> None:
+    r = client.get("/repos/fake/pulls", params={"repo": repo})
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "invalid_repo"
+
+
+def test_malformed_repo_rejected_on_create_pull_body_too(client: TestClient) -> None:
+    r = client.post(
+        "/repos/fake/pulls",
+        json={"repo": "../orgs/acme/members", "title": "x", "head": "a", "base": "main", "body": ""},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "invalid_repo"
+
+
+def test_malformed_repo_rejected_on_comment_body_too(client: TestClient) -> None:
+    r = client.post(
+        "/repos/fake/pulls/1/comments",
+        json={"repo": "../orgs/acme/members", "body": "hi"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "invalid_repo"
+
+
+def test_nested_gitlab_style_namespace_is_still_accepted(client: TestClient) -> None:
+    # GitLab subgroups nest arbitrarily deep — validation must not reduce to
+    # GitHub's exactly-two-segments shape.
+    r = client.get("/repos/fake/pulls", params={"repo": "group/subgroup/project"})
+    assert r.status_code == 200
+    assert r.json()["pulls"] == []
