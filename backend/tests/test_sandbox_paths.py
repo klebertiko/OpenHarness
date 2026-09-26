@@ -14,7 +14,17 @@ def test_file_inside_root_resolves_to_canonical_path(tmp_path):
     assert resolve_in_root(root, str(file.resolve())) == file.resolve()
 
 
-@pytest.mark.parametrize("path", ["../outside.txt", "../absent.txt", r"\\server\share\secret", r"\\?\C:\secret", r"\\.\NUL", "note.txt:secret", "C:relative"])
+@pytest.mark.parametrize("path", ["../outside.txt", "../absent.txt", r"\\server\share\secret", r"\\?\C:\secret", r"\\.\NUL", "note.txt:secret", "C:relative",
+    # CodeQL py/path-injection (Security review 2026-09-26): a bare
+    # leading-slash path has no drive letter, so PureWindowsPath.is_absolute()
+    # is False and none of the drive/colon/reserved-name guards above trip.
+    # It still can't escape: `base / "/etc/passwd"` keeps base's own drive
+    # (pathlib joins an absolute-no-drive operand onto the left side's drive,
+    # producing e.g. "C:/etc/passwd"), which the mandatory post-join
+    # is_relative_to(base) check below then rejects like any other outside
+    # path. This is the redundant check that makes the upfront guards
+    # defense-in-depth rather than the only line of defense.
+    "/etc/passwd", "/", "//x", "/../outside"])
 def test_untrusted_paths_cannot_escape_or_use_device_aliases(tmp_path, path):
     root = tmp_path / "ws"
     root.mkdir()
