@@ -167,7 +167,9 @@ def test_claude_invoke_sends_the_prompt_on_stdin_not_argv(monkeypatch: pytest.Mo
     assert "PATH" in captured["env"]
 
 
-def test_claude_invoke_surfaces_cli_error() -> None:
+def test_claude_invoke_surfaces_cli_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_claude.find_cli", lambda name: "/usr/local/bin/claude")
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=1, stdout="", stderr="line1\nauth expired")
 
@@ -178,7 +180,9 @@ def test_claude_invoke_surfaces_cli_error() -> None:
     assert "auth expired" in result.error
 
 
-def test_claude_invoke_surfaces_timeout() -> None:
+def test_claude_invoke_surfaces_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_claude.find_cli", lambda name: "/usr/local/bin/claude")
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=-1, stdout="", stderr="timed out after 1s", timed_out=True)
 
@@ -189,7 +193,9 @@ def test_claude_invoke_surfaces_timeout() -> None:
     assert "timed out" in result.error
 
 
-def test_claude_stream_yields_single_chunk() -> None:
+def test_claude_stream_yields_single_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_claude.find_cli", lambda name: "/usr/local/bin/claude")
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         payload = {"is_error": False, "result": "hello", "usage": {}}
         return CliRunResult(returncode=0, stdout=json.dumps(payload), stderr="")
@@ -309,6 +315,7 @@ def test_cursor_build_argv_raises_when_cli_missing(monkeypatch: pytest.MonkeyPat
 
 def test_cursor_invoke_sends_prompt_on_stdin_and_parses_result_field(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: False)
+    monkeypatch.setattr("adapters.cli_cursor._invocation_prefix", lambda: ["/usr/local/bin/cursor-agent"])
 
     captured: dict = {}
 
@@ -328,6 +335,7 @@ def test_cursor_invoke_sends_prompt_on_stdin_and_parses_result_field(monkeypatch
 
 def test_cursor_invoke_falls_back_to_raw_stdout_when_not_json(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: False)
+    monkeypatch.setattr("adapters.cli_cursor._invocation_prefix", lambda: ["/usr/local/bin/cursor-agent"])
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=0, stdout="plain text output", stderr="")
@@ -347,6 +355,7 @@ def test_cursor_invoke_errors_on_unrecognised_json_shape_rather_than_guessing(
     # unrecognised shape (or a genuinely empty success) should surface as an
     # error a human can see, not flow downstream as if it were real content.
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: False)
+    monkeypatch.setattr("adapters.cli_cursor._invocation_prefix", lambda: ["/usr/local/bin/cursor-agent"])
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=0, stdout=json.dumps({"unexpected_field": "value"}), stderr="")
@@ -360,6 +369,7 @@ def test_cursor_invoke_errors_on_unrecognised_json_shape_rather_than_guessing(
 
 def test_cursor_invoke_surfaces_cli_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: False)
+    monkeypatch.setattr("adapters.cli_cursor._invocation_prefix", lambda: ["/usr/local/bin/cursor-agent"])
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=1, stdout="", stderr="usage limit reached")
@@ -513,6 +523,7 @@ def test_codex_build_argv_raises_when_cli_missing(monkeypatch: pytest.MonkeyPatc
 
 def test_codex_invoke_sends_prompt_on_stdin_and_parses_agent_message(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "/usr/local/bin/codex")
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     captured: dict = {}
 
@@ -537,7 +548,9 @@ def test_codex_invoke_sends_prompt_on_stdin_and_parses_agent_message(monkeypatch
     assert "ignore & rm -rf / ; echo pwned" not in captured["argv"]
 
 
-def test_codex_invoke_errors_when_no_agent_message_in_stream() -> None:
+def test_codex_invoke_errors_when_no_agent_message_in_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         lines = [
             json.dumps({"type": "thread.started", "thread_id": "t1"}),
@@ -553,7 +566,9 @@ def test_codex_invoke_errors_when_no_agent_message_in_stream() -> None:
     assert result.error != ""
 
 
-def test_codex_invoke_surfaces_cli_error() -> None:
+def test_codex_invoke_surfaces_cli_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=1, stdout="", stderr="line1\nnot logged in")
 
@@ -564,7 +579,9 @@ def test_codex_invoke_surfaces_cli_error() -> None:
     assert "not logged in" in result.error
 
 
-def test_codex_invoke_surfaces_timeout() -> None:
+def test_codex_invoke_surfaces_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=-1, stdout="", stderr="timed out after 1s", timed_out=True)
 
@@ -575,7 +592,9 @@ def test_codex_invoke_surfaces_timeout() -> None:
     assert "timed out" in result.error
 
 
-def test_codex_stream_yields_single_chunk() -> None:
+def test_codex_stream_yields_single_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
+
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         lines = [json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "hello"}})]
         return CliRunResult(returncode=0, stdout="\n".join(lines), stderr="")
@@ -589,6 +608,7 @@ def test_codex_stream_yields_single_chunk() -> None:
 
 def test_codex_probe_live_when_logged_in(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "/usr/local/bin/codex")
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         assert argv[-2:] == ["login", "status"]
@@ -607,6 +627,7 @@ def test_codex_probe_live_when_logged_in_answer_is_on_stderr(monkeypatch: pytest
     # masked this the first time this adapter was verified). Regression test
     # for that: stdout empty, the real answer only on stderr.
     monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "/usr/local/bin/codex")
+    monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
         return CliRunResult(returncode=0, stdout="", stderr="Logged in using ChatGPT")

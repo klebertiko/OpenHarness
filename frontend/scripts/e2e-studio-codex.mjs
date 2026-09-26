@@ -50,9 +50,14 @@ async function download(name) {
   const file = await pending; await file.saveAs(resolve(output, name));
   return JSON.parse(readFileSync(resolve(output, name), 'utf8'));
 }
+const REACTFLOW_RUNTIME_KEYS = ["measured", "selected", "dragging"];
 function authored(bundle) {
   const copy = structuredClone(bundle);
-  copy.graph.nodes = copy.graph.nodes.map(({ measured, selected, dragging, ...node }) => node);
+  copy.graph.nodes = copy.graph.nodes.map((node) => {
+    const rest = { ...node };
+    for (const key of REACTFLOW_RUNTIME_KEYS) delete rest[key];
+    return rest;
+  });
   return copy;
 }
 try {
