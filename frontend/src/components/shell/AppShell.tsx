@@ -1,13 +1,16 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleBar } from "./TitleBar";
 import { ActivityRail } from "./ActivityRail";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { KeymapSheet } from "./KeymapSheet";
-import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX } from "./shellStore";
+import { HarnessLibrarySheet } from "./HarnessLibrarySheet";
+import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX, type RailSection } from "./shellStore";
 import { isEditingTarget, matchesChord, useIsMac } from "./keys";
-import type { Command } from "./commands";
+import { shellNavCommands, type Command } from "./commands";
+import { useModeStore } from "@/store/modeStore";
+import { useProviderStore } from "@/components/providers/providerStore";
 
 /**
  * Split handle. 5px hit area over a 1px visual rule — the standard trick, but
@@ -88,6 +91,7 @@ interface Props {
   edgeCount: number;
   selectedId: string | null;
   backendOk: boolean;
+  immersive?: boolean;
   toolbar: React.ReactNode;
   left: React.ReactNode;
   stage: React.ReactNode;
@@ -104,6 +108,7 @@ export function AppShell({
   edgeCount,
   selectedId,
   backendOk,
+  immersive = false,
   toolbar,
   left,
   stage,
@@ -111,9 +116,12 @@ export function AppShell({
 }: Props) {
   const mac = useIsMac();
   const shell = useShellStore();
+  const shellMode = useModeStore((s) => s.mode);
+  const hydrateProviders = useProviderStore((s) => s.hydrate);
 
   useEffect(() => {
     shell.hydrate();
+    void hydrateProviders();
     // Hydration runs once, deliberately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -155,8 +163,10 @@ export function AppShell({
   const leftOpen = leftPref && !narrow.left;
   const rightOpen = rightPref && !narrow.right;
 
-  const commandsRef = useRef(commands);
-  commandsRef.current = commands;
+  const allCommands = useMemo(() => [...shellNavCommands(), ...commands], [commands]);
+
+  const commandsRef = useRef(allCommands);
+  commandsRef.current = allCommands;
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -174,7 +184,7 @@ export function AppShell({
         dismissOverlays();
         return;
       }
-      if (useShellStore.getState().paletteOpen || useShellStore.getState().keymapOpen) return;
+      if (useShellStore.getState().paletteOpen || useShellStore.getState().keymapOpen || useShellStore.getState().libraryOpen) return;
 
       if (!editing && e.key === "?") {
         e.preventDefault();
@@ -191,10 +201,18 @@ export function AppShell({
         toggleRight();
         return;
       }
-      for (const [i, s] of (["build", "runs", "providers", "files"] as const).entries()) {
-        if (matchesChord(e, `Alt+${i + 1}`, mac)) {
+      // Alt+1..6 — the destinations, same order as the rail, everywhere.
+      const NAV_CHORDS: [string, RailSection][] = [
+        ["Alt+1", "chats"],
+        ["Alt+2", "studio"],
+        ["Alt+3", "automations"],
+        ["Alt+4", "git"],
+        ["Alt+5", "providers"],
+      ];
+      for (const [chord, target] of NAV_CHORDS) {
+        if (matchesChord(e, chord, mac)) {
           e.preventDefault();
-          setSection(s);
+          setSection(target);
           return;
         }
       }
@@ -206,7 +224,16 @@ export function AppShell({
         }
       }
     },
-    [mac, setPaletteOpen, setKeymapOpen, toggleLeft, toggleRight, setSection, dismissOverlays]
+    [
+      mac,
+      setPaletteOpen,
+      setKeymapOpen,
+      toggleLeft,
+      toggleRight,
+      setSection,
+
+      dismissOverlays,
+    ]
   );
 
   useEffect(() => {
@@ -215,42 +242,29 @@ export function AppShell({
   }, [onKeyDown]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-sub-000">
+    <div
+      className="oh-shell flex h-screen flex-col overflow-hidden"
+      data-shell-mode={shellMode}
+    >
       <TitleBar
         harnessName={harnessName}
         onHarnessNameChange={onHarnessNameChange}
-        mode={mode}
+        mode={shellMode === "agent" ? "Agent" : "Studio"}
         running={running}
         nodeCount={nodeCount}
+        editingHarness={shellMode === "studio" && shell.studioView === "editor"}
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
       {toolbar}
 
       <div className="flex min-h-0 flex-1">
-        <ActivityRail />
-
-        {leftOpen && (
-          <>
-            <div
-              className="min-h-0 flex-none border-r border-line"
-              style={{ width: hydrated ? leftWidth : undefined, minWidth: LEFT_MIN }}
-            >
-              {left}
-            </div>
-            <Resizer
-              side="left"
-              value={leftWidth}
-              min={LEFT_MIN}
-              max={LEFT_MAX}
-              onChange={setLeftWidth}
-            />
-          </>
-        )}
+        <ActivityRail>{leftOpen && !immersive ? left : null}</ActivityRail>
+        <Resizer side="left" value={leftWidth} min={LEFT_MIN} max={LEFT_MAX} onChange={setLeftWidth} />
 
         <main className="relative min-w-0 flex-1 bg-sub-000">{stage}</main>
 
-        {rightOpen && (
+        {rightOpen && !immersive && right && (
           <>
             <Resizer
               side="right"
@@ -269,21 +283,24 @@ export function AppShell({
         )}
       </div>
 
-      <StatusBar
-        mode={mode}
-        running={running}
-        nodeCount={nodeCount}
-        edgeCount={edgeCount}
-        selectedId={selectedId}
-        backendOk={backendOk}
-      />
+      {shellMode === "studio" && shell.studioView === "editor" && (
+        <StatusBar
+          mode={`Studio · exec ${mode}`}
+          running={running}
+          nodeCount={nodeCount}
+          edgeCount={edgeCount}
+          selectedId={selectedId}
+          backendOk={backendOk}
+        />
+      )}
 
       <CommandPalette
         open={paletteOpen}
-        commands={commands}
+        commands={allCommands}
         onClose={() => setPaletteOpen(false)}
       />
       <KeymapSheet open={keymapOpen} onClose={() => setKeymapOpen(false)} />
+      <HarnessLibrarySheet />
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Minus, Plus, Search, Terminal } from "lucide-react";
 import { Chip } from "./atoms";
 import { Btn } from "./CredentialSeal";
-import { specOf, useProviderStore, type Connection, type ModelInfo } from "./providerStore";
+import { specOf, useProviderStore, type Connection } from "./providerStore";
 
 /**
  * How a connection's models are chosen.
@@ -259,6 +259,7 @@ function Routed({ c }: { c: Connection }) {
 /* ── Cursor: the handoff, since there is nothing to configure ─────────────── */
 
 export function CursorHandoff({ c }: { c: Connection }) {
+  void c;
   return (
     <Block
       title="Handoff"

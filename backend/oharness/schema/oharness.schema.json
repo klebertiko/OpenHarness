@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openharness.dev/schema/oharness/v1.0.0.json",
+  "title": "OpenHarness Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "manifest",
+    "graph",
+    "content",
+    "runtime",
+    "validation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "description": "Semver of the OpenHarness bundle schema."
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "description", "license", "tags"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "description": { "type": "string" },
+        "license": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "edges"],
+      "$comment": "nodes/edges are deliberately left schema-open (no per-item shape here): the OHM preservation contract (docs/adr/0003-ohm-yaml.md) requires every authoring field -- node data, Provider config, Signals, handles, position -- to survive import/export verbatim, including extension fields this schema doesn't yet know about. oharness/models.py's Graph model still requires each item to be a JSON object (not a bare string/number), and oharness/validate.py's _graph_errors layers the stricter id/source/target checks with diagnostics on top.",
+      "properties": {
+        "nodes": { "type": "array" },
+        "edges": { "type": "array" }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompts",
+        "agents",
+        "skills",
+        "hooks",
+        "commands",
+        "scripts"
+      ],
+      "properties": {
+        "prompts": { "type": "object" },
+        "agents": { "type": "object" },
+        "skills": { "type": "object" },
+        "hooks": { "type": "object" },
+        "commands": { "type": "object" },
+        "scripts": { "type": "object" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preferred", "cli", "env", "secrets"],
+      "properties": {
+        "preferred": { "type": "string" },
+        "cli": { "type": ["string", "null"] },
+        "env": { "type": "array" },
+        "secrets": { "type": "array" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mockProfile"],
+      "properties": {
+        "mockProfile": { "type": "string" }
+      }
+    }
+  }
+}

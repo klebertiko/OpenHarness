@@ -1,5 +1,8 @@
 "use client";
+import { useEffect } from "react";
 import { Activity, ExternalLink, Info } from "lucide-react";
+import { Nilo } from "@/components/brand/Nilo";
+import { type ConnectionUsage } from "@/lib/usageApi";
 import {
   BILLING_LABEL,
   CAPABILITY_LABEL,
@@ -10,8 +13,12 @@ import {
 import { Chip, Monogram, ProbeTrace, ResidenceMark, Stamp } from "./atoms";
 import { Btn, CredentialSeal } from "./CredentialSeal";
 import { Block, CursorHandoff, ModelSection } from "./ModelSection";
-import { specOf, useProviderStore } from "./providerStore";
+import { specOf, useProviderStore, type Connection } from "./providerStore";
+import { usageCostLabel, useUsageStore } from "./usageStore";
 
+/* Hallmark · genre: modern-minimal editorial workspace
+   macrostructure: Curated Library · design-system: design.md · designed-as-app
+   No mascot here by design — a spec sheet you read, not a moment to welcome. */
 /**
  * The dossier — everything known about one connection.
  *
@@ -22,12 +29,43 @@ import { specOf, useProviderStore } from "./providerStore";
  * single unreadable line the way a naive flex-1 would.
  */
 
+/** This connection's spend, read honestly: "free" only for a genuinely
+    local/on-device connection, "cost unknown" for a cloud one this catalog
+    has no price for, "—" when it has simply never been used. */
+function spendStamp(c: Connection, usage: ConnectionUsage | undefined) {
+  if (!usage || usage.tokensTotal <= 0) {
+    return { value: "—", note: "no usage recorded yet", tone: "ink" as const };
+  }
+  const value = usageCostLabel(usage);
+  const note = `${usage.tokensTotal.toLocaleString()} tokens`;
+  const tone = value === "cost unknown" ? ("warn" as const) : ("ink" as const);
+  return { value, note, tone };
+}
+
 export function Dossier() {
   const { connections, selectedId, probe, attachSecret, revokeSecret, setEndpoint, toggleEnabled } =
     useProviderStore();
+  const hydrateUsage = useUsageStore((s) => s.hydrate);
+  const usageByConnection = useUsageStore((s) => s.summary?.byConnection);
+  useEffect(() => {
+    void hydrateUsage();
+  }, [hydrateUsage]);
+
   const c = connections.find((x) => x.id === selectedId);
-  if (!c) return null;
+  if (!c) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <Nilo cell={4} state="idle" />
+        <p className="mt-1 text-[13px] text-ink">Pick a provider on the left.</p>
+        <p className="max-w-[260px] text-[12px] text-ink-mute">
+          Its connection, models and health live here.
+        </p>
+      </div>
+    );
+  }
   const spec = specOf(c);
+  const usage = usageByConnection?.find((u) => u.connectionId === c.id);
+  const spend = spendStamp(c, usage);
 
   const okProbes = c.probes.filter((p) => p.ok);
   const median = okProbes.length
@@ -67,7 +105,7 @@ export function Dossier() {
               <Activity size={12} strokeWidth={1.7} />
               {c.health === "probing" ? "Testing…" : "Test"}
             </Btn>
-            <Btn onClick={() => toggleEnabled(c.id)}>
+            <Btn onClick={() => void toggleEnabled(c.id)}>
               {c.enabled ? "Hold back" : "Put in service"}
             </Btn>
           </div>
@@ -102,7 +140,7 @@ export function Dossier() {
             kicker="billed as"
             value={BILLING_LABEL[spec.billing]}
             tone={c.health === "degraded" ? "warn" : "ink"}
-            note={billingNote(c)}
+            note={c.secret ? "Credential on file for this connection" : "No credential attached yet"}
           />
           <Stamp
             kicker="reachability"
@@ -115,6 +153,7 @@ export function Dossier() {
                 : "not yet tested"
             }
           />
+          <Stamp kicker="spent" value={spend.value} tone={spend.tone} note={spend.note} />
         </div>
       </header>
 
@@ -171,6 +210,36 @@ export function Dossier() {
                 <ExternalLink size={11} strokeWidth={1.7} />
               </a>
             </div>
+          </Block>
+
+          <Block
+            title="Usage"
+            chip={usage && usage.tokensTotal > 0 ? <Chip>{usage.tokensTotal.toLocaleString()} tokens</Chip> : undefined}
+            lede="Recorded usage for this connection. Measured and estimated tokens are not separated in this summary; costs are estimates, not invoices."
+          >
+            {!usage || usage.tokensTotal <= 0 ? (
+              <p className="t-body text-ink-faint">No usage recorded on this connection yet.</p>
+            ) : (
+              <dl className="grid grid-cols-[128px_1fr] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
+                <div className="contents">
+                  <dt className="t-body text-ink-faint">tokens</dt>
+                  <dd className="t-meta text-ink-dim">{usage.tokensTotal.toLocaleString()}</dd>
+                </div>
+                <div className="contents">
+                  <dt className="t-body text-ink-faint">cost</dt>
+                  <dd className="t-meta text-ink-dim">{spend.value}</dd>
+                </div>
+                {usage.unpricedTokens > 0 && c.residence !== "local" && (
+                  <div className="contents">
+                    <dt className="t-body text-ink-faint">unpriced</dt>
+                    <dd className="t-meta" style={{ color: "var(--warn)" }}>
+                      {usage.unpricedTokens.toLocaleString()} tokens billed at an unknown rate — not
+                      included above, so this total may understate real spend
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
           </Block>
 
           {c.facts.length > 0 && (

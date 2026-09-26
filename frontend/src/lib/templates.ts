@@ -1,117 +1,92 @@
 import type { NodeTemplate, HarnessNode, HarnessEdge, NodeStage } from "./types";
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Palette content.
+/* OHM palette: flow pieces first, Connections second. */
 
-   Nine node types used to sit in one undifferentiated list. They are now
-   grouped into the four stages a harness actually has — where work enters and
-   leaves it, what does the thinking, what decides, and what remembers. The
-   grouping is the teaching: someone who has never built a harness can read the
-   palette top to bottom and learn the shape of one.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-export const STAGE_ORDER: NodeStage[] = ["boundary", "compute", "control", "state"];
+export const STAGE_ORDER: NodeStage[] = ["flow", "connections"];
 
 export const STAGE_LABEL: Record<NodeStage, string> = {
-  boundary: "Boundary",
-  compute: "Compute",
-  control: "Control",
-  state: "State",
+  flow: "Flow",
+  connections: "Connections",
 };
 
 export const STAGE_NOTE: Record<NodeStage, string> = {
-  boundary: "where a run enters and leaves",
-  compute: "what spends tokens",
-  control: "what decides the next hop",
-  state: "what survives between hops",
+  flow: "Agent · Gate · HITL · Skill — signal graph",
+  connections: "McpServer · Tool — bind to Agents",
 };
 
 export const NODE_TEMPLATES: NodeTemplate[] = [
   {
-    type: "input",
-    label: "Input",
-    description: "Entry point — the prompt a run starts from",
-    stage: "boundary",
-    defaultData: { label: "Input", prompt: "Enter your query here..." },
-  },
-  {
-    type: "output",
-    label: "Output",
-    description: "Terminal — the answer a run resolves to",
-    stage: "boundary",
-    defaultData: { label: "Output" },
-  },
-  {
-    type: "llm",
-    label: "LLM Agent",
-    description: "One completion against any provider you hold a key for",
-    stage: "compute",
+    type: "agent",
+    label: "Agent",
+    description: "Role-bound actor — profile, providers, exit signals",
+    stage: "flow",
     defaultData: {
-      label: "LLM Agent",
+      label: "Agent",
+      roleId: "",
+      providerIds: [],
+      emits: [],
+      consumes: [],
       adapter: "mock",
-      model: "gpt-4o-mini",
-      systemPrompt: "You are a helpful assistant.",
-      temperature: 0.7,
-      maxTokens: 4096,
+    },
+  },
+  {
+    type: "gate",
+    label: "Gate",
+    description: "Blocking checkpoint — checklist, pass / fail routes",
+    stage: "flow",
+    defaultData: {
+      label: "Gate",
+      gateId: "",
+      checklist: "",
+      emits: [],
+      consumes: [],
+    },
+  },
+  {
+    type: "hitl",
+    label: "HITL",
+    description: "Human authority — merge, Sprint Goal, acceptance",
+    stage: "flow",
+    defaultData: {
+      label: "HITL",
+      approvalLabel: "Approve",
+    },
+  },
+  {
+    type: "skill",
+    label: "Skill",
+    description: "Named capability — invoke from an Agent or place on the graph",
+    stage: "flow",
+    defaultData: {
+      label: "Skill",
+      skillId: "",
+      providerIds: [],
+      adapter: "mock",
+    },
+  },
+  {
+    type: "mcp",
+    label: "McpServer",
+    description: "MCP connector — exposes tools to bound Agents",
+    stage: "connections",
+    defaultData: {
+      label: "MCP Server",
+      mcpUrl: "",
+      mcpCommand: "",
     },
   },
   {
     type: "tool",
-    label: "Tool / MCP",
-    description: "Shell, HTTP or MCP server call — the agent's hands",
-    stage: "compute",
-    defaultData: { label: "Tool", adapter: "mock" },
-  },
-  {
-    type: "aggregator",
-    label: "Aggregator",
-    description: "Folds up to three upstream results into one context",
-    stage: "compute",
-    defaultData: { label: "Aggregator", adapter: "mock" },
-  },
-  {
-    type: "evaluator",
-    label: "Evaluator",
-    description: "Scores a candidate and forks it to pass or fail",
-    stage: "control",
+    label: "Tool",
+    description: "Native tool — HTTP, shell, repo, …",
+    stage: "connections",
     defaultData: {
-      label: "Evaluator",
+      label: "Tool",
+      toolKind: "shell",
       adapter: "mock",
-      model: "gpt-4o-mini",
-      systemPrompt: "Evaluate the following output. Respond with PASS or FAIL and a score 1-10.",
     },
   },
-  {
-    type: "router",
-    label: "Router",
-    description: "Forks on a condition — match, or fall through to else",
-    stage: "control",
-    defaultData: { label: "Router", condition: "output.includes('PASS')" },
-  },
-  {
-    type: "hitl",
-    label: "Human Review",
-    description: "Halts the run until a person approves or rejects",
-    stage: "control",
-    defaultData: { label: "Human Review", approvalLabel: "Approve to continue" },
-  },
-  {
-    type: "memory",
-    label: "Memory",
-    description: "Context buffer written on the way through, read on the way back",
-    stage: "state",
-    defaultData: { label: "Memory" },
-  },
 ];
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   Presets.
-
-   Every edge names the port it leaves from, because a preset is the main way
-   someone learns that ports exist. Order matters to one caller: the empty
-   stage on the home route offers `HARNESS_PRESETS[1]` by name as "Critic
-   Gate", so Critic Gate stays at index 1.
-   ═══════════════════════════════════════════════════════════════════════════ */
 
 export interface HarnessPreset {
   id: string;
@@ -120,271 +95,323 @@ export interface HarnessPreset {
   graph: { nodes: HarnessNode[]; edges: HarnessEdge[] };
 }
 
-/** Column pitch: node plate is 212px, so 280 leaves 68px of wire per hop. */
 const COL = (i: number) => i * 280;
+const ROW = (i: number) => i * 120;
 
+function agent(
+  id: string,
+  col: number,
+  row: number,
+  extra: Partial<HarnessNode["data"]> = {}
+): HarnessNode {
+  return {
+    id,
+    type: "agent",
+    position: { x: COL(col), y: ROW(row) },
+    data: {
+      label: id,
+      roleId: id,
+      providerIds: [],
+      adapter: "mock",
+      ...extra,
+    },
+  };
+}
+
+/**
+ * Dogfood preset — skills-framework Agile signal graph.
+ * Index 0 is the empty-state / default Studio load.
+ */
 export const HARNESS_PRESETS: HarnessPreset[] = [
   {
-    id: "react-loop",
-    name: "ReAct Loop",
-    description: "Reason, act through a tool, feed the result back, repeat until final.",
+    id: "agile-default",
+    name: "Agile role sketch",
+    description: "Local visual sketch with simplified role prompts and mock adapters; not the bundled skills-framework OHM.",
     graph: {
+      /* Node order mirrors GATES.md's ownership model, not a generic
+         checkpoint-then-specialist pipeline: Gate 2/3/4 are each OWNED by
+         the specialist agent (QA/ARCH/SEC) themselves — "QA Gate | Owner:
+         QA agent", not a separate anonymous checker upstream of them. So
+         each gate node sits AFTER its owning agent (the agent's own verdict,
+         formalised as OHM's pass/fail branch point — Agent nodes have no
+         branching of their own), never before it. Only Gate 1 (Stop-the-Line)
+         legitimately precedes its subject: its owner is the Orchestrator,
+         not any of the eight named agents. */
       nodes: [
+        agent("PO", 0, 2, {
+          emits: ['"Sprint-Ready: Story #X"'],
+          systemPrompt: "Product Owner — stories, AC, DoD.",
+        }),
         {
-          id: "react-input",
-          type: "input",
-          position: { x: COL(0), y: 150 },
-          data: { label: "Task", prompt: "Summarise today's build failures." },
-        },
-        {
-          id: "react-agent",
-          type: "llm",
-          position: { x: COL(1), y: 150 },
+          id: "gate-stl",
+          type: "gate",
+          position: { x: COL(1), y: ROW(2) },
           data: {
-            label: "Reasoner",
-            adapter: "claude",
-            model: "claude-sonnet-4",
-            systemPrompt: "Think step by step. Call a tool when you need facts.",
-            temperature: 0.4,
-            maxTokens: 2048,
+            label: "Stop-the-Line",
+            gateId: "stl",
+            checklist: "AC · DoD · points",
+            consumes: ['"Sprint-Ready: Story #X"'],
+          },
+        },
+        agent("SM", 2, 2, {
+          emits: ['"Sprint <N> started: Goal = <goal>"'],
+          systemPrompt: "Scrum Master — ceremonies, blockers.",
+        }),
+        agent("BE", 3, 1, {
+          emits: ['"Ready for QA: Story #X"'],
+          consumes: ['"Sprint <N> started: Goal = <goal>"'],
+        }),
+        agent("FE", 3, 3, {
+          emits: ['"Ready for QA: Story #X"'],
+          consumes: ['"Sprint <N> started: Goal = <goal>"'],
+        }),
+        {
+          id: "skill-tdd",
+          type: "skill",
+          position: { x: COL(3), y: ROW(0) },
+          data: { label: "tdd", skillId: "tdd", providerIds: [] },
+        },
+        agent("QA", 4, 1, {
+          consumes: ['"Ready for QA: Story #X"'],
+          systemPrompt: "QA — always an independent subagent. Tests vs. AC; owns Gate 2.",
+        }),
+        {
+          id: "gate-qa",
+          type: "gate",
+          position: { x: COL(5), y: ROW(2) },
+          data: {
+            label: "QA Gate",
+            gateId: "qa",
+            checklist: "unit · integration · e2e · AC↔tests · DoD · evidence",
+            emits: ['"Approved for Architecture Review"'],
+          },
+        },
+        agent("ARCH", 6, 1, {
+          systemPrompt: "ARCH — patterns, ADRs, PR creation. Owns Gate 3.",
+        }),
+        {
+          id: "gate-arch",
+          type: "gate",
+          position: { x: COL(7), y: ROW(2) },
+          data: {
+            label: "Architecture Gate",
+            gateId: "arch",
+            checklist: "patterns · ADRs · migrations · perf · PR · evidence",
+            emits: ['"Ready for Security Review: PR #<N> — Story #X"'],
+          },
+        },
+        agent("TW", 7, 3, {
+          emits: ['"Docs Updated: Story #X"'],
+        }),
+        agent("SEC", 8, 1, {
+          consumes: ['"Ready for Security Review: PR #<N> — Story #X"'],
+          systemPrompt: "SEC — always an independent subagent, never the code's author. Owns Gate 4.",
+        }),
+        {
+          id: "gate-sec",
+          type: "gate",
+          position: { x: COL(9), y: ROW(2) },
+          data: {
+            label: "Security Gate",
+            gateId: "sec",
+            checklist: "OWASP · secrets · input validation · injection/XSS/CSRF · auth · CVEs · evidence",
+            emits: ['"Ready for HITL Review"'],
           },
         },
         {
-          id: "react-tool",
-          type: "tool",
-          position: { x: COL(2), y: 0 },
-          data: { label: "Shell / MCP", adapter: "mock" },
-        },
-        {
-          id: "react-router",
-          type: "router",
-          position: { x: COL(2), y: 190 },
-          data: { label: "Final answer?", condition: "output.startsWith('FINAL')" },
-        },
-        {
-          id: "react-output",
-          type: "output",
-          position: { x: COL(3), y: 190 },
-          data: { label: "Answer" },
-        },
-      ],
-      edges: [
-        { id: "e1", source: "react-input", sourceHandle: "out", target: "react-agent", targetHandle: "in" },
-        { id: "e2", source: "react-agent", sourceHandle: "out", target: "react-tool", targetHandle: "in" },
-        { id: "e3", source: "react-tool", sourceHandle: "out", target: "react-agent", targetHandle: "in" },
-        { id: "e4", source: "react-agent", sourceHandle: "out", target: "react-router", targetHandle: "in" },
-        {
-          id: "e5",
-          source: "react-router",
-          sourceHandle: "match",
-          target: "react-output",
-          targetHandle: "in",
-          data: { kind: "accept", label: "match" },
-        },
-        {
-          id: "e6",
-          source: "react-router",
-          sourceHandle: "else",
-          target: "react-agent",
-          targetHandle: "in",
-          data: { kind: "flow", label: "else" },
-        },
-      ],
-    },
-  },
-  {
-    id: "critic-gate",
-    name: "Critic Gate",
-    description: "Draft, score, revise on failure, and hold at a person before release.",
-    graph: {
-      nodes: [
-        {
-          id: "cg-input",
-          type: "input",
-          position: { x: COL(0), y: 120 },
-          data: { label: "Brief", prompt: "Draft the release note for OpenHarness v0.4." },
-        },
-        {
-          id: "cg-memory",
-          type: "memory",
-          position: { x: COL(0), y: 300 },
-          data: { label: "Style Guide" },
-        },
-        {
-          id: "cg-writer",
-          type: "llm",
-          position: { x: COL(1), y: 200 },
-          data: {
-            label: "Writer",
-            adapter: "claude",
-            model: "claude-sonnet-4",
-            systemPrompt: "You are a precise technical writer. Keep it under 120 words.",
-            temperature: 0.7,
-            maxTokens: 4096,
-          },
-        },
-        {
-          id: "cg-lint",
-          type: "tool",
-          position: { x: COL(1), y: 400 },
-          data: { label: "Style Lint", adapter: "mock" },
-        },
-        {
-          id: "cg-critic",
-          type: "evaluator",
-          position: { x: COL(2), y: 200 },
-          data: {
-            label: "Critic",
-            adapter: "openai",
-            model: "gpt-4o-mini",
-            systemPrompt: "Score 1-10. Reply PASS or FAIL with one reason.",
-            temperature: 0,
-          },
-        },
-        {
-          id: "cg-review",
+          id: "HITL",
           type: "hitl",
-          position: { x: COL(3), y: 140 },
-          data: { label: "Sign-off", approvalLabel: "Approve to publish" },
-        },
-        {
-          id: "cg-output",
-          type: "output",
-          position: { x: COL(4), y: 140 },
-          data: { label: "Release Note" },
+          position: { x: COL(10), y: ROW(3) },
+          data: {
+            /* GATES.md, Gate 5: "Two acceptances happen here and they are
+               not the same act." PO judges the demo (accepts, never
+               merges); HITL merges (never delegated to PO). This node is
+               the merge act only — the demo-acceptance ceremony lives
+               outside this per-story graph (Sprint Review, CEREMONIES.md). */
+            label: "HITL",
+            approvalLabel: "Merge",
+            consumes: ['"Ready for HITL Review"'],
+          },
         },
       ],
       edges: [
-        { id: "g1", source: "cg-input", sourceHandle: "out", target: "cg-writer", targetHandle: "in" },
-        { id: "g2", source: "cg-memory", sourceHandle: "read", target: "cg-writer", targetHandle: "in" },
-        { id: "g3", source: "cg-writer", sourceHandle: "out", target: "cg-critic", targetHandle: "in" },
-        { id: "g4", source: "cg-lint", sourceHandle: "out", target: "cg-critic", targetHandle: "in" },
         {
-          id: "g5",
-          source: "cg-critic",
-          sourceHandle: "fail",
-          target: "cg-writer",
+          id: "e-po-stl",
+          source: "PO",
+          sourceHandle: "out",
+          target: "gate-stl",
           targetHandle: "in",
-          data: { kind: "reject", label: "fail" },
+          data: { kind: "flow", signal: "Sprint-Ready: Story #X", label: "Sprint-Ready" },
         },
         {
-          id: "g6",
-          source: "cg-critic",
+          id: "e-stl-sm",
+          source: "gate-stl",
           sourceHandle: "pass",
-          target: "cg-review",
+          target: "SM",
           targetHandle: "in",
-          data: { kind: "accept", label: "pass" },
+          data: { kind: "accept", signal: "Sprint-Ready", label: "pass" },
         },
         {
-          id: "g7",
-          source: "cg-review",
-          sourceHandle: "approve",
-          target: "cg-output",
+          id: "e-sm-be",
+          source: "SM",
+          sourceHandle: "out",
+          target: "BE",
           targetHandle: "in",
-          data: { kind: "accept", label: "approve" },
+          data: { kind: "flow", signal: "Sprint started", label: "assign" },
         },
         {
-          id: "g8",
-          source: "cg-review",
-          sourceHandle: "reject",
-          target: "cg-writer",
+          id: "e-sm-fe",
+          source: "SM",
+          sourceHandle: "out",
+          target: "FE",
           targetHandle: "in",
-          data: { kind: "reject", label: "reject" },
+          data: { kind: "flow", signal: "Sprint started", label: "assign" },
+        },
+        {
+          id: "e-tdd-be",
+          source: "skill-tdd",
+          sourceHandle: "out",
+          target: "BE",
+          targetHandle: "in",
+          data: { kind: "flow", signal: "tdd", label: "skill" },
+        },
+        {
+          id: "e-tdd-fe",
+          source: "skill-tdd",
+          sourceHandle: "out",
+          target: "FE",
+          targetHandle: "in",
+          data: { kind: "flow", signal: "tdd", label: "skill" },
+        },
+        {
+          id: "e-be-qa",
+          source: "BE",
+          sourceHandle: "out",
+          target: "QA",
+          targetHandle: "in",
+          data: { kind: "flow", signal: "Ready for QA: Story #X", label: "Ready for QA" },
+        },
+        {
+          id: "e-fe-qa",
+          source: "FE",
+          sourceHandle: "out",
+          target: "QA",
+          targetHandle: "in",
+          data: { kind: "flow", signal: "Ready for QA: Story #X", label: "Ready for QA" },
+        },
+        {
+          id: "e-qa-gate-qa",
+          source: "QA",
+          sourceHandle: "out",
+          target: "gate-qa",
+          targetHandle: "in",
+          data: { kind: "flow", label: "verdict" },
+        },
+        {
+          id: "e-gate-qa-arch",
+          source: "gate-qa",
+          sourceHandle: "pass",
+          target: "ARCH",
+          targetHandle: "in",
+          data: { kind: "accept", signal: "Approved for Architecture Review", label: "pass" },
+        },
+        {
+          id: "e-arch-gate-arch",
+          source: "ARCH",
+          sourceHandle: "out",
+          target: "gate-arch",
+          targetHandle: "in",
+          data: { kind: "flow", label: "review" },
+        },
+        {
+          id: "e-arch-tw",
+          source: "ARCH",
+          sourceHandle: "out",
+          target: "TW",
+          targetHandle: "in",
+          data: { kind: "flow", label: "docs" },
+        },
+        {
+          id: "e-gate-arch-sec",
+          source: "gate-arch",
+          sourceHandle: "pass",
+          target: "SEC",
+          targetHandle: "in",
+          data: {
+            kind: "accept",
+            signal: "Ready for Security Review: PR #<N> — Story #X",
+            label: "pass",
+          },
+        },
+        {
+          id: "e-sec-gate-sec",
+          source: "SEC",
+          sourceHandle: "out",
+          target: "gate-sec",
+          targetHandle: "in",
+          data: { kind: "flow", label: "audit" },
+        },
+        {
+          id: "e-gate-sec-hitl",
+          source: "gate-sec",
+          sourceHandle: "pass",
+          target: "HITL",
+          targetHandle: "in",
+          data: { kind: "accept", signal: "Ready for HITL Review", label: "pass" },
         },
       ],
     },
   },
   {
-    id: "research-desk",
-    name: "Research Desk",
-    description: "Fan out to two tools, merge the findings, then synthesise and fact-check.",
+    id: "minimal-gate",
+    name: "Agent + review",
+    description: "Smallest OHM loop — one Agent, one Gate, human merge.",
     graph: {
       nodes: [
         {
-          id: "rd-input",
-          type: "input",
-          position: { x: COL(0), y: 190 },
-          data: { label: "Question", prompt: "What changed in our auth flow last quarter?" },
-        },
-        {
-          id: "rd-search",
-          type: "tool",
-          position: { x: COL(1), y: 20 },
-          data: { label: "Web Search", adapter: "mock" },
-        },
-        {
-          id: "rd-grep",
-          type: "tool",
-          position: { x: COL(1), y: 210 },
-          data: { label: "Repo Grep", adapter: "mock" },
-        },
-        {
-          id: "rd-mem",
-          type: "memory",
-          position: { x: COL(1), y: 400 },
-          data: { label: "Session Notes" },
-        },
-        {
-          id: "rd-merge",
-          type: "aggregator",
-          position: { x: COL(2), y: 200 },
-          data: { label: "Merge Findings", adapter: "mock" },
-        },
-        {
-          id: "rd-synth",
-          type: "llm",
-          position: { x: COL(3), y: 200 },
+          id: "impl",
+          type: "agent",
+          position: { x: COL(0), y: ROW(1) },
           data: {
-            label: "Synthesiser",
-            adapter: "claude",
-            model: "claude-sonnet-4",
-            systemPrompt: "Cite every claim against the merged findings.",
-            temperature: 0.3,
-            maxTokens: 8192,
+            label: "Implementer",
+            roleId: "BE",
+            emits: ["Ready for review"],
+            adapter: "mock",
           },
         },
         {
-          id: "rd-check",
-          type: "evaluator",
-          position: { x: COL(4), y: 200 },
+          id: "g1",
+          type: "gate",
+          position: { x: COL(1), y: ROW(1) },
           data: {
-            label: "Fact Check",
-            adapter: "openai",
-            model: "gpt-4o-mini",
-            systemPrompt: "Verify each citation. PASS only if all resolve.",
-            temperature: 0,
+            label: "Review Gate",
+            gateId: "review",
+            checklist: "tests · AC",
           },
         },
         {
-          id: "rd-output",
-          type: "output",
-          position: { x: COL(5), y: 140 },
-          data: { label: "Answer" },
+          id: "human",
+          type: "hitl",
+          position: { x: COL(2), y: ROW(1) },
+          data: { label: "HITL", approvalLabel: "Accept" },
         },
       ],
       edges: [
-        { id: "r1", source: "rd-input", sourceHandle: "out", target: "rd-search", targetHandle: "in" },
-        { id: "r2", source: "rd-input", sourceHandle: "out", target: "rd-grep", targetHandle: "in" },
-        { id: "r3", source: "rd-search", sourceHandle: "out", target: "rd-merge", targetHandle: "a" },
-        { id: "r4", source: "rd-grep", sourceHandle: "out", target: "rd-merge", targetHandle: "b" },
-        { id: "r5", source: "rd-mem", sourceHandle: "read", target: "rd-merge", targetHandle: "c" },
-        { id: "r6", source: "rd-merge", sourceHandle: "out", target: "rd-synth", targetHandle: "in" },
-        { id: "r7", source: "rd-synth", sourceHandle: "out", target: "rd-check", targetHandle: "in" },
         {
-          id: "r8",
-          source: "rd-check",
-          sourceHandle: "pass",
-          target: "rd-output",
+          id: "m1",
+          source: "impl",
+          sourceHandle: "out",
+          target: "g1",
           targetHandle: "in",
-          data: { kind: "accept", label: "pass" },
+          data: { kind: "flow", signal: "Ready for review", label: "Ready for review" },
         },
         {
-          id: "r9",
-          source: "rd-check",
-          sourceHandle: "fail",
-          target: "rd-synth",
+          id: "m2",
+          source: "g1",
+          sourceHandle: "pass",
+          target: "human",
           targetHandle: "in",
-          data: { kind: "reject", label: "fail" },
+          data: { kind: "accept", label: "pass" },
         },
       ],
     },

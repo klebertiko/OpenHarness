@@ -18,13 +18,14 @@ export const emptyRun: RunState = {
 
 type Action =
   | { type: "reset"; mode: string; step: boolean }
+  | { type: "clear" }
   | { type: "sse"; event: string; data: Record<string, never> | Record<string, unknown> }
   | { type: "transport-error"; message: string };
 
 function seg(view: Record<string, unknown>): Segment {
   return {
     nodeId: String(view.node_id),
-    type: (view.type as NodeType) ?? "llm",
+    type: (view.type as NodeType) ?? "agent",
     label: String(view.label ?? view.type ?? "node"),
     adapter: String(view.adapter ?? ""),
     model: String(view.model ?? ""),
@@ -60,7 +61,29 @@ function appendText(blocks: Block[], kind: "reason" | "text", text: string): Blo
   return [...blocks, { kind, text }];
 }
 
+/** Contract §2.5 `args` may arrive as an object or as its JSON string. */
+function parseToolArgs(raw: unknown): { argv?: string[]; path?: string } {
+  let obj: unknown = raw;
+  if (typeof raw === "string") {
+    try { obj = JSON.parse(raw); } catch { return {}; }
+  }
+  if (!obj || typeof obj !== "object") return {};
+  const o = obj as Record<string, unknown>;
+  const out: { argv?: string[]; path?: string } = {};
+  if (Array.isArray(o.argv)) out.argv = o.argv.map(String);
+  if (typeof o.path === "string") out.path = o.path;
+  return out;
+}
+
+function patchTool(state: RunState, nodeId: string, callId: string, fn: (call: ToolCall) => ToolCall): RunState {
+  return patch(state, nodeId, (s) => ({
+    ...s,
+    blocks: s.blocks.map((b) => (b.kind === "tool" && b.call.callId === callId ? { kind: "tool", call: fn(b.call) } : b)),
+  }));
+}
+
 export function runReducer(state: RunState, action: Action): RunState {
+  if (action.type === "clear") return emptyRun;
   if (action.type === "reset") {
     return { ...emptyRun, mode: action.mode, step: action.step, status: "starting" };
   }
@@ -79,6 +102,7 @@ export function runReducer(state: RunState, action: Action): RunState {
     case "run_start": {
       const order = (action.data.order as Record<string, unknown>[]) ?? [];
       const unreachable = (action.data.unreachable as string[]) ?? [];
+      const unreachableNotice = `${unreachable.length} node${unreachable.length > 1 ? "s" : ""} unreachable — check for a cycle in the graph.`;
       return {
         ...state,
         runId: String(action.data.run_id ?? ""),
@@ -88,11 +112,9 @@ export function runReducer(state: RunState, action: Action): RunState {
         startedAt: Date.now(),
         plan: order.map(seg),
         cursor: -1,
-        notices: unreachable.length
-          ? [
-              `${unreachable.length} node${unreachable.length > 1 ? "s" : ""} unreachable — check for a cycle in the graph.`,
-            ]
-          : [],
+        notices: unreachable.length && !state.notices.includes(unreachableNotice)
+          ? [...state.notices, unreachableNotice]
+          : state.notices,
       };
     }
 
@@ -103,6 +125,18 @@ export function runReducer(state: RunState, action: Action): RunState {
         ...s,
         state: "running",
         startedAt: Date.now(),
+        // run_start's `order` is a pre-run preview built from the node's
+        // static template data — every node defaults to "mock" there
+        // regardless of what actually runs. This event fires right before
+        // the real adapter resolution and carries the real answer (e.g.
+        // "claude", not "mock"), so refresh the segment now rather than
+        // showing the stale preview for the rest of the run.
+        adapter: action.data.adapter !== undefined ? String(action.data.adapter) : s.adapter,
+        model: action.data.model !== undefined ? String(action.data.model) : s.model,
+        // Only present once real resolution happens (backend/engine.py) and
+        // never on the harness-off direct path — see Segment.connectionId.
+        connectionId:
+          action.data.connection_id !== undefined ? String(action.data.connection_id) : s.connectionId,
       }));
       return { ...next, cursor: idx, status: "running", awaitingStep: null };
     }
@@ -127,10 +161,14 @@ export function runReducer(state: RunState, action: Action): RunState {
       }));
 
     case "tool_call": {
+      const parsed = parseToolArgs(action.data.args);
       const call: ToolCall = {
         callId: String(action.data.call_id ?? ""),
         name: String(action.data.name ?? ""),
-        args: String(action.data.args ?? ""),
+        args: typeof action.data.args === "string" ? action.data.args : JSON.stringify(action.data.args ?? ""),
+        ...(action.data.origin === "model" || action.data.origin === "preset" ? { origin: action.data.origin } : {}),
+        ...(parsed.argv ? { argv: parsed.argv } : {}),
+        ...(parsed.path ? { path: parsed.path } : {}),
       };
       return patch(state, String(d.node_id), (s) => ({
         ...s,
@@ -150,11 +188,79 @@ export function runReducer(state: RunState, action: Action): RunState {
                   ok: Boolean(action.data.ok),
                   result: String(action.data.result ?? ""),
                   durationMs: Number(action.data.duration_ms ?? 0),
+                  ...("truncated" in action.data ? { truncated: Boolean(action.data.truncated) } : {}),
+                  ...("timed_out" in action.data ? { timedOut: Boolean(action.data.timed_out) } : {}),
+                  ...("simulated" in action.data ? { simulated: Boolean(action.data.simulated) } : {}),
+                  ...("redactions" in action.data ? { redactions: Number(action.data.redactions ?? 0) } : {}),
+                  ...("exit_code" in action.data
+                    ? { exitCode: action.data.exit_code === null ? null : Number(action.data.exit_code) }
+                    : {}),
                 },
               }
             : b
         ),
       }));
+
+    /* ── chat tools broker: approval gate per call (contract v1.1 §2.5–2.6) ── */
+    case "tool_approval_required":
+      return {
+        ...patchTool(state, String(d.node_id), String(action.data.call_id ?? ""), (call) => ({
+          ...call,
+          ...(call.argv ? {} : parseToolArgs(action.data.args)),
+          approval: {
+            reason: action.data.reason === "secret_pattern" ? "secret_pattern" : "exec",
+            risk: action.data.risk === "high" ? "high" : "normal",
+            riskHints: Array.isArray(action.data.risk_hints) ? action.data.risk_hints.map(String) : [],
+          },
+        })),
+        status: "gate",
+      };
+
+    case "tool_approval_decision":
+      return {
+        ...patchTool(state, String(d.node_id), String(action.data.call_id ?? ""), (call) => ({
+          ...call,
+          approval: {
+            ...(call.approval ?? { reason: "exec", risk: "normal", riskHints: [] }),
+            decision: action.data.decision === "reject" ? "reject" : "approve",
+            note: String(action.data.note ?? ""),
+          },
+        })),
+        status: "running",
+      };
+
+    case "tool_denied":
+      return {
+        ...patchTool(state, String(d.node_id), String(action.data.call_id ?? ""), (call) => ({
+          ...call,
+          ok: false,
+          denied: {
+            reason:
+              action.data.reason === "approval_timeout" || action.data.reason === "policy"
+                ? action.data.reason
+                : "rejected",
+            note: String(action.data.note ?? ""),
+          },
+        })),
+        status: state.status === "gate" ? "running" : state.status,
+      };
+
+    case "capabilities": {
+      const caps = action.data as unknown as NonNullable<RunState["capabilities"]>;
+      const notice =
+        caps.reason === "cli-adapter"
+          ? "este provedor não pede ferramentas; /exec e /read continuam disponíveis"
+          : caps.reason === "provider-no-tools"
+            ? "este modelo não suporta ferramentas; a resposta segue só em texto"
+            : caps.reason === "no-workspace"
+              ? "sem pasta selecionada: sem ferramentas nesta conversa"
+              : null;
+      return {
+        ...state,
+        capabilities: caps,
+        notices: notice && !state.notices.includes(notice) ? [...state.notices, notice] : state.notices,
+      };
+    }
 
     case "node_done": {
       const tokens = Number(action.data.tokens ?? 0);
@@ -178,17 +284,35 @@ export function runReducer(state: RunState, action: Action): RunState {
       };
     }
 
-    case "node_error":
+    case "node_error": {
+      const previous = state.plan.find((s) => s.nodeId === String(d.node_id))?.tokens ?? 0;
+      const supplied = Number(action.data.tokens ?? previous);
+      const tokens = Number.isFinite(supplied) && supplied >= 0 ? supplied : previous;
       return {
         ...patch(state, String(d.node_id), (s) => ({
           ...s,
           state: "error",
           phase: "",
+          tokens,
           error: String(action.data.error ?? "Unknown error"),
           endedAt: Date.now(),
         })),
+        totals: { ...state.totals, tokens: state.totals.tokens + tokens - previous },
         status: "error",
       };
+    }
+
+    case "node_skipped":
+      // A PASS/FAIL branch this run didn't take (backend engine.py,
+      // 2026-09-12) — distinct from "error": nothing went wrong, this path
+      // just wasn't selected. `nodesRun` in `harness_done`'s totals already
+      // excludes it; this only updates how the segment itself renders.
+      return patch(state, String(d.node_id), (s) => ({
+        ...s,
+        state: "skipped",
+        phase: "",
+        endedAt: Date.now(),
+      }));
 
     case "hitl_pause":
       return {
@@ -226,7 +350,7 @@ export function runReducer(state: RunState, action: Action): RunState {
         awaitingStep: {
           nodeId: String(next.node_id ?? ""),
           label: String(next.label ?? ""),
-          type: (next.type as NodeType) ?? "llm",
+          type: (next.type as NodeType) ?? "agent",
         },
       };
     }

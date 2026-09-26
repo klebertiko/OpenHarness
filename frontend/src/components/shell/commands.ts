@@ -1,4 +1,16 @@
 import type { LucideIcon } from "lucide-react";
+import {
+  Boxes,
+  CalendarClock,
+  GitPullRequest,
+  MessagesSquare,
+  Plug,
+  Power,
+  PowerOff,
+  Workflow,
+} from "lucide-react";
+import { useHarnessSessionStore } from "@/store/harnessSessionStore";
+import { useShellStore, type RailSection } from "./shellStore";
 
 /**
  * One command = one thing a person can ask the app to do.
@@ -23,6 +35,56 @@ export interface Command {
   role?: string;
   disabled?: boolean;
   run: () => void;
+}
+
+const goTo = (section: RailSection) => () => useShellStore.getState().setSection(section);
+
+/** Every destination in the rail, plus the harness on/off verbs. */
+export function shellNavCommands(): Command[] {
+  const nav: { section: RailSection; label: string; icon: LucideIcon; chord: string; keywords: string }[] = [
+    { section: "chats", label: "Go to Chats", icon: MessagesSquare, chord: "Alt+1", keywords: "conversation thread agent" },
+    { section: "studio", label: "Go to Studio", icon: Boxes, chord: "Alt+2", keywords: "canvas design harness graph" },
+    { section: "automations", label: "Go to Automate", icon: CalendarClock, chord: "Alt+3", keywords: "automations jobs schedule cron trigger cowork projects workspace folders" },
+    { section: "git", label: "Go to Pull requests", icon: GitPullRequest, chord: "Alt+4", keywords: "git github pr repo" },
+    { section: "providers", label: "Go to Providers", icon: Plug, chord: "Alt+5", keywords: "models keys anthropic openai ollama" },
+  ];
+
+  return [
+    ...nav.map(({ section, label, icon, chord, keywords }) => ({
+      id: `go:${section}`,
+      label,
+      group: "Go to",
+      icon,
+      chord,
+      keywords,
+      meta: section,
+      run: goTo(section),
+    })),
+    {
+      id: "harness:library",
+      label: "Open harness library",
+      group: "Go to",
+      icon: Workflow,
+      keywords: "library bundle ohm import open harnesses",
+      run: () => useShellStore.getState().setLibraryOpen(true),
+    },
+    {
+      id: "harness:on",
+      label: "Turn harness on",
+      group: "Harness",
+      icon: Power,
+      keywords: "enable govern policy",
+      run: () => useHarnessSessionStore.getState().setEnabled(true),
+    },
+    {
+      id: "harness:off",
+      label: "Turn harness off",
+      group: "Harness",
+      icon: PowerOff,
+      keywords: "disable direct passthrough",
+      run: () => useHarnessSessionStore.getState().setEnabled(false),
+    },
+  ];
 }
 
 export interface Match {

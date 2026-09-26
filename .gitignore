@@ -1,8 +1,13 @@
-﻿# Frontend
+﻿# Root / Tauri CLI
+node_modules/
+src-tauri/target/
+
+# Frontend
 frontend/node_modules/
 frontend/.next/
 frontend/.env.local
 frontend/out/
+frontend/tsconfig.tsbuildinfo
 
 # Backend
 backend/__pycache__/
@@ -17,8 +22,13 @@ backend/venv/
 # SDD / tooling
 .superpowers/
 .worktrees/
+.tools/
 
 # Docker / OS
 *.log
 .DS_Store
 Thumbs.db
+
+# Backend build/test cache artifacts (regenerable, not source)
+backend/build/
+backend/.mutmut-cache

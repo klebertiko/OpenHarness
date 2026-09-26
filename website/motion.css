@@ -1,0 +1,89 @@
+/* Cinematic accents frame the mascot; reading surfaces remain still. */
+@keyframes scene-enter {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes thread-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scene-enter { animation: scene-enter 800ms var(--ease-cinema) both; animation-delay: var(--entrance-delay, 0ms); }
+  .harness-map.scene-enter .map-lines path { stroke-dasharray: 1; animation: thread-draw 1500ms var(--ease-cinema) both; }
+  .harness-map.scene-enter .map-node { animation: scene-enter 650ms var(--ease-cinema) both; }
+  .harness-map.scene-enter .skill-node { animation-delay: 120ms; }
+  .harness-map.scene-enter .agent-node { animation-delay: 260ms; }
+  .harness-map.scene-enter .gate-node { animation-delay: 400ms; }
+  .harness-map.scene-enter .human-node { animation-delay: 540ms; }
+}
+.nilo-stage {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 440px);
+  min-height: 310px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  perspective: 800px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.nilo-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: radial-gradient(ellipse at 38% 36%, var(--scene-light), transparent 68%);
+}
+.nilo-stage::after {
+  content: "";
+  position: absolute;
+  width: 160px;
+  height: 16px;
+  bottom: 22px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, var(--scene-shadow), transparent 70%);
+}
+.nilo-light {
+  position: absolute;
+  inset: -50% 5% -25% 15%;
+  z-index: -1;
+  transform: rotate(-8deg);
+  background: linear-gradient(105deg, transparent 25%, var(--scene-warmth) 48%, transparent 70%);
+  pointer-events: none;
+  opacity: var(--light-opacity, 1);
+}
+.nilo-stage .nilo-character {
+  border: 0;
+  background: transparent;
+  width: 240px;
+  height: 240px;
+  border-radius: var(--radius-card);
+}
+.nilo-stage .nilo-character:focus-visible { outline-offset: -12px; }
+.nilo-playback { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 24px; }
+.nilo-status { padding-top: 8px; }
+@media (max-width:760px) {
+  .nilo-stage { min-height: 270px; }
+  .nilo-stage .nilo-character { width: 220px; height: 220px; }
+  .nilo-playback { gap: 4px 12px; }
+  .nilo-playback button { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-enter, .scene-enter * { animation: none !important; }
+  .nilo-stage .nilo-character { transform: none; }
+}
+@media print { .scene-enter { animation: none; opacity: 1; transform: none; } }
+
+.nilo-playback .nilo-motion {
+  min-width: 176px;
+  gap: 10px;
+  color: var(--color-action-ink);
+  background: var(--color-action-bg);
+  border: 1px solid transparent;
+  padding: 12px 18px;
+}
+.nilo-playback .nilo-motion:hover { color: var(--color-paper); background: var(--color-ink); }
+.nilo-progress { width: min(200px,60%); height: 2px; background: var(--color-rule); overflow: hidden; margin-block: 4px; }
+.nilo-progress span { display: block; width: 100%; height: 100%; background: var(--color-accent); transform: scaleX(0); transform-origin: left; }

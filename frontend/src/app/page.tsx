@@ -15,87 +15,40 @@ import {
   Keyboard,
   Shuffle,
   LayoutTemplate,
+  ArrowLeft,
 } from "lucide-react";
 
+import { StudioOverview } from "@/components/studio/StudioOverview";
+import { newStudioHarness, openStudioPreset, useStudioInChat } from "@/lib/studio";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
-import { Mark } from "@/components/shell/Mark";
 import { useShellStore } from "@/components/shell/shellStore";
-import { chordCaps, useIsMac } from "@/components/shell/keys";
 import type { Command } from "@/components/shell/commands";
+import { apiUrl } from "@/lib/apiBase";
 
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { NodePalette } from "@/components/sidebar/NodePalette";
 import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
+import { ValidateDock } from "@/components/studio/ValidateDock";
+import { AgentStage } from "@/components/agent/AgentStage";
+import { ThreadsSidebar } from "@/components/agent/ThreadsSidebar";
+import { AutomationsPanel } from "@/components/automations/AutomationsPanel";
+import { GitPanel } from "@/components/git/GitPanel";
+import { PROVIDERS_PANEL_TITLE } from "@/components/providers/copy";
+import { ProvidersList } from "@/components/providers/ProvidersList";
+import { Dossier } from "@/components/providers/Dossier";
+import { useProviderStore } from "@/components/providers/providerStore";
 
 import { useCanvasStore } from "@/store/canvasStore";
+import { useModeStore } from "@/store/modeStore";
+import { useActiveRunStore } from "@/store/activeRunStore";
 import { useHarnessActions } from "@/lib/actions";
 import { NODE_TEMPLATES, HARNESS_PRESETS } from "@/lib/templates";
 import { ROLE_ICON, ROLE_VAR } from "@/lib/roles";
-import type { ExecutionMode, HarnessNode, HarnessEdge, NodeType } from "@/lib/types";
+import type { ExecutionMode, HarnessNode, NodeType } from "@/lib/types";
 
 const MODE_ORDER: ExecutionMode[] = ["mock", "live", "local"];
-
-/**
- * Empty stage.
- *
- * A blank canvas is the screen most people meet first, so it gets the same
- * care as a populated one: what this surface is for, and the two ways in —
- * one for the hand, one for the keyboard. No illustration, no marketing.
- */
-function EmptyStage({ onPreset }: { onPreset: () => void }) {
-  const mac = useIsMac();
-  const setPaletteOpen = useShellStore((s) => s.setPaletteOpen);
-
-  return (
-    <div className="pointer-events-none absolute inset-0 grid place-items-center">
-      <div className="pointer-events-auto w-[300px]">
-        <div className="mb-3 flex items-center gap-2">
-          <Mark size={16} />
-          <span className="t-label text-ink-faint">EMPTY BENCH</span>
-          <span className="h-px flex-1 bg-line-soft" aria-hidden />
-        </div>
-        <p className="t-body mb-3.5 text-ink-mute">
-          A harness is a graph of nodes your prompt travels through. Drop one in, or start from a
-          shape that already works.
-        </p>
-        <div className="flex flex-col gap-px overflow-hidden rounded-control border border-line">
-          <button
-            onClick={onPreset}
-            className="flex items-center gap-2.5 bg-sub-100 px-2.5 py-2 text-left transition-colors hover:bg-sub-200"
-          >
-            <LayoutTemplate size={14} strokeWidth={1.6} absoluteStrokeWidth className="text-signal" />
-            <span className="t-title flex-1 text-ink">Load the Critic Gate preset</span>
-          </button>
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="flex items-center gap-2.5 bg-sub-100 px-2.5 py-2 text-left transition-colors hover:bg-sub-200"
-          >
-            <Keyboard size={14} strokeWidth={1.6} absoluteStrokeWidth className="text-ink-mute" />
-            <span className="t-title flex-1 text-ink-dim">Open the command palette</span>
-            <span className="flex items-center gap-[3px]">
-              {chordCaps("Mod+K", mac).map((c) => (
-                <kbd key={c} className="oh-kbd">
-                  {c}
-                </kbd>
-              ))}
-            </span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Placeholder panels for the rail sections other workstreams own. */
-function StubPanel({ title, note }: { title: string; note: string }) {
-  return (
-    <Panel title={title} className="h-full">
-      <p className="t-body p-3 text-ink-mute">{note}</p>
-    </Panel>
-  );
-}
 
 export default function Home() {
   const {
@@ -109,16 +62,25 @@ export default function Home() {
     setExecutionMode,
     setHarnessMeta,
     setRunning,
-    loadGraph,
     addNode,
     deleteSelected,
     undo,
     redo,
   } = useCanvasStore();
 
+  const setMode = useModeStore((s) => s.setMode);
   const actions = useHarnessActions();
-  const { section, toggleLeft, toggleRight, setKeymapOpen } = useShellStore();
+  const { section, studioView, toggleLeft, toggleRight, setKeymapOpen, setSection, setStudioView } =
+    useShellStore();
+  const connectionCount = useProviderStore((s) => s.connections.length);
   const [backendOk, setBackendOk] = useState(false);
+  const isStudio = section === "studio";
+
+  // `section` is the single source of truth for what's on screen; keep the
+  // legacy modeStore in step so TitleBar and canvas hooks stay coherent.
+  useEffect(() => {
+    setMode(isStudio ? "studio" : "agent");
+  }, [isStudio, setMode]);
 
   /* Deep link: /?preset=critic-gate opens a named preset on load. Useful for
      docs links and for handing someone a reproducible starting graph. */
@@ -127,17 +89,15 @@ export default function Home() {
     if (!id) return;
     const p = HARNESS_PRESETS.find((x) => x.id === id);
     if (!p) return;
-    loadGraph(p.graph.nodes as HarnessNode[], p.graph.edges as HarnessEdge[]);
-    setHarnessMeta({ id: null, name: p.name, description: p.description });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    openStudioPreset(p);
   }, []);
 
   useEffect(() => {
     let alive = true;
     const ping = () =>
-      fetch("/api/health", { cache: "no-store" })
+      fetch(apiUrl("/health"), { cache: "no-store" })
         .then((r) => r.json())
-        .then((d) => alive && setBackendOk(Boolean(d.ok)))
+        .then((d) => alive && setBackendOk(Boolean(d.status === "ok" || d.ok)))
         .catch(() => alive && setBackendOk(false));
     ping();
     const t = setInterval(ping, 15000);
@@ -148,8 +108,7 @@ export default function Home() {
   }, []);
 
   const loadPreset = (p: (typeof HARNESS_PRESETS)[number]) => {
-    loadGraph(p.graph.nodes as HarnessNode[], p.graph.edges as HarnessEdge[]);
-    setHarnessMeta({ id: null, name: p.name, description: p.description });
+    openStudioPreset(p);
   };
 
   const commands = useMemo<Command[]>(() => {
@@ -168,6 +127,9 @@ export default function Home() {
           position: { x: 160 + nodes.length * 28, y: 120 + (nodes.length % 5) * 46 },
           data: { ...t.defaultData } as HarnessNode["data"],
         };
+        if (!useShellStore.getState().studioHasDraft) newStudioHarness();
+        setSection("studio");
+        setStudioView("editor");
         addNode(node);
         setSelectedNode(node.id);
       },
@@ -177,86 +139,107 @@ export default function Home() {
       id: `preset:${p.id}`,
       label: p.name,
       group: "Open preset",
+      disabled: isRunning,
       icon: LayoutTemplate,
       meta: p.id,
       keywords: p.description,
       run: () => loadPreset(p),
     }));
 
+    // Run/File/Edit/insert/preset commands all act on the canvas graph — on
+    // any other destination they're not just idle, they're a wall of actions
+    // with nothing to act on, which is what made the palette feel like it
+    // dumped "everything" regardless of what screen you were looking at.
+    const studioOnly: Command[] = !isStudio
+      ? []
+      : [
+          {
+            id: "run",
+            label: "Run harness",
+            group: "Run",
+            icon: Play,
+            chord: "Mod+Enter",
+            meta: executionMode,
+            disabled: isRunning || nodes.length === 0,
+            run: actions.run,
+          },
+          {
+            id: "stop",
+            label: "Stop run",
+            group: "Run",
+            icon: Square,
+            disabled: !isRunning,
+            run: () => {
+              void useActiveRunStore.getState().requestStop().then((sent) => {
+                if (!sent) setRunning(false);
+              });
+            },
+          },
+          {
+            id: "mode",
+            label: "Cycle execution mode",
+            group: "Run",
+            icon: Shuffle,
+            chord: "Mod+Shift+M",
+            meta: executionMode,
+            run: () =>
+              setExecutionMode(MODE_ORDER[(MODE_ORDER.indexOf(executionMode) + 1) % MODE_ORDER.length]),
+          },
+          {
+            id: "save",
+            label: "Save harness",
+            group: "File",
+            icon: Save,
+            chord: "Mod+S",
+            run: actions.save,
+          },
+          {
+            id: "export",
+            label: "Export graph JSON (advanced)",
+            group: "File",
+            icon: Download,
+            chord: "Mod+Shift+E",
+            run: actions.exportJson,
+          },
+          {
+            id: "import",
+            label: "Import graph JSON (advanced)",
+            group: "File",
+            icon: Upload,
+            run: actions.importJson,
+          },
+          { id: "undo", label: "Undo", group: "Edit", icon: Undo2, chord: "Mod+Z", run: undo },
+          { id: "redo", label: "Redo", group: "Edit", icon: Redo2, chord: "Mod+Shift+Z", run: redo },
+          {
+            id: "delete",
+            label: "Delete selected node",
+            group: "Edit",
+            icon: Trash2,
+            meta: selectedNodeId ?? undefined,
+            disabled: !selectedNodeId,
+            run: deleteSelected,
+          },
+          ...presets,
+          ...insert,
+          {
+            id: "toggle-right",
+            label: "Toggle inspector",
+            group: "View",
+            icon: PanelRight,
+            chord: "Mod+Alt+B",
+            run: toggleRight,
+          },
+        ];
+
     return [
-      {
-        id: "run",
-        label: "Run harness",
-        group: "Run",
-        icon: Play,
-        chord: "Mod+Enter",
-        meta: executionMode,
-        disabled: isRunning || nodes.length === 0,
-        run: actions.run,
-      },
-      {
-        id: "stop",
-        label: "Stop run",
-        group: "Run",
-        icon: Square,
-        disabled: !isRunning,
-        run: () => setRunning(false),
-      },
-      {
-        id: "mode",
-        label: "Cycle execution mode",
-        group: "Run",
-        icon: Shuffle,
-        chord: "Mod+Shift+M",
-        meta: executionMode,
-        run: () =>
-          setExecutionMode(MODE_ORDER[(MODE_ORDER.indexOf(executionMode) + 1) % MODE_ORDER.length]),
-      },
-      {
-        id: "save",
-        label: "Save harness",
-        group: "File",
-        icon: Save,
-        chord: "Mod+S",
-        run: actions.save,
-      },
-      {
-        id: "export",
-        label: "Export graph as JSON",
-        group: "File",
-        icon: Download,
-        chord: "Mod+Shift+E",
-        run: actions.exportJson,
-      },
-      { id: "import", label: "Import graph from JSON", group: "File", icon: Upload, run: actions.importJson },
-      { id: "undo", label: "Undo", group: "Edit", icon: Undo2, chord: "Mod+Z", run: undo },
-      { id: "redo", label: "Redo", group: "Edit", icon: Redo2, chord: "Mod+Shift+Z", run: redo },
-      {
-        id: "delete",
-        label: "Delete selected node",
-        group: "Edit",
-        icon: Trash2,
-        meta: selectedNodeId ?? undefined,
-        disabled: !selectedNodeId,
-        run: deleteSelected,
-      },
-      ...presets,
-      ...insert,
+      ...studioOnly,
       {
         id: "toggle-left",
-        label: "Toggle nodes panel",
+        label: "Toggle left panel",
         group: "View",
         icon: PanelLeft,
         chord: "Mod+B",
         run: toggleLeft,
-      },
-      {
-        id: "toggle-right",
-        label: "Toggle inspector",
-        group: "View",
-        icon: PanelRight,
-        chord: "Mod+Alt+B",
-        run: toggleRight,
       },
       {
         id: "keymap",
@@ -267,20 +250,57 @@ export default function Home() {
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes.length, executionMode, isRunning, selectedNodeId, actions]);
+  }, [nodes.length, executionMode, isRunning, selectedNodeId, actions, isStudio]);
 
+  const providersLeft = (
+    <Panel title={PROVIDERS_PANEL_TITLE} meta={`${connectionCount}`} className="h-full">
+      <ProvidersList />
+    </Panel>
+  );
+
+  // The contextual left panel. Destinations that own the whole stage
+  // (Automate, Pull requests) don't get one.
   const left =
-    section === "build" ? (
-      <NodePalette />
-    ) : section === "runs" ? (
-      <StubPanel title="Runs" note="Execution history lands here once the run panel ships." />
-    ) : section === "providers" ? (
-      <StubPanel
-        title="Providers"
-        note="Anthropic, OpenAI, Cursor, OpenRouter and Ollama connections are wired in a later pass."
-      />
+    section === "providers"
+      ? providersLeft
+      : section === "studio"
+        ? (studioView === "editor" ? <NodePalette /> : null)
+        : section === "chats"
+          ? <ThreadsSidebar />
+          : null;
+
+  const studioStage = studioView === "overview" ? <StudioOverview /> : (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-none items-center gap-3 border-b border-line bg-sub-100 px-3 py-2">
+        <button type="button" onClick={() => setStudioView("overview")} className="inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-control px-2 text-[12px] text-ink-mute hover:bg-sub-200 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
+          <ArrowLeft size={14} aria-hidden /> Back to Studio
+        </button>
+        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink">{harnessMeta.name}</span>
+        <button type="button" onClick={useStudioInChat} disabled={nodes.length === 0 || isRunning} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40">Use in chat</button>
+      </div>
+      <div className="relative min-h-0 flex-1">
+        <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
+        {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-[13px] leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
+      </div>
+      <ValidateDock />
+    </div>
+  );
+
+  const centered = (node: React.ReactNode) => (
+    <div className="mx-auto flex h-full w-full max-w-[860px] flex-col">{node}</div>
+  );
+
+  const stage =
+    section === "providers" ? (
+      <Dossier />
+    ) : section === "automations" ? (
+      centered(<AutomationsPanel />)
+    ) : section === "git" ? (
+      centered(<GitPanel />)
+    ) : isStudio ? (
+      studioStage
     ) : (
-      <StubPanel title="Harnesses" note="Saved harnesses from the local backend appear here." />
+      <AgentStage />
     );
 
   return (
@@ -295,23 +315,22 @@ export default function Home() {
         edgeCount={edges.length}
         selectedId={selectedNodeId}
         backendOk={backendOk}
+        immersive={isStudio && studioView === "overview"}
         toolbar={
-          <Toolbar
-            onRun={actions.run}
-            onSave={actions.save}
-            onExport={actions.exportJson}
-            onImport={actions.importJson}
-            saveMsg={actions.saveMsg}
-          />
+          isStudio && studioView === "editor" ? (
+            <Toolbar
+              onRun={actions.run}
+              onStop={actions.stop}
+              onSave={actions.save}
+              onExport={actions.exportJson}
+              onImport={actions.importJson}
+              saveMsg={actions.saveMsg}
+            />
+          ) : null
         }
         left={left}
-        stage={
-          <>
-            <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
-            {nodes.length === 0 && <EmptyStage onPreset={() => loadPreset(HARNESS_PRESETS[1])} />}
-          </>
-        }
-        right={<PropertiesPanel />}
+        stage={stage}
+        right={isStudio && studioView === "editor" && selectedNodeId ? <PropertiesPanel /> : null}
       />
     </ReactFlowProvider>
   );

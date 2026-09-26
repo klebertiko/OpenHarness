@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { Handle, Position, NodeToolbar } from "@xyflow/react";
-import { Play, Copy, Unlink, Trash2 } from "lucide-react";
+import { Copy, Unlink, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useHarnessActions } from "@/lib/actions";
 import styles from "../canvas.module.css";
 import { PORTS, portRows } from "@/lib/ports";
 import { ROLE_CODE, ROLE_ICON, ROLE_VAR } from "@/lib/roles";
@@ -102,12 +103,25 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
   const duplicateNode = useCanvasStore((s) => s.duplicateNode);
   const detachNode = useCanvasStore((s) => s.detachNode);
   const removeNode = useCanvasStore((s) => s.removeNode);
+  const awaitingHuman = useCanvasStore((s) => s.awaitingHuman);
+  const { resolveHitl } = useHarnessActions();
 
   const Icon = ROLE_ICON[type];
   const role = ROLE_VAR[type];
   const status = (data.status as string) ?? "idle";
   const schema = PORTS[type];
   const rows = portRows(type);
+
+  /* True only for the one HITL node the live run is actually parked on — this
+     is what turns the port ledger's static "approve"/"reject" labels into
+     real controls, and only for that node. */
+  const isAwaitingHuman = type === "hitl" && awaitingHuman?.nodeId === id;
+
+  const handleReject = () => {
+    const rejectionNote = window.prompt("Reason for rejecting (optional):");
+    if (rejectionNote === null) return; // person cancelled — leave the run parked
+    resolveHitl("reject", rejectionNote.trim());
+  };
 
   /* Which ports actually carry a wire. Cheap enough at this graph size, and it
      turns the port ledger into a connectivity report. */
@@ -131,7 +145,6 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
     >
       <NodeToolbar isVisible={hover || selected} position={Position.Top} offset={9}>
         <div className="oh-float flex overflow-hidden">
-          <ToolbarButton icon={Play} label="Run from here" onClick={() => undefined} />
           <ToolbarButton icon={Copy} label="Duplicate node" onClick={() => duplicateNode(id)} />
           <ToolbarButton icon={Unlink} label="Detach all wires" onClick={() => detachNode(id)} />
           <ToolbarButton icon={Trash2} label="Delete node" danger onClick={() => removeNode(id)} />
@@ -179,14 +192,25 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
 
         {/* ── Spec / note — machine facts in mono, human copy in prose ────── */}
         {spec && (
-          <div className="t-meta truncate border-t border-line-soft py-[4px] pl-[11px] pr-2 text-ink-mute">
+          <div title={typeof spec === "string" ? spec : undefined} className="t-meta truncate border-t border-line-soft py-[4px] pl-[11px] pr-2 text-ink-mute">
             {spec}
           </div>
         )}
-        {note && (
+        {(isAwaitingHuman ? awaitingHuman?.question : note) && (
           <div className="t-body truncate border-t border-line-soft py-[4px] pl-[11px] pr-2 text-ink-mute">
-            {note}
+            {isAwaitingHuman ? awaitingHuman?.question : note}
           </div>
+        )}
+
+        {isAwaitingHuman && awaitingHuman?.context && (
+          <details className="border-t border-line-soft px-[11px] py-[4px]">
+            <summary className="t-meta cursor-pointer text-ink-faint hover:text-ink-dim">
+              show what it is asking you to approve
+            </summary>
+            <p className="t-body mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap text-ink-mute">
+              {awaitingHuman.context}
+            </p>
+          </details>
         )}
 
         {/* ── Port ledger ────────────────────────────────────────────────── */}
@@ -216,19 +240,39 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
                 )}
                 {pout ? (
                   <>
-                    <span
-                      className="t-meta truncate"
-                      style={{
-                        color:
-                          pout.tone === "accept"
-                            ? "var(--signal-deep)"
-                            : pout.tone === "reject"
-                              ? "var(--fault)"
-                              : "var(--ink-mute)",
-                      }}
-                    >
-                      {pout.label}
-                    </span>
+                    {isAwaitingHuman && (pout.id === "approve" || pout.id === "reject") ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          pout.id === "approve" ? resolveHitl("approve", "") : handleReject()
+                        }
+                        aria-label={
+                          pout.id === "approve"
+                            ? "Approve this step and continue the run"
+                            : "Reject this step and end the run"
+                        }
+                        className="oh-focus-inner t-meta truncate rounded-[2px] underline decoration-dotted underline-offset-2"
+                        style={{
+                          color: pout.tone === "accept" ? "var(--signal-deep)" : "var(--fault)",
+                        }}
+                      >
+                        {pout.label}
+                      </button>
+                    ) : (
+                      <span
+                        className="t-meta truncate"
+                        style={{
+                          color:
+                            pout.tone === "accept"
+                              ? "var(--signal-deep)"
+                              : pout.tone === "reject"
+                                ? "var(--fault)"
+                                : "var(--ink-mute)",
+                        }}
+                      >
+                        {pout.label}
+                      </span>
+                    )}
                     <Handle
                       type="source"
                       id={pout.id}

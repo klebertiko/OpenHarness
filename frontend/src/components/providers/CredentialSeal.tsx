@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { KeyRound, ShieldCheck, Trash2, TriangleAlert } from "lucide-react";
+import { KeyRound, ShieldCheck, Terminal, Trash2, TriangleAlert } from "lucide-react";
 import { VAULT_LABEL, activeVault } from "./secrets";
 import type { Connection } from "./providerStore";
 import type { ProviderSpec } from "./catalog";
@@ -31,12 +31,16 @@ function fmtDate(iso: string) {
 }
 
 /** The drawn redaction. Width tracks the real key length, capped so a 164-char
- *  OpenAI project key does not blow the layout out. */
-function Redaction({ length }: { length: number }) {
-  const width = Math.min(260, Math.max(48, length * 1.9));
+ *  OpenAI project key does not blow the layout out. `length: null` means the
+ *  seal was restored from the backend as a bare reference — the vault never
+ *  told us how long the value is, and the bar must not pretend otherwise
+ *  (DOSSIER-CRED-LENGTH, 2026-09-18: a 0 here used to render "0 characters"
+ *  and a negative-width bar, i.e. an invented measurement). */
+function Redaction({ length }: { length: number | null }) {
+  const width = length === null ? 96 : Math.min(260, Math.max(48, length * 1.9));
   return (
     <span
-      aria-label={`${length} characters withheld`}
+      aria-label={length === null ? "Credential value withheld; length unavailable" : `${length} characters withheld`}
       className="inline-block flex-none select-none rounded-[1px]"
       style={{
         width,
@@ -82,6 +86,45 @@ export function CredentialSeal({
     );
   }
 
+  /* ── CLI-session auth — nothing pasted, nothing stored ───────────────────
+     Anthropic and Cursor ride their own CLI's login (`claude login` /
+     `cursor-agent login`). There is no key for this app to hold, so the
+     paste flow below never applies here — connection health *is* the
+     credential state, read straight from the adapter's probe(). */
+  if (spec.credential.kind === "cli") {
+    const connected = connection.health === "live" || connection.health === "degraded";
+    return (
+      <Section
+        title="Credential"
+        chip={
+          connected ? (
+            <Chip tone="signal">
+              <Terminal size={11} strokeWidth={1.8} />
+              connected via CLI
+            </Chip>
+          ) : (
+            <Chip tone="warn">
+              <Terminal size={11} strokeWidth={1.8} />
+              CLI not connected
+            </Chip>
+          )
+        }
+      >
+        <p className="t-body max-w-[62ch] text-ink-dim">
+          OpenHarness stores no credential for this connection. It runs the local{" "}
+          <span className="t-meta text-ink">{spec.vendor === "Cursor" ? "cursor-agent" : "claude"}</span>{" "}
+          CLI in your own login session — there is nothing to paste here, and nothing this app could
+          leak even if it tried.
+        </p>
+        <p className="t-body mt-2.5 max-w-[62ch] text-ink-mute">
+          {connected
+            ? `Signed in as ${connection.facts.find((f) => f.k === "account")?.v ?? "unknown"}.`
+            : spec.credential.where}
+        </p>
+      </Section>
+    );
+  }
+
   /* ── Sealed ─────────────────────────────────────────────────────────────── */
   if (connection.secret && !entering) {
     const s = connection.secret;
@@ -99,14 +142,14 @@ export function CredentialSeal({
           <span className="h-[15px] w-[2px] flex-none rounded-[1px] bg-signal-deep" aria-hidden />
           <span className="t-meta flex min-w-0 items-center gap-1.5">
             <span className="text-ink-dim">{s.prefix}</span>
-            <Redaction length={s.length - s.prefix.length - 4} />
+            <Redaction length={s.length > 0 ? Math.max(0, s.length - s.prefix.length - 4) : null} />
             <span className="text-ink">{s.tail}</span>
           </span>
         </div>
 
         <dl className="mt-2.5 grid grid-cols-[86px_1fr] gap-x-3 gap-y-1">
           <Row k="stored in" v={`${VAULT_LABEL[s.vault]} · ${s.service}`} />
-          <Row k="length" v={`${s.length} characters`} />
+          <Row k="length" v={s.length > 0 ? `${s.length} characters` : "not reported by the vault"} />
           <Row k="added" v={fmtDate(s.savedAt)} />
         </dl>
 

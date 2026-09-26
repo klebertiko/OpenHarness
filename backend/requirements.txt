@@ -8,3 +8,16 @@ anthropic==0.43.0
 openai==1.68.2
 python-dotenv==1.0.1
 anyio==4.7.0
+jsonschema==4.23.0
+pytest==8.3.4
+pytest-bdd==8.1.0
+cryptography==44.0.0
+# OHM .ohm restricted YAML 1.2 profile (oharness/codec.py, ADR 0003). Pinned
+# after proving it rejects duplicate keys/tags/anchors/aliases/merge keys and
+# supports the low-level event-stream API codec.py relies on for the
+# restricted-profile checks (see docs/product/ohm-yaml-migration.md P1 step
+# 2 -- "safe loader" alone does not enforce this profile; codec.py validates
+# the event stream itself instead of trusting ruamel's own resolver).
+ruamel.yaml==0.18.16
+# Optional — only needed when OH_SECRETS=keychain:
+# keyring>=25.0.0

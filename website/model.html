@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8">
+<!-- security-meta:start -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
+<meta name="referrer" content="no-referrer">
+<!-- security-meta:end -->
+
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Entenda o Open Harness Model: um documento YAML .ohm com identidade, grafo, conteúdo, runtime e validação. Exemplo e schema disponíveis."><title>O modelo .ohm — OpenHarness</title><link rel="icon" href="./assets/mark.svg" type="image/svg+xml"><script src="./theme.js"></script><link rel="stylesheet" href="./tokens.css"><link rel="stylesheet" href="./style.css"><script type="module" src="./main.js"></script><!-- locale-meta:start -->
+<link rel="canonical" href="https://klebertiko.github.io/OpenHarness/model.html">
+<link rel="alternate" hreflang="pt-BR" href="https://klebertiko.github.io/OpenHarness/model.html">
+<link rel="alternate" hreflang="en-US" href="https://klebertiko.github.io/OpenHarness/en/model.html">
+<link rel="alternate" hreflang="x-default" href="https://klebertiko.github.io/OpenHarness/model.html">
+<meta property="og:url" content="https://klebertiko.github.io/OpenHarness/model.html">
+<meta property="og:locale:alternate" content="en_US">
+<!-- locale-meta:end -->
+</head>
+<body><a class="skip" href="#documento">Pular para o conteúdo</a><header class="site-header doc-header"><a class="brand" href="./index.html"><img src="./assets/mark.svg" alt="" width="38" height="22">OpenHarness<span class="brand-dot">.</span></a><a class="text-link" href="./index.html#modelo">← Voltar ao produto</a><a class="language-switch" href="./en/model.html" lang="en-US" hreflang="en-US" aria-label="Read in American English" title="English (US)">EN</a><button class="theme-toggle" type="button" aria-label="Ativar tema escuro" title="Ativar tema escuro" hidden><svg class="icon moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg><svg class="icon sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></header>
+<main id="documento"><div class="doc-hero wrap"><p class="overline">Open Harness Model · referência inicial</p><h1>Um método que você<br> pode abrir e entender.</h1><p>Um harness descreve como agentes, conhecimento, checkpoints e decisões humanas se organizam. O OHM dá a essa descrição uma forma: um documento YAML 1.2 com extensão <code>.ohm</code>.</p></div>
+<div class="doc-layout wrap"><nav class="doc-nav" aria-label="Nesta página"><a href="#estrutura">A estrutura</a><a href="#exemplo">Um primeiro arquivo</a><a href="#validacao">Validação</a><a href="#estado">Estado do modelo</a></nav><article class="doc-body">
+<h2 id="estrutura">O que está dentro de um .ohm?</h2><p>É um único documento de texto em UTF-8. Não é um ZIP, nem um modelo de linguagem. O modelo normalizado mantém seis propriedades principais:</p><dl><dt>schemaVersion</dt><dd>Identifica a versão da estrutura declarada pelo documento.</dd><dt>manifest</dt><dd>Identidade do harness: id, nome, versão, descrição, licença declarada e tags.</dd><dt>graph</dt><dd>Os participantes (<code>nodes</code>) e suas conexões (<code>edges</code>).</dd><dt>content</dt><dd>Conteúdo incorporado: prompts, agentes, skills, hooks, comandos e scripts.</dd><dt>runtime</dt><dd>Preferência de execução, CLI, variáveis de ambiente e referências de segredos. Credenciais não devem ser compartilhadas no arquivo.</dd><dt>validation</dt><dd>Metadados de validação, incluindo o perfil de simulação declarado.</dd></dl>
+<h2 id="exemplo">Um primeiro arquivo.</h2><p>Este exemplo apresenta a sintaxe YAML adotada sobre a estrutura <code>1.0.0</code>. O grafo vazio demonstra o formato; o prompt multilinha exemplifica a autoria e não é executado. O leitor YAML do desktop ainda está em migração. O campo <code>license</code> é metadado do exemplo e não declara a licença do aplicativo.</p>
+<div class="code-sample"><div class="code-head"><span>hello.ohm</span><button data-copy aria-live="polite">Copiar YAML</button></div><pre id="model-example" tabindex="0"># OHM em YAML 1.2 — suporte no desktop em migração.
+schemaVersion: &quot;1.0.0&quot;
+manifest:
+  id: hello
+  name: Hello
+  version: &quot;0.1.0&quot;
+  description: Exemplo mínimo do Open Harness Model.
+  license: MIT
+  tags: []
+graph:
+  nodes: []
+  edges: []
+content:
+  prompts:
+    objetivo: |-
+      Descreva o objetivo do trabalho.
+      Defina as evidências para aceitar o resultado.
+  agents: {}
+  skills: {}
+  hooks: {}
+  commands: {}
+  scripts: {}
+runtime:
+  preferred: api
+  cli: null
+  env: []
+  secrets: []
+validation:
+  mockProfile: default
+</pre></div><div class="actions"><a class="button primary" href="./examples/hello.ohm" download="hello.ohm">Baixar hello.ohm ↓</a><a class="text-link" href="./examples/ohm.schema.json" download>Baixar JSON Schema ↓</a><a class="text-link" href="./examples/hello-legacy.json" download>Exemplo legado JSON ↓</a></div>
+<h2 id="validacao">Estrutura válida é o primeiro passo.</h2><p>O projeto possui um JSON Schema e um validador estrutural. JSON Schema continuará validando os dados depois da leitura do YAML: a sintaxe do arquivo e a estrutura do modelo são decisões distintas. O exemplo desta página foi verificado contra essa estrutura, após a leitura do YAML.</p><p>Passar nessa verificação não comprova a qualidade das instruções, disponibilidade de provedores, segurança de scripts ou equivalência de execução em outro ambiente.</p>
+<h2 id="estado">Uma base concreta. Um modelo em evolução.</h2><p>O OpenHarness já lê e exporta documentos JSON de harness, representa grafos e oferece validação estrutural e simulação. A decisão agora é adotar YAML para os arquivos <code>.ohm</code>, mantendo JSON nas APIs. A implementação do leitor e exportador YAML está pendente. A migração deverá preservar a leitura de arquivos JSON antigos, inclusive <code>.oharness</code>.</p><p>As conexões continuam usando IDs e arestas. Âncoras YAML não serão usadas para representar a topologia. Retornos e ciclos exigem regras de execução, limites e cancelamento; não são resolvidos pela troca da sintaxe.</p><p>A preservação integral de configurações na exportação, as regras de execução e o suporte por outras ferramentas ainda exigem desenvolvimento e verificação. Portabilidade é um compromisso de projeto; cada ambiente precisa implementar o modelo e declarar seus limites.</p><p class="inline-notice">O OHM é uma proposta do OpenHarness. Esta página não anuncia padronização por terceiros, compatibilidade universal ou governança independente.</p><p>O <a class="text-link" href="./manifesto.html">manifesto</a> apresenta os princípios que orientam essa evolução.</p>
+</article></div></main><footer class="site-footer wrap"><a class="brand" href="./index.html"><img src="./assets/mark.svg" width="32" height="18" alt="">OpenHarness</a><span>Documentação inicial · setembro de 2026</span><a href="./manifesto.html">Manifesto ↗</a></footer></body></html>

@@ -1,0 +1,40 @@
+name: Set up Aikido Safe Chain
+description: Install the checksum-verified Safe Chain package proxy for npm and pip.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Aikido Safe Chain 1.5.15 (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        set -euo pipefail
+        installer="${RUNNER_TEMP}/install-safe-chain.sh"
+        curl --fail --silent --show-error --location \
+          https://github.com/AikidoSec/safe-chain/releases/download/1.5.15/install-safe-chain.sh \
+          --output "$installer"
+        echo "de0565e3d6346407a604e84e639e95fea8758748063da2216bbfdca5feda5dd2  $installer" | sha256sum --check --strict
+        sh "$installer" --ci
+        rm "$installer"
+        # GITHUB_PATH applies to later steps only — use absolute path in this step.
+        echo "$HOME/.safe-chain/bin" >> "$GITHUB_PATH"
+        echo "$HOME/.safe-chain/shims" >> "$GITHUB_PATH"
+        export PATH="$HOME/.safe-chain/bin:$HOME/.safe-chain/shims:$PATH"
+        "$HOME/.safe-chain/bin/safe-chain" --version
+    - name: Install Aikido Safe Chain 1.5.15 (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $installer = Join-Path $env:RUNNER_TEMP "install-safe-chain.ps1"
+        Invoke-WebRequest "https://github.com/AikidoSec/safe-chain/releases/download/1.5.15/install-safe-chain.ps1" -OutFile $installer -UseBasicParsing
+        $actual = (Get-FileHash $installer -Algorithm SHA256).Hash
+        $expected = "5FC22EEF74814BEF6828AA07C0EAEC79598F343F98B94A4ACAB823769AD56DA1"
+        if ($actual -ne $expected) { throw "Safe Chain installer checksum mismatch" }
+        & $installer -ci
+        Remove-Item -LiteralPath $installer
+        $bin = Join-Path $env:USERPROFILE ".safe-chain\bin"
+        $shims = Join-Path $env:USERPROFILE ".safe-chain\shims"
+        Add-Content -Path $env:GITHUB_PATH -Value $bin
+        Add-Content -Path $env:GITHUB_PATH -Value $shims
+        $env:Path = "$bin;$shims;$env:Path"
+        & (Join-Path $bin "safe-chain.exe") --version

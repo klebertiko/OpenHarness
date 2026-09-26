@@ -50,6 +50,7 @@ export function HarnessCanvas({ onNodeClick }: Props) {
   const onConnect = useCanvasStore((s) => s.onConnect);
   const addNode = useCanvasStore((s) => s.addNode);
   const setSelectedNode = useCanvasStore((s) => s.setSelectedNode);
+  const setNodes = useCanvasStore((s) => s.setNodes);
 
   const { fitView, screenToFlowPosition } = useReactFlow();
   const initialised = useNodesInitialized();
@@ -60,6 +61,30 @@ export function HarnessCanvas({ onNodeClick }: Props) {
 
   const [snap, setSnap] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [panMode, setPanMode] = useState(false);
+
+  /* xyflow's snapToGrid only affects the *next* drag — flipping it on with
+     nothing being dragged produces zero visible change, which reads as
+     broken. Snapping every current node the moment it's turned on gives the
+     toggle an immediate, honest effect. */
+  const GRID = 26;
+  const handleSnapChange = useCallback(
+    (v: boolean) => {
+      setSnap(v);
+      if (v) {
+        setNodes(
+          nodes.map((n) => ({
+            ...n,
+            position: {
+              x: Math.round(n.position.x / GRID) * GRID,
+              y: Math.round(n.position.y / GRID) * GRID,
+            },
+          }))
+        );
+      }
+    },
+    [nodes, setNodes]
+  );
 
   /* `fitView` on <ReactFlow> only runs at mount, so a graph that arrives later
      — a preset, an import, a deep link — would open off-screen at zoom 1.
@@ -133,7 +158,11 @@ export function HarnessCanvas({ onNodeClick }: Props) {
   );
 
   return (
-    <div className={styles.stage} onDragOver={onDragOver} onDrop={onDrop}>
+    <div
+      className={panMode ? `${styles.stage} ${styles.panMode}` : styles.stage}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <WireTips />
       <ReactFlow
         nodes={flowNodes}
@@ -151,9 +180,9 @@ export function HarnessCanvas({ onNodeClick }: Props) {
         maxZoom={2.5}
         snapToGrid={snap}
         snapGrid={[26, 26]}
-        nodesDraggable={!locked}
-        panOnDrag={locked ? false : [1, 2]}
-        selectionOnDrag={!locked}
+        nodesDraggable={!locked && !panMode}
+        panOnDrag={locked ? false : panMode ? true : [1, 2]}
+        selectionOnDrag={!locked && !panMode}
         selectionMode={SelectionMode.Partial}
         connectionMode={ConnectionMode.Strict}
         connectionLineType={ConnectionLineType.SmoothStep}
@@ -182,7 +211,14 @@ export function HarnessCanvas({ onNodeClick }: Props) {
         />
 
         <GraphAudit />
-        <CanvasDock snap={snap} onSnap={setSnap} locked={locked} onLock={setLocked} />
+        <CanvasDock
+          snap={snap}
+          onSnap={handleSnapChange}
+          locked={locked}
+          onLock={setLocked}
+          panMode={panMode}
+          onPanMode={setPanMode}
+        />
 
         {/* An overview of nothing is just a black rectangle in the corner. */}
         {nodes.length > 2 && (
@@ -190,7 +226,7 @@ export function HarnessCanvas({ onNodeClick }: Props) {
             pannable
             zoomable
             position="bottom-right"
-            nodeColor={(n) => ROLE_VAR[(n.type ?? "llm") as NodeType]}
+            nodeColor={(n) => ROLE_VAR[(n.type ?? "agent") as NodeType]}
             nodeStrokeWidth={0}
             nodeBorderRadius={1}
             bgColor="var(--sub-100)"

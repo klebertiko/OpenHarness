@@ -21,26 +21,33 @@ interface Fault {
   note: string;
 }
 
+/**
+ * A graph with no faults still has exactly one node nothing points at (where
+ * the run starts) and, once a HITL node exists, exactly one node that points
+ * nowhere (the terminal approval — nothing consumes a merge). Flagging those
+ * unconditionally means every valid harness shows warnings, which is worse
+ * than showing none: it trains a person to stop reading this panel, and a
+ * real fault then hides in the noise. Only the *excess* — a second orphaned
+ * start, or a non-terminal node with nowhere to go — is actually wrong.
+ */
 function audit(nodes: HarnessNode[], edges: { source: string; target: string }[]): Fault[] {
   const faults: Fault[] = [];
   const hasIn = new Set(edges.map((e) => e.target));
   const hasOut = new Set(edges.map((e) => e.source));
 
+  const unreached = nodes.filter((n) => PORTS[n.type as NodeType].in.length > 0 && !hasIn.has(n.id));
+  // The first one is the graph's entry point, not a fault — every valid
+  // harness has exactly one. Any more than that are genuinely disconnected.
+  for (const n of unreached.slice(1)) {
+    faults.push({ nodeId: n.id, label: String(n.data.label ?? n.id), note: "never reached" });
+  }
+
   for (const n of nodes) {
     const type = n.type as NodeType;
+    if (type === "hitl") continue; // a terminal approval is *meant* to lead nowhere
     const schema = PORTS[type];
-    if (schema.in.length > 0 && !hasIn.has(n.id)) {
-      faults.push({
-        nodeId: n.id,
-        label: String(n.data.label ?? n.id),
-        note: "never reached",
-      });
-    } else if (schema.out.length > 0 && !hasOut.has(n.id)) {
-      faults.push({
-        nodeId: n.id,
-        label: String(n.data.label ?? n.id),
-        note: "dead end",
-      });
+    if (schema.out.length > 0 && !hasOut.has(n.id)) {
+      faults.push({ nodeId: n.id, label: String(n.data.label ?? n.id), note: "dead end" });
     }
   }
   return faults;
@@ -53,7 +60,8 @@ export function GraphAudit() {
   const { setCenter, getNode } = useReactFlow();
 
   const faults = useMemo(() => audit(nodes, edges), [nodes, edges]);
-  const noEntry = nodes.length > 0 && !nodes.some((n) => n.type === "input");
+  const noEntry =
+    nodes.length > 0 && !nodes.some((n) => n.type === "agent" || n.type === "gate");
 
   if (nodes.length === 0) return null;
 

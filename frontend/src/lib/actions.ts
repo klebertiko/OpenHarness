@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useState } from "react";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useActiveRunStore } from "@/store/activeRunStore";
 import { api } from "@/lib/api";
+import { useShellStore } from "@/components/shell/shellStore";
+import { sendControl } from "@/components/agent-run/runClient";
 
 /**
  * The harness verbs, in one place.
@@ -56,6 +59,7 @@ export function useHarnessActions() {
   }, []);
 
   const importJson = useCallback(() => {
+    if (useCanvasStore.getState().isRunning) return;
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
@@ -64,9 +68,12 @@ export function useHarnessActions() {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
+        if (useCanvasStore.getState().isRunning) return;
         try {
           const parsed = JSON.parse(ev.target?.result as string);
           useCanvasStore.getState().loadGraph(parsed.nodes ?? [], parsed.edges ?? []);
+          useShellStore.getState().setSection("studio");
+          useShellStore.getState().setStudioView("editor");
         } catch {
           setSaveMsg("bad file");
           setTimeout(() => setSaveMsg(""), 2400);
@@ -75,6 +82,12 @@ export function useHarnessActions() {
       reader.readAsText(file);
     };
     input.click();
+  }, []);
+
+  const stop = useCallback(() => {
+    void useActiveRunStore.getState().requestStop().then((sent) => {
+      if (!sent) useCanvasStore.getState().setRunning(false);
+    });
   }, []);
 
   const run = useCallback(() => {
@@ -87,7 +100,9 @@ export function useHarnessActions() {
       (event, data) => {
         const d = data as Record<string, unknown>;
         const store = useCanvasStore.getState();
-        if (event === "node_start") store.setNodeStatus(d.node_id as string, "running");
+        if (event === "run_start" && d.run_id) {
+          useActiveRunStore.getState().setRunId(String(d.run_id));
+        } else if (event === "node_start") store.setNodeStatus(d.node_id as string, "running");
         else if (event === "node_stream")
           store.appendNodeOutput(d.node_id as string, d.chunk as string);
         else if (event === "node_done")
@@ -99,10 +114,41 @@ export function useHarnessActions() {
           );
         else if (event === "node_error")
           store.setNodeError(d.node_id as string, d.error as string);
+        else if (event === "hitl_pause") {
+          // Engine parked at a HITL node awaiting a person. Mirror the same
+          // "paused"/held state the plate already renders, and stash the
+          // question/context so the node's approve/reject controls go live.
+          store.setNodeStatus(d.node_id as string, "paused");
+          store.setAwaitingHuman({
+            nodeId: d.node_id as string,
+            question: String(
+              d.question ?? "Approve this step and continue the run?"
+            ),
+            context: String(d.context ?? ""),
+          });
+        } else if (event === "hitl_resolved") {
+          store.setAwaitingHuman(null);
+        } else if (event === "harness_done" || event === "run_stopped") {
+          useActiveRunStore.getState().setRunId(null);
+        }
       },
-      () => useCanvasStore.getState().setRunning(false)
+      () => {
+        useActiveRunStore.getState().setRunId(null);
+        useCanvasStore.getState().setRunning(false);
+      }
     );
   }, []);
 
-  return { run, save, exportJson, importJson, saving, saveMsg };
+  /**
+   * Answer the HITL node the Studio run is currently parked on. Reuses the
+   * same `/execute/{run_id}/control` call the chat side's `resolveGate`
+   * already makes — the engine does not care which surface asked.
+   */
+  const resolveHitl = useCallback((decision: "approve" | "reject", note: string) => {
+    const { runId } = useActiveRunStore.getState();
+    if (!runId) return;
+    void sendControl(runId, { action: "resume", decision, note });
+  }, []);
+
+  return { run, stop, resolveHitl, save, exportJson, importJson, saving, saveMsg };
 }

@@ -1,0 +1,16 @@
+{
+  "name": "openharness-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenHarness Tauri shell — run from repo root",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "frontend:build": "npm run build --prefix frontend",
+    "sidecar:dev": "cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

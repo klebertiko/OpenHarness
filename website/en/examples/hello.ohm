@@ -1,0 +1,29 @@
+# OHM in YAML 1.2 — desktop support is being migrated.
+schemaVersion: "1.0.0"
+manifest:
+  id: hello
+  name: Hello
+  version: "0.1.0"
+  description: Minimal Open Harness Model example.
+  license: MIT
+  tags: []
+graph:
+  nodes: []
+  edges: []
+content:
+  prompts:
+    objective: |-
+      Describe the objective of the work.
+      Define the evidence required to accept the result.
+  agents: {}
+  skills: {}
+  hooks: {}
+  commands: {}
+  scripts: {}
+runtime:
+  preferred: api
+  cli: null
+  env: []
+  secrets: []
+validation:
+  mockProfile: default
