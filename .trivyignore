@@ -1,0 +1,7 @@
+# Transitive glib via Tauri GTK bindings (Cargo.lock); fixed only on 0.20.x,
+# which is outside the current gtk-rs / Tauri pin set. Track upstream bump.
+GHSA-wrw7-89jp-8q8g
+
+# Dockerfile HEALTHCHECK (also fixed in Dockerfiles; keep ids as aliases).
+AVD-DS-0026
+DS-0026
