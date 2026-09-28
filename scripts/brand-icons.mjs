@@ -25,11 +25,15 @@ const FACE = GRID.slice(0, Number(faceRows[1]));
 const svgPaths = (rows) => {
   const paths = {};
   rows.forEach((r, y) => [...r].forEach((c, x) => { if (c !== ".") (paths[c] ||= []).push(`M${x} ${y}h1v1h-1z`); }));
+  // Grid symbols and palette values are closed constants, never external input.
+  // nosemgrep: opengrep-rules.javascript.lang.security.html-in-template-string
   return Object.entries(paths).map(([c, d]) => `<path fill="${FILL[c]}" d="${d.join("")}"/>`).join("");
 };
 
 const svg = (rows, cell, title) => {
   const w = rows[0].length, h = rows.length;
+  // Call sites below provide fixed repository-owned titles and grid data only.
+  // nosemgrep: opengrep-rules.javascript.lang.security.html-in-template-string
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w * cell}" height="${h * cell}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges"><title>${title}</title>${svgPaths(rows)}</svg>\n`;
 };
 
