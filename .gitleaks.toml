@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic GitLab token used only by the repository adapter tests"
+paths = ['''backend/tests/repos/test_github_gitlab_adapters\.py''']
+regexes = ['''glpat-TEST_TOKEN_NEVER_LEAK''']

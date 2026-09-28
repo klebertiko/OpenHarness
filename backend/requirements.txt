@@ -9,9 +9,7 @@ openai==1.68.2
 python-dotenv==1.0.1
 anyio==4.7.0
 jsonschema==4.23.0
-pytest==8.3.4
-pytest-bdd==8.1.0
-cryptography==44.0.0
+cryptography==50.0.0
 # OHM .ohm restricted YAML 1.2 profile (oharness/codec.py, ADR 0003). Pinned
 # after proving it rejects duplicate keys/tags/anchors/aliases/merge keys and
 # supports the low-level event-stream API codec.py relies on for the
