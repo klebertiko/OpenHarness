@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useReactFlow, useStore } from "@xyflow/react";
-import { Minus, Plus, Maximize2, Grid2x2, Lock, Unlock } from "lucide-react";
+import { Minus, Plus, Maximize2, Grid2x2, Hand, Lock, Unlock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -49,9 +49,11 @@ interface Props {
   onSnap: (v: boolean) => void;
   locked: boolean;
   onLock: (v: boolean) => void;
+  panMode: boolean;
+  onPanMode: (v: boolean) => void;
 }
 
-export function CanvasDock({ snap, onSnap, locked, onLock }: Props) {
+export function CanvasDock({ snap, onSnap, locked, onLock, panMode, onPanMode }: Props) {
   const { zoomIn, zoomOut, fitView, zoomTo } = useReactFlow();
   const zoom = useStore((s) => s.transform[2]);
   const [flash, setFlash] = useState(false);
@@ -87,6 +89,12 @@ export function CanvasDock({ snap, onSnap, locked, onLock }: Props) {
           icon={Maximize2}
           label="Fit graph to view"
           onClick={() => fitView({ padding: 0.22, duration: 220 })}
+        />
+        <DockButton
+          icon={Hand}
+          label={panMode ? "Pan tool on — drag anywhere to move the canvas" : "Pan tool — drag to move the canvas without selecting"}
+          active={panMode}
+          onClick={() => onPanMode(!panMode)}
         />
         <DockButton
           icon={Grid2x2}

@@ -1,3 +1,5 @@
+/* Hallmark · macrostructure: Graph Workshop · genre: modern-minimal
+   design-system: design.md · warm graphite / ivory · visual verification pending */
 /* ═══════════════════════════════════════════════════════════════════════════
    Canvas-scoped xyflow overrides.
 
@@ -12,6 +14,31 @@
   inset: 0;
 }
 
+.roleMarker { color: var(--role-c); background: var(--sub-200); }
+.roleMarker[data-role="agent"] { --role-c: var(--role-agent); }
+.roleMarker[data-role="gate"] { --role-c: var(--role-gate); }
+.roleMarker[data-role="hitl"] { --role-c: var(--role-hitl); }
+.roleMarker[data-role="skill"] { --role-c: var(--role-skill); }
+.roleMarker[data-role="mcp"] { --role-c: var(--role-mcp); }
+.roleMarker[data-role="tool"] { --role-c: var(--role-tool); }
+
+.paletteRow { min-height: 44px; }
+.fieldControl { min-height: 32px; }
+.paletteRow:focus-visible,
+.fieldControl:focus-visible,
+.dock button:focus-visible,
+.nodeActions button:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: -2px;
+}
+.paletteRow:active,
+.dock button:active,
+.nodeActions button:active { background: var(--sub-300); }
+.paletteRow:disabled,
+.fieldControl:disabled,
+.dock button:disabled,
+.nodeActions button:disabled { opacity: 0.55; cursor: not-allowed; }
+
 /* ── Selection ────────────────────────────────────────────────────────────
    The baseline re-skin draws a 1px signal ring around any selected node. This
    canvas draws selection itself — corner registration marks plus a value step
@@ -24,6 +51,16 @@
    hover toolbar) without xyflow clipping them. */
 .stage.stage :global(.react-flow__node) {
   cursor: default;
+}
+
+/* Hand tool: the whole pane is grabbable, not just the two undiscoverable
+   middle/right-click drags. Nodes keep their own cursor so a node is never
+   mistaken for empty canvas. */
+.stage.stage.panMode :global(.react-flow__pane) {
+  cursor: grab;
+}
+.stage.stage.panMode :global(.react-flow__pane:active) {
+  cursor: grabbing;
 }
 
 /* ── Ports ────────────────────────────────────────────────────────────────

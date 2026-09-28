@@ -101,6 +101,7 @@ export default function CanvasBench() {
         toolbar={
           <Toolbar
             onRun={actions.run}
+            onStop={actions.stop}
             onSave={actions.save}
             onExport={actions.exportJson}
             onImport={actions.importJson}

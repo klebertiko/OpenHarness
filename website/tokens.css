@@ -1,0 +1,92 @@
+/* OpenHarness · website tokens · inherited from ../design.md */
+@font-face {
+  font-family: Sora;
+  src: url('./assets/sora-latin.woff2') format('woff2');
+  font-weight: 100 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./assets/plex-mono-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+:root {
+  --color-paper: oklch(0.965 0.008 82);
+  --color-raised: oklch(0.985 0.005 82);
+  --color-ink: oklch(0.245 0.012 75);
+  --color-muted: oklch(0.46 0.010 75);
+  --color-rule: oklch(0.84 0.010 82);
+  --color-accent: oklch(0.52 0.105 190);
+  --color-accent-soft: oklch(0.92 0.024 185);
+  --color-night: oklch(0.17 0.006 72);
+  --color-panel: oklch(0.215 0.006 72);
+  --color-night-rule: oklch(0.34 0.009 72);
+  --color-night-muted: oklch(0.79 0.009 82);
+  --color-teal: oklch(0.72 0.105 190);
+  --color-amber: oklch(0.76 0.12 80);
+  --color-on-dark: oklch(0.965 0.008 82);
+  --color-action-bg: var(--color-accent);
+  --color-action-ink: var(--color-raised);
+  --color-hover: oklch(0.43 0.080 75);
+  --color-hover-soft: oklch(0.94 0.035 80);
+  --font-display: Sora,sans-serif;
+  --font-body: Sora,sans-serif;
+  --font-mono: 'IBM Plex Mono',monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 80px;
+  --space-section: 120px;
+  --text-display: clamp(3.5rem,5.7vw,5.3rem);
+  --text-title: clamp(2.25rem,4.1vw,4rem);
+  --text-body: 1rem;
+  --text-small: .8rem;
+  --radius-control: 7px;
+  --radius-card: 10px;
+  --rule-width: 1px;
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-in: cubic-bezier(.7,0,.84,0);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --dur-fast: 150ms;
+  --dur-mid: 250ms;
+  --dur-slow: 500ms;
+  --gutter: clamp(20px,5vw,80px);
+  --page-width: 1320px;
+}
+
+
+:root[data-theme="dark"] {
+  --color-paper: oklch(0.185 0.006 72);
+  --color-raised: oklch(0.245 0.006 72);
+  --color-ink: oklch(0.945 0.008 82);
+  --color-muted: oklch(0.78 0.010 82);
+  --color-rule: oklch(0.39 0.009 72);
+  --color-accent: oklch(0.76 0.095 190);
+  --color-accent-soft: oklch(0.30 0.035 190);
+  --color-action-ink: oklch(0.185 0.006 72);
+  --color-hover: var(--color-amber);
+  --color-hover-soft: oklch(0.30 0.035 80);
+}
+
+/* The mascot uses the same palette as the desktop, independently of page ink. */
+:root {
+  --nilo-body: oklch(0.70 0.105 190);
+  --nilo-eye: oklch(0.950 0.008 82);
+  --nilo-pupil: oklch(0.190 0.006 72);
+  --nilo-beak: oklch(0.760 0.120 80);
+  --nilo-rim: oklch(0.870 0.075 190);
+  --nilo-screen: oklch(0.800 0.025 210);
+  --nilo-desk: oklch(0.500 0.010 72);
+  --nilo-code: var(--nilo-pupil);
+}
+
+:root {
+  --scene-light: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  --scene-warmth: color-mix(in srgb, var(--color-amber) 12%, transparent);
+  --scene-shadow: color-mix(in srgb, var(--color-ink) 15%, transparent);
+  --ease-cinema: cubic-bezier(.2,.8,.2,1);
+}

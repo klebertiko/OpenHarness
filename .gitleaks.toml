@@ -1,0 +1,21 @@
+[extend]
+useDefault = true
+
+# Path allowlist for adapter unit tests (current tree uses non-PAT fixtures;
+# history still contains the pre-rewrite glpat-shaped strings).
+[[allowlists]]
+description = "Synthetic tokens in repository-adapter unit tests; never live credentials"
+paths = [
+  '''backend/tests/repos/test_github_gitlab_adapters\.py''',
+]
+commits = [
+  '''8b75596f98ee2c29c9c20a2961b00e1c16de8aaf''',
+]
+
+# Sandbox redaction tests intentionally embed secret-shaped strings.
+[[allowlists]]
+description = "Sandbox secret-redaction unit fixtures"
+paths = [
+  '''backend/tests/test_sandbox_secrets\.py''',
+  '''backend/sandbox/secrets\.py''',
+]

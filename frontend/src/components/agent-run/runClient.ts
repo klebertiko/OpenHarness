@@ -1,3 +1,11 @@
+/**
+ * Open a run and pump its SSE frames at the caller.
+ *
+ * Production is a static Tauri export — there is no Next `/api/run` proxy.
+ * Calls go straight to the FastAPI sidecar (`apiUrl` / `window.__OH_API__`).
+ */
+
+import { apiUrl } from "@/lib/apiBase";
 import type { HarnessGraph } from "@/lib/types";
 
 export interface StartRunPayload {
@@ -6,18 +14,15 @@ export interface StartRunPayload {
   mode: string;
   step: boolean;
   instruction?: string;
+  /** Working folder for CLI-backed adapters — a Cowork project's `rootPath`.
+      Omitted (not empty-string) when the person picked "No folder", so the
+      backend's own `resolve_cwd()` fallback decides, not an empty path. */
+  cwd?: string;
 }
 
-/**
- * Open a run and pump its SSE frames at the caller.
- *
- * Requests go through the app's own `/api/run` route rather than straight at
- * the Python service: the panel then works identically in the browser, in
- * `next start`, and inside the Tauri shell, where a cross-origin call to
- * localhost:8000 is exactly the thing the webview blocks.
- */
-export function startRun(
-  payload: StartRunPayload,
+function pumpSse(
+  url: string,
+  payload: unknown,
   onEvent: (event: string, data: Record<string, unknown>) => void,
   onClose: (err?: Error) => void
 ): () => void {
@@ -25,7 +30,7 @@ export function startRun(
 
   (async () => {
     try {
-      const res = await fetch("/api/run", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -69,6 +74,41 @@ export function startRun(
   return () => ctrl.abort();
 }
 
+export function startRun(
+  payload: StartRunPayload,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  onClose: (err?: Error) => void
+): () => void {
+  return pumpSse(apiUrl("/execute/"), payload, onEvent, onClose);
+}
+
+/** Contract v1.1 §2.4 — a user-chosen tool that runs before the model is called. */
+export type ToolPresetPayload =
+  | { name: "exec"; argv: string[]; cwd?: string; timeout_s?: number }
+  | { name: "read"; path: string; max_bytes?: number; truncate?: boolean }
+  | { name: "discover" };
+
+export interface DirectRunPayload {
+  connection_id?: string;
+  instruction: string;
+  mode: string;
+  step?: boolean;
+  adapter?: string;
+  model?: string;
+  cwd?: string;
+  /** Chat tools broker (contract v1.1 §2.4). Absent → the run behaves exactly as before. */
+  tools?: { enabled?: boolean; preset?: ToolPresetPayload; summarize?: boolean };
+}
+
+/** Harness-off path — one adapter turn via `/execute/direct`. */
+export function startDirectRun(
+  payload: DirectRunPayload,
+  onEvent: (event: string, data: Record<string, unknown>) => void,
+  onClose: (err?: Error) => void
+): () => void {
+  return pumpSse(apiUrl("/execute/direct"), payload, onEvent, onClose);
+}
+
 export type ControlAction = "stop" | "step" | "resume" | "message";
 
 export async function sendControl(
@@ -76,11 +116,13 @@ export async function sendControl(
   body: {
     action: ControlAction;
     decision?: "approve" | "reject";
+    /** Required for tool decisions (contract §2.6); the backend answers 409 on mismatch. */
+    call_id?: string;
     note?: string;
     text?: string;
   }
 ): Promise<void> {
-  await fetch(`/api/run/${encodeURIComponent(runId)}/control`, {
+  await fetch(apiUrl(`/execute/${encodeURIComponent(runId)}/control`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

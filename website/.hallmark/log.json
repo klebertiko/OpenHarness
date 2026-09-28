@@ -1,0 +1,25 @@
+[
+  {
+    "date": "2026-09-11",
+    "macrostructure": "Map / Diagram",
+    "theme": "OpenHarness locked system",
+    "enrichment": "interactive harness diagram + actual product screenshots",
+    "nav": "N1b",
+    "footer": "Ft2",
+    "brief": "Product, Open Harness Model and manifesto in Portuguese"
+  },
+  {
+    "date": "2026-09-11",
+    "scope": "website refinement",
+    "changes": [
+      "light and dark themes",
+      "readability and pt-BR",
+      "manifesto scroll overlap",
+      "current product screenshots",
+      "Nilo canonical animation and cinematic scene",
+      "ecosystem references ordered by use"
+    ],
+    "verification": "66 theme/page/viewport combinations; sampled contrast >=4.92:1; keyboard, pause and reduced-motion checks passed",
+    "design_review": "Preserved brand, editorial hierarchy and diagram structure; added localized motion without moving reading text continuously."
+  }
+]

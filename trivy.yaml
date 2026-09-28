@@ -1,0 +1,19 @@
+# Skip intentional secret-shaped fixtures and local harness notes from fs scans.
+# Required gate remains HIGH/CRITICAL via workflow severity + exit-code.
+# Note: trivy-action SARIF mode includes all severities in the report and exit-code;
+# clear MEDIUM/LOW noise via HEALTHCHECK + .trivyignore so the job stays honest.
+scan:
+  skip-dirs:
+    - .harness
+    - .claude
+    - .gauntlet
+  skip-files:
+    - backend/tests/test_sandbox_secrets.py
+    - backend/sandbox/secrets.py
+    - backend/tests/repos/test_github_gitlab_adapters.py
+
+secret:
+  skip-files:
+    - backend/tests/test_sandbox_secrets.py
+    - backend/sandbox/secrets.py
+    - backend/tests/repos/test_github_gitlab_adapters.py

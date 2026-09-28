@@ -4,10 +4,42 @@ import type { NodeType } from "@/lib/types";
 export interface ToolCall {
   callId: string;
   name: string;
+  /** Raw args as the engine sent them (string or JSON-encoded object). */
   args: string;
   ok?: boolean;
   result?: string;
   durationMs?: number;
+  /* ── chat tools broker (contract v1.1 §2.5) ── */
+  /** Who asked: the model, or the user via a `/` preset. */
+  origin?: "model" | "preset";
+  /** Parsed from `args` when the tool is `exec` — shown one item per line on the approval card. */
+  argv?: string[];
+  /** Parsed from `args` when the tool is `read`. */
+  path?: string;
+  /** Present once the run parked on the approval gate for this call. */
+  approval?: {
+    reason: "exec" | "secret_pattern";
+    risk: "normal" | "high";
+    riskHints: string[];
+    decision?: "approve" | "reject";
+    note?: string;
+  };
+  denied?: { reason: "rejected" | "approval_timeout" | "policy"; note: string };
+  truncated?: boolean;
+  timedOut?: boolean;
+  simulated?: boolean;
+  redactions?: number;
+  exitCode?: number | null;
+}
+
+/** `capabilities` event / `GET /chat/tools/capabilities` (contract v1.1 §2.1). */
+export interface ToolCapabilities {
+  workspace: { root: string; name: string } | null;
+  provider_kind: "http" | "cli" | "mock";
+  tools: { discover: boolean; read: boolean; exec: boolean };
+  preset: { read: boolean; exec: boolean };
+  reason: "ok" | "no-workspace" | "cli-adapter" | "provider-no-tools" | "mock";
+  limits: Record<string, number>;
 }
 
 /**
@@ -33,6 +65,16 @@ export interface Segment {
   adapter: string;
   model: string;
   intrinsic: boolean;
+  /** Which connection actually ran this node — carried on `node_start` once
+      real resolution happens (backend/engine.py), same way `adapter`/`model`
+      arrive late. Absent for a run_start preview segment, and absent
+      entirely on the harness-off `/execute/direct` path, which resolves no
+      connection at all (see runClient.ts's `DirectRunPayload`). A harness
+      graph node can pin its own connection, different from the one the chat
+      composer resolved — this is what lets a run's outcome be credited to
+      the connection that actually produced it instead of whichever one the
+      composer happened to have selected. */
+  connectionId?: string;
 
   state: SegmentState;
   phase: Phase;
@@ -68,6 +110,8 @@ export type RunStatus =
 export interface RunState {
   runId: string | null;
   status: RunStatus;
+  /** What this run's provider/workspace can do with tools — from the `capabilities` event. */
+  capabilities?: ToolCapabilities | null;
   mode: string;
   step: boolean;
   plan: Segment[];

@@ -1,9 +1,8 @@
 import type { HarnessGraph, HarnessMeta, ExecutionMode } from "./types";
-
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { apiUrl } from "./apiBase";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -26,7 +25,7 @@ export const api = {
         body: JSON.stringify(patch),
       }),
     delete: (id: string) =>
-      fetch(`${BASE}/harnesses/${id}`, { method: "DELETE" }),
+      fetch(apiUrl(`/harnesses/${id}`), { method: "DELETE" }),
   },
   execute: (
     payload: { harness_id?: string; graph_json?: HarnessGraph; mode: ExecutionMode },
@@ -34,7 +33,7 @@ export const api = {
     onDone: () => void
   ) => {
     const ctrl = new AbortController();
-    fetch(`${BASE}/execute/`, {
+    fetch(apiUrl("/execute/"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

@@ -18,8 +18,7 @@ import type { ExecutionMode } from "@/lib/types";
 
 const MODES: { id: ExecutionMode; label: string; hint: string }[] = [
   { id: "mock", label: "Mock", hint: "Deterministic replay — no provider is called" },
-  { id: "live", label: "Live", hint: "Your Anthropic / OpenAI / OpenRouter subscription" },
-  { id: "local", label: "Local", hint: "Ollama or LM Studio on this machine" },
+  { id: "live", label: "Connected", hint: "Run with each node’s pinned provider, local or cloud" },
 ];
 
 function IconButton({
@@ -52,15 +51,16 @@ function IconButton({
 
 interface Props {
   onRun: () => void;
+  onStop: () => void;
   onSave: () => void;
   onExport: () => void;
   onImport: () => void;
   saveMsg: string;
 }
 
-export function Toolbar({ onRun, onSave, onExport, onImport, saveMsg }: Props) {
+export function Toolbar({ onRun, onStop, onSave, onExport, onImport, saveMsg }: Props) {
   const mac = useIsMac();
-  const { nodes, executionMode, isRunning, setExecutionMode, setRunning, undo, redo } =
+  const { nodes, executionMode, isRunning, setExecutionMode, undo, redo } =
     useCanvasStore();
 
   const runCaps = chordCaps("Mod+Enter", mac);
@@ -70,7 +70,7 @@ export function Toolbar({ onRun, onSave, onExport, onImport, saveMsg }: Props) {
       {isRunning ? (
         <button
           type="button"
-          onClick={() => setRunning(false)}
+          onClick={onStop}
           className="flex h-[22px] items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2 text-ink transition-colors hover:bg-sub-300"
         >
           <Square size={9} strokeWidth={0} fill="currentColor" />
@@ -100,23 +100,34 @@ export function Toolbar({ onRun, onSave, onExport, onImport, saveMsg }: Props) {
 
       <span className="mx-1 h-[16px] w-px bg-line" aria-hidden />
 
-      {/* Mode — a segmented control. Three fixed values do not deserve a popup. */}
+      {/* Mode — a segmented control. Simulation and connected execution use separate controls. */}
       <div
         role="radiogroup"
         aria-label="Execution mode"
         className="flex h-[22px] items-stretch overflow-hidden rounded-control border border-line-soft bg-sub-200"
       >
         {MODES.map((m) => {
-          const active = executionMode === m.id;
+          const active = m.id === "live" ? executionMode !== "mock" : executionMode === "mock";
           return (
             <button
               key={m.id}
               type="button"
               role="radio"
               aria-checked={active}
+              tabIndex={active ? 0 : -1}
               title={m.hint}
               disabled={isRunning}
               onClick={() => setExecutionMode(m.id)}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const radios = Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+                const index = radios.indexOf(event.currentTarget);
+                const next = event.key === "Home" ? 0 : event.key === "End" ? radios.length - 1
+                  : (index + (event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1) + radios.length) % radios.length;
+                radios[next].focus();
+                radios[next].click();
+              }}
               className={[
                 "t-meta border-r border-line-soft px-2 uppercase transition-colors last:border-r-0 disabled:opacity-40",
                 active ? "bg-sub-400 text-ink" : "text-ink-mute hover:text-ink-dim",
@@ -130,16 +141,21 @@ export function Toolbar({ onRun, onSave, onExport, onImport, saveMsg }: Props) {
 
       <span className="mx-1 h-[16px] w-px bg-line" aria-hidden />
 
-      <IconButton icon={Undo2} label="Undo" chord="Mod+Z" onClick={undo} />
-      <IconButton icon={Redo2} label="Redo" chord="Mod+Shift+Z" onClick={redo} />
+      <IconButton icon={Undo2} label="Undo" chord="Mod+Z" onClick={undo} disabled={isRunning} />
+      <IconButton icon={Redo2} label="Redo" chord="Mod+Shift+Z" onClick={redo} disabled={isRunning} />
 
       <span className="flex-1" />
 
       {saveMsg && <span className="t-meta mr-1 text-ink-mute">{saveMsg}</span>}
 
       <IconButton icon={Save} label="Save harness" chord="Mod+S" onClick={onSave} />
-      <IconButton icon={Download} label="Export JSON" chord="Mod+Shift+E" onClick={onExport} />
-      <IconButton icon={Upload} label="Import JSON" onClick={onImport} />
+      <IconButton
+        icon={Download}
+        label="Export graph JSON (advanced)"
+        chord="Mod+Shift+E"
+        onClick={onExport}
+      />
+      <IconButton icon={Upload} label="Import graph JSON (advanced)" onClick={onImport} disabled={isRunning} />
     </div>
   );
 }

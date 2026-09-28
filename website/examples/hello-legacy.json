@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0.0",
+  "manifest": {
+    "id": "hello",
+    "name": "Hello",
+    "version": "0.1.0",
+    "description": "min",
+    "license": "MIT",
+    "tags": []
+  },
+  "graph": { "nodes": [], "edges": [] },
+  "content": {
+    "prompts": {},
+    "agents": {},
+    "skills": {},
+    "hooks": {},
+    "commands": {},
+    "scripts": {}
+  },
+  "runtime": { "preferred": "api", "cli": null, "env": [], "secrets": [] },
+  "validation": { "mockProfile": "default" }
+}

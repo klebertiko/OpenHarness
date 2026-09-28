@@ -1,0 +1,2496 @@
+schemaVersion: 1.0.0
+manifest:
+  id: openharness.default.agile
+  name: OpenHarness Agile (skills-framework)
+  version: 0.1.0
+  description: Default Agile/Scrum/Kanban agent harness compiled from skills-framework engineering/harness.
+  license: MIT
+  tags:
+    - agile
+    - scrum
+    - kanban
+    - default
+graph:
+  nodes:
+    - id: PO
+      label: PO
+      role: PO
+    - id: SM
+      label: SM
+      role: SM
+    - id: BE
+      label: BE
+      role: BE
+    - id: FE
+      label: FE
+      role: FE
+    - id: QA
+      label: QA
+      role: QA
+    - id: ARCH
+      label: ARCH
+      role: ARCH
+    - id: TW
+      label: TW
+      role: TW
+    - id: SEC
+      label: SEC
+      role: SEC
+    - id: HITL
+      label: HITL
+      type: hitl
+  edges:
+    - id: PO-SM
+      source: PO
+      target: SM
+    - id: SM-BE
+      source: SM
+      target: BE
+    - id: SM-FE
+      source: SM
+      target: FE
+    - id: BE-QA
+      source: BE
+      target: QA
+    - id: FE-QA
+      source: FE
+      target: QA
+    - id: QA-ARCH
+      source: QA
+      target: ARCH
+    - id: ARCH-TW
+      source: ARCH
+      target: TW
+    - id: ARCH-SEC
+      source: ARCH
+      target: SEC
+    - id: SEC-HITL
+      source: SEC
+      target: HITL
+content:
+  prompts:
+    CEREMONIES: |
+      # Ceremony Scripts — Sprint Ceremonies
+
+      These are the four Scrum ceremonies adapted for the agent harness, plus Backlog Grooming (an ongoing rhythm, not a ceremony).
+      Each ceremony has a defined owner, time-box, inputs, outputs, and script.
+
+      ---
+
+      ## 1. Sprint Planning
+
+      **Trigger:** `/sprint-start <N>`  
+      **Owner:** SM (facilitates), PO (presents backlog), HITL (confirms goal)  
+      **Time-box:** 2 hours maximum (for a 2-week sprint)
+
+      ### Inputs
+      - Prioritized Product Backlog (PO-owned, fully groomed with AC + DoD + points)
+      - Team velocity from last 3 sprints (SM-tracked)
+      - Team capacity for this sprint (SM-calculated: days available × throughput)
+
+      ### Script
+
+      **Step 1 — PO presents the backlog (top 10 stories)**
+      PO walks through each story: goal, AC, story points.
+      SM questions: "Is this story ready? Are AC testable?" If no → story stays in backlog.
+
+      **Step 2 — SM proposes the Sprint Backlog**
+      Based on velocity and capacity:
+      ```
+      Sprint Capacity = (team_days × daily_throughput)
+      Sprint Backlog  = stories that fit within capacity (highest priority first)
+      ```
+      SM does not overload the sprint — capacity is the ceiling, even if PO pushes. Each committed story is then
+      assigned to BE and/or FE by domain.
+
+      **Step 3 — Sprint Goal statement**
+      One sentence. Answers: "What will the user be able to do by the end of this sprint that they cannot do now?"
+      Bad: "Complete stories 42, 43, 44."
+      Good: "Users can upload documents and see AI-generated summaries."
+
+      **Step 4 — HITL confirmation**
+      Human reviews Sprint Goal. If the goal is misaligned with business priority → adjust before committing.
+
+      ### Outputs
+      - Sprint Backlog (committed stories)
+      - Sprint Goal (one sentence, shared with team)
+      - Board updated: stories moved to Sprint Backlog column
+      - SM emits "Sprint <N> started: Goal = <goal>" — KANBAN's Sprint Backlog exit criteria; nothing enters In Progress before it
+
+      ---
+
+      ## 2. Daily Scrum (Standup)
+
+      **Trigger:** `/standup`  
+      **Owner:** SM (facilitates)  
+      **Time-box:** 15 minutes maximum
+
+      ### Format
+
+      Each active agent answers three questions:
+      1. **What did I complete since last standup?**
+      2. **What will I complete before the next standup?**
+      3. **Any blockers?**
+
+      ### Output
+
+      SM generates a standup summary:
+      ```markdown
+      # Standup — Sprint <N>, Day <D>
+
+      ## Progress
+      - @BE: [completed X, working on Y]
+      - @FE: [completed A, working on B]
+      - @QA: [reviewed story 42, bounced for missing test on AC#3]
+
+      ## Blockers
+      - @FE: blocked on missing API design for user uploads [2h]
+        → SM routing to @ARCH for design decision
+
+      ## Board Status
+      In Progress [2/3]: #43, #44
+      QA [1/2]: #42
+      In Review [0/2]: —
+      ```
+
+      Any blocker still open in the summary → SM activates impediment removal in the same turn, rather than waiting
+      for the next standup.
+
+      ---
+
+      ## 3. Sprint Review (Demo)
+
+      **Trigger:** `/sprint-review`  
+      **Owner:** HITL (demo acceptance), PO (presents), SM (facilitates)  
+      **Time-box:** 1 hour  
+      **Critical:** HITL demo acceptance is required for stories to move to Done.
+
+      ### Script
+
+      **Step 1 — SM presents sprint results**
+      Stories completed vs. committed. Stories that didn't make it (and why).
+
+      **Step 2 — PO demos each completed story**
+      Walks through the feature against the original AC:
+      - "AC item 1 was: user can upload PDF. Here's the upload working."
+      - "AC item 2 was: summary appears within 5 seconds. Here's the timer: 2.1s."
+
+      **Step 3 — HITL evaluates**
+      Human reviews each story demo:
+      - ACCEPT: story meets AC + intent → PO emits "PO Accepted: Story #X", then HITL merges (merge authority and its single logged exception: GATES.md → Gate 5).
+      - REJECT with feedback: specific AC item failed, wrong interpretation, UX issue → PO emits "PO Rejected Story #X: [specific reason]" and the story routes back
+
+      **Step 4 — PO presents updated backlog**
+      What's coming next sprint (top 5 stories, fully groomed).
+
+      ### Outputs
+      - Stories accepted by HITL → moved to Done ✓
+      - Stories rejected → back to Sprint Backlog with specific feedback attached
+      - Product Backlog updated for next sprint
+
+      ---
+
+      ## 4. Sprint Retrospective
+
+      **Trigger:** `/retro`  
+      **Owner:** SM (facilitates), all agents + HITL participate  
+      **Time-box:** 1 hour  
+      **Purpose:** Inspect the process, not the product. This is about how the team worked, not what was built.
+
+      ### Format
+
+      Three questions (everyone answers):
+
+      **1. What went well?**
+      Things to protect and repeat next sprint.
+
+      **2. What could be better?**
+      Pain points, friction, waste. Be specific: not "QA was slow" but "QA waited 4 hours for implementer to fix AC#3 because the AC was ambiguous — we should clarify AC before sprint starts."
+
+      **3. What will we try next sprint?**
+      One or two concrete experiments. Not a wishlist — a commitment with an owner and a success criterion.
+
+      Example:
+      - Experiment: "QA reviews AC at Sprint Planning before stories are committed. Owner: QA. Success: 0 AC-ambiguity bounces next sprint."
+
+      ### Output
+
+      SM produces a Retro Summary:
+      ```markdown
+      # Retro — Sprint <N>
+
+      ## What went well
+      - Stop-the-Line caught 2 stories with missing AC before any code was written
+
+      ## What could be better
+      - QA bounced story #43 three times for AC ambiguity
+      - SEC review added 8h latency at end of sprint
+
+      ## Experiments for Sprint <N+1>
+      1. QA reviews AC at Sprint Planning (Owner: QA, Success: <2 bounces)
+      2. SEC reviews stories with security-sensitive labels at Sprint Planning, not end (Owner: SEC, Success: SEC latency <2h)
+      ```
+
+      SM then emits "Retro done: <N> experiments for next sprint" — the experiments go into the next Sprint Planning as explicit agenda items.
+
+      ---
+
+      ## 5. Backlog Grooming (ongoing — not a ceremony, but a rhythm)
+
+      **Owner:** PO (leads), SM (facilitates if needed), ARCH (consults on technical stories)  
+      **Cadence:** Mid-sprint (not a one-time event)
+
+      ### Purpose
+
+      Keep the top 10 items in Product Backlog "sprint-ready" at all times.
+      A story is sprint-ready when all Stop-the-Line criteria are met (AC + DoD + points).
+
+      ### What PO does during grooming
+
+      - Writes or refines AC for top 10 stories
+      - Breaks epics into implementable stories (≤ 8 story points)
+      - Removes or deprioritizes stories that are no longer relevant
+      - Re-estimates stories that changed scope
+
+      ### ARCH involvement
+
+      When a story has technical complexity (new service, schema change, security sensitivity):
+      - ARCH exits with "Spike Result — [recommendation]" — or an ADR — before the story is sprint-committed
+      - Spike is time-boxed: 2–4 hours maximum
+      - If spike can't resolve in time-box → story needs breaking into smaller pieces
+    FLOW: |
+      # Harness Flow — Complete Workflow
+
+      This document describes every step of the agent harness workflow, from story intake to merge.
+
+      ---
+
+      ## Overview
+
+      ```
+      USER/PO → Story + AC + DoD
+                    ↓
+           [STOP-THE-LINE GATE]
+           AC exists? No → PO (hard stop)
+           Yes → "Sprint-Ready: Story #X"
+                    ↓
+           Sprint Planning (SM) → "Sprint <N> started: Goal = <goal>"
+                    ↓
+           BE / FE implement in parallel
+           (Sprint Backlog → In Progress)
+                    ↓
+           [GENERATOR–EVALUATOR LOOP]
+           Fresh-context evaluator scores vs. AC + Gate 2 checklist
+           Below threshold → defects re-injected
+           At/above       → "Ready for QA"
+                    ↓
+           [QA GATE]
+           Tests pass + AC verified?
+           No  → route failure to origin agent
+           Yes → "Approved for Architecture Review"
+                    ↓
+           [ARCHITECTURE GATE]
+           Pattern compliance + code review?
+           No  → route to implementer or PO
+           Yes → ARCH creates PR + assembles evidence
+                    ↓
+           [SECURITY GATE] (always independent subagent)
+           OWASP Top 10 + secrets check?
+           No  → route to implementer
+           Yes → "Ready for HITL Review"
+                    ↓
+           [HITL GATE — human]
+           Sprint Review demo + final read
+           Reject → route to PO or implementer
+           Approve → MERGED → Sprint Done ✓
+      ```
+
+      ---
+
+      ## Stage 1 — Story Intake (PO)
+
+      **Owner:** PO agent  
+      **Input:** Feature request, bug report, or user need  
+      **Output:** User story with AC and DoD
+
+      PO produces:
+      - User story in `As a <user>, I want <X> so that <Y>` format
+      - Acceptance Criteria (numbered, testable, unambiguous)
+      - Definition of Done (DoD checklist — tests written, docs updated, security checked)
+      - Story points estimate (Fibonacci: 1, 2, 3, 5, 8, 13)
+      - Priority label (P0 Critical / P1 High / P2 Normal / P3 Low)
+
+      If any of these are missing → PO cannot exit Stage 1. Story stays in Product Backlog.
+
+      PO exit state: `"Sprint-Ready: Story #X"`  
+      **Kanban state:** `Product Backlog → Sprint Backlog`
+
+      ---
+
+      ## Stage 2 — Stop-the-Line Gate (Mandatory Hard Block)
+
+      **Owner:** Orchestrator (checked before any implementation agent starts)  
+      **Rule:** If no AC/DoD exists → full stop. Route back to PO. No exceptions.
+
+      ```
+      Does this story have:
+        ☐ Numbered, testable Acceptance Criteria?
+        ☐ Definition of Done checklist?
+        ☐ Story points?
+
+      All three required → "Sprint-Ready: Story #X" → Sprint Planning
+      Any missing       → STOP. @PO to complete.
+      ```
+
+      This gate cannot be waived by any agent, including HITL.
+
+      ---
+
+      ## Stage 3 — Sprint Planning (SM)
+
+      **Owner:** SM agent  
+      **Ceremony:** Sprint Planning (time-boxed — one session, not ongoing)
+
+      Read [`CEREMONIES.md`](CEREMONIES.md) → **Sprint Planning** and execute its four steps (Step 4, the HITL
+      Sprint-Goal confirmation, is never skipped).
+
+      SM exit state: `"Sprint <N> started: Goal = <goal>"` — consumed by KANBAN's Sprint Backlog exit criteria.
+
+      ---
+
+      ## Stage 4 — Implementation (BE / FE — parallel)
+
+      **Owners:** BE, FE agents (parallel execution)  
+      **Entry state:** Story in `Sprint Backlog`  
+      **Exit state:** `"Ready for QA"`
+
+      Each implementer:
+      - Reads the story AC — treats it as the contract, not a suggestion
+      - Works on the assigned domain only (no cross-domain code)
+      - Creates atomic commits: `<type>(<scope>): <description>` format
+      - Runs local validation before signaling "Ready for QA"
+
+      Ownership boundaries — PR creation is ARCH's, merge is HITL's, AC authorship is PO's, the other domain is the
+      other implementer's; the per-role limits are in [`agents/BE.md`](agents/BE.md) / [`agents/FE.md`](agents/FE.md).
+
+      If an impediment is still open when you next append to the ledger → signal SM with `/blocked <reason>`. SM
+      removes the impediment.
+
+      **Kanban state:** `Sprint Backlog → In Progress`
+
+      **Precondition on `"Ready for QA"` — the Generator–Evaluator loop.** The implementer generates; a
+      fresh-context evaluator scores the artifact and re-injects a defect list; `"Ready for QA"` is emitted only
+      once the score clears threshold. Criteria, budget and full mechanics:
+      [`ORCHESTRATION.md`](ORCHESTRATION.md) → **The Generator–Evaluator Loop**. This is the last thing that
+      happens In Progress; it is not a Kanban column.
+
+      **Optional, AC-driven only:** TDD (above) verifies correctness against the story's own AC — it's the
+      default for every story, and stays the default. If — and only if — the AC itself names a competitive or
+      quality bar ("must feel as fast/polished as `<named product>`"), the implementer may additionally run the
+      `gauntlet-loop` skill for that dimension: builder + independent harsh critic, judged blind against the named
+      reference. That's a different axis (relative excellence vs. a real external bar, not conformance to a spec)
+      and produces no durable regression artifact the way a test does — it doesn't replace TDD's red→green
+      discipline or Gate 2's test-based verification, it supplements it for stories where "correct" and "actually
+      good compared to the best out there" are both real requirements.
+
+      ---
+
+      ## Stage 5 — QA Gate
+
+      **Owner:** QA agent (always spawned as independent subagent)  
+      **Entry signal:** implementer signals `"Ready for QA"` — after the Generator–Evaluator loop cleared threshold (Stage 4)  
+      **Exit signal:** `"Approved for Architecture Review"` (failure: `"QA Bounce — Story #X"`)  
+      **Authority:** iteration authority — QA can bounce work back repeatedly. Every bounce re-enters this same
+      gate; the story does not leave the QA column while a bounce is open.
+
+      Before dispatching QA, read [`GATES.md`](GATES.md) → **Gate 2: QA Gate** for the checklist and the failure
+      routing table. Steps QA runs are in [`agents/QA.md`](agents/QA.md).
+
+      **Kanban state:** `In Progress → QA`
+
+      ---
+
+      ## Stage 6 — Architecture Gate (ARCH)
+
+      **Owner:** ARCH agent  
+      **Entry signal:** QA's `"Approved for Architecture Review"`  
+      **Exit signal:** `"Ready for Security Review"` (failure: `"ARCH Review Bounce — Story #X"`)
+
+      Before dispatching ARCH, read [`GATES.md`](GATES.md) → **Gate 3: Architecture Gate** for the checklist and
+      the failure routing table. A fix that changes code re-enters through Gate 2, never straight back into Gate 3.
+
+      **Kanban state:** `QA → In Review`
+
+      ---
+
+      ## Stage 7 — Security Gate (SEC — always independent)
+
+      **Owner:** SEC agent — **always spawned as an independent subagent**  
+      **Rule:** SEC cannot be the same agent that wrote any code being reviewed. Self-audit is prohibited.  
+      **Entry signal:** ARCH's `"Ready for Security Review"` + open PR  
+      **Exit signal:** `"Ready for HITL Review"` (failure: `"Security Gate Failure — Story #X"`; exposed credential:
+      `"P0 SECURITY HALT"` → @HITL in the same turn, @SM freezes the board)
+
+      Before dispatching SEC, read [`GATES.md`](GATES.md) → **Gate 4: Security Gate** for the checklist, the
+      failure routing table, and the P0–P3 severity escalation.
+
+      ---
+
+      ## Stage 8 — HITL Gate (Human — Merge Authority)
+
+      **Owner:** Human  
+      **Entry signal:** SEC's `"Ready for HITL Review"` + open PR — the demo itself runs as the Sprint Review
+      ceremony ([`CEREMONIES.md`](CEREMONIES.md))  
+      **Exit signal:** MERGED → `Sprint Done` ✓
+
+      Before the review, read [`GATES.md`](GATES.md) → **Gate 5: HITL Gate** for the evidence package the human
+      reads, the rejection routing table, and the two distinct acceptances the ceremony produces.
+
+      **HITL merge authority is non-transferable.** No agent can merge. Period.
+    GATES: |
+      # Gates — Entry Criteria, Exit States, Routing
+
+      Gates are hard checkpoints. No agent can bypass a gate on behalf of another agent or "exception" their way through.
+      The only entity with override authority is the human HITL — and even then, only for the HITL gate itself.
+
+      ---
+
+      ## Gate Summary
+
+      | Gate | Owner | Blocking? | Override |
+      |---|---|---|---|
+      | Stop-the-Line | Orchestrator | YES — no AC/DoD = no implementation | None |
+      | QA Gate | QA (independent subagent) | YES — no approval = no ARCH review | None |
+      | Architecture Gate | ARCH | YES — no review = no PR | None |
+      | Security Gate | SEC (independent subagent) | YES — no security sign-off = no HITL | None |
+      | HITL Gate | Human | YES — no human approval = no merge | Only HITL itself |
+
+      ---
+
+      ## Gate 1: Stop-the-Line
+
+      **Triggered by:** Any implementation agent starting work on a story  
+      **Check performed by:** Orchestrator (before spawning any implementation subagent)
+
+      ```
+      CHECKLIST — all three required:
+        ☐ Story has numbered, testable Acceptance Criteria (not vague intent)
+        ☐ Story has a Definition of Done checklist
+        ☐ Story has story points assigned
+
+      PASS → exit state: "Sprint-Ready: Story #X"
+      FAIL → @PO with the specific missing item. Full stop. No partial implementation.
+      ```
+
+      `"Sprint-Ready: Story #X"` is PO's signal (agents/PO.md) and the only entry ticket into Sprint Backlog
+      (KANBAN.md → Sprint Backlog entry criteria). A story with no Sprint-Ready signal has not passed Gate 1,
+      whatever its contents look like.
+
+      **Why this gate exists:** Implementation without AC produces undefined behavior. The cost of rebuilding from wrong requirements exceeds the cost of pausing for 30 minutes to write them.
+
+      ---
+
+      ## Gate 2: QA Gate
+
+      **Owner:** QA agent — always spawned as an independent subagent  
+      **Entry signal:** Implementer signals "Ready for QA"  
+      **Entry precondition:** the Generator–Evaluator loop has exited at or above threshold, scored against this
+      story's AC plus the checklist below. Mechanics and budget: ORCHESTRATION.md → **The Generator–Evaluator
+      Loop**. An unevaluated artifact has not met the entry condition — QA bounces it unread.
+
+      **The H3 pre-check is Judgment, not Enforced** (HOOKS.md → Enforced vs. Judgment), so QA re-verifies both the
+      green suite and the per-AC-slice TDD RED/GREEN blocks in `ledger.md` from evidence rather than trusting that
+      H3 fired. Green-before-QA is convention here, not a guarantee.
+
+      ```
+      CHECKLIST:
+        ☐ Unit tests passing (100% of new code covered)
+        ☐ Integration tests passing
+        ☐ E2E tests passing (if applicable to this story)
+        ☐ Each AC item verified by at least one test
+        ☐ DoD checklist items verified
+        ☐ Evidence collected (test output, coverage report)
+
+      PASS → exit state: "Approved for Architecture Review"
+      FAIL → exit state: "QA Bounce — Story #X: [specific failure, route: @agent]"
+      ```
+
+      Every bounce names a return signal. A bounce with no return signal parks the story — that is the defect
+      this table exists to prevent.
+
+      | QA Failure | Route | Returns to Gate 2 on |
+      |---|---|---|
+      | Test suite failing | @BE / @FE (fix the code) | "Ready for QA: Story #X" |
+      | AC not covered by tests | @BE / @FE (write the test) | "Ready for QA: Story #X" |
+      | AC item not implemented | @BE / @FE (implement it) | "Ready for QA: Story #X" |
+      | Documentation wrong | @TW | "Docs Updated: Story #X" — or "TW: No docs required for Story #X" |
+      | Architectural pattern wrong | @ARCH (consult before reimplementing) | implementer's "Ready for QA: Story #X" after the refactor |
+      | AC is ambiguous/wrong | @PO (clarify AC first, then re-implement) | "AC updated for Story #X: [change]", then "Ready for QA: Story #X" |
+
+      If TW cannot close the gap alone it emits "TW: Docs gap in Story #X — [what's missing, requesting from
+      @PO/@BE]"; the named owner supplies the missing fact and TW returns as above. The story stays in QA
+      throughout — a docs bounce is not a new column.
+
+      QA has iteration authority — it can bounce work back multiple times. There is no bypass.
+
+      ---
+
+      ## Gate 3: Architecture Gate
+
+      **Owner:** ARCH agent  
+      **Entry signal:** QA exit state "Approved for Architecture Review"
+
+      ```
+      CHECKLIST:
+        ☐ Code follows established patterns (SOLID, DRY, existing project conventions)
+        ☐ No violations of existing ADRs
+        ☐ Schema changes have migrations (if applicable)
+        ☐ Performance reviewed (no N+1 queries, no unindexed sorts on large tables)
+        ☐ PR created with: story ID, what changed, why, link to AC
+        ☐ Evidence package assembled for HITL (QA evidence + architecture notes)
+
+      PASS → exit state: "Ready for Security Review: PR #<N> — Story #X"
+      FAIL → exit state: "ARCH Review Bounce — Story #X: [specific issue, @route]"
+      ```
+
+      | ARCH Failure | Route | Returns to Gate 3 on |
+      |---|---|---|
+      | Pattern violation | @BE / @FE to refactor | "Ready for QA: Story #X" → Gate 2 → Gate 3 |
+      | Missing migration | @BE to add it | "Ready for QA: Story #X" → Gate 2 → Gate 3 |
+      | Performance risk | @BE to optimize | "Ready for QA: Story #X" → Gate 2 → Gate 3 |
+      | Scope creep (unasked changes) | @PO to adjudicate scope | "AC updated for Story #X: [change]" |
+      | ADR conflict | @ARCH consults with team before fix | "ADR created: [decision title]" — the new ADR supersedes, and Gate 3 re-runs against it |
+
+      A fix that changes code re-enters through Gate 2, never straight back into Gate 3 — QA verifies the
+      refactor before ARCH re-reviews it.
+
+      ---
+
+      ## Gate 4: Security Gate
+
+      **Owner:** SEC agent — **always an independent subagent, never the same agent that wrote the code**  
+      **Entry signal:** ARCH exit state "Ready for Security Review" + open PR
+
+      ```
+      CHECKLIST:
+        ☐ OWASP Top 10 reviewed for this change
+        ☐ No secrets, credentials, or tokens in code or git history
+        ☐ Input validation present for all user-facing inputs
+        ☐ SQL injection / XSS / CSRF surface checked
+        ☐ Authentication + authorization logic correct (if changed)
+        ☐ Dependency vulnerability check (known CVEs in new/updated packages)
+        ☐ Security evidence added to PR
+
+      PASS → exit state: "Ready for HITL Review"
+      FAIL → exit state: "Security Gate Failure — Story #X: [severity, finding, @route to fixer]"
+      ```
+
+      | Security Failure | Route | Returns to Gate 4 on |
+      |---|---|---|
+      | Exposed secret | @BE / @FE immediately (P0 — stop all work) | SM's "Impediment resolved: [what, how]" (credential rotated), then "Ready for QA: Story #X" |
+      | Injection vulnerability | @BE / @FE to fix, SEC re-reviews after | "Ready for QA: Story #X" → Gates 2–3 → Gate 4 |
+      | Auth/authz flaw | @BE to fix, SEC re-reviews after | "Ready for QA: Story #X" → Gates 2–3 → Gate 4 |
+      | CVE in dependency | @BE / @ARCH to update dependency | "Ready for QA: Story #X" → Gates 2–3 → Gate 4 |
+
+      **Severity escalation:**
+      - P0 (credentials exposed): SEC emits "P0 SECURITY HALT: [what, where] — @HITL IMMEDIATE". This is an
+        interrupt, not a queue entry — @HITL is notified in the same turn and @SM freezes every column on the
+        board until the credential is rotated. The sprint resumes only on SM's "Impediment resolved".
+      - P1 (exploitable vuln): fix before any other story advances
+      - P2 (risk present): fix in this sprint
+      - P3 (best practice): add to backlog, document in PR
+
+      ---
+
+      ## Gate 5: HITL Gate (Human)
+
+      **Owner:** Human  
+      **Entry signal:** SEC exit state "Ready for HITL Review" + open PR — or, at the ceremony, SM's
+      "Sprint Review complete — HITL acceptance pending"
+
+      ```
+      REVIEW PACKAGE:
+        ☐ PR description (story ID, what, why, AC link)
+        ☐ QA evidence (test output, coverage)
+        ☐ Security evidence (SEC report)
+        ☐ Architecture notes (ARCH review)
+        ☐ Live demo or recorded walkthrough
+
+      DECISION:
+        APPROVE → merge the PR → story moves to Done ✓
+        REJECT  → route with specific feedback, per the table below
+      ```
+
+      | Rejection Reason | Route |
+      |---|---|
+      | Feature doesn't meet intent | @PO to clarify AC |
+      | Code quality concern | @BE / @FE |
+      | Architecture concern | @ARCH |
+      | Security concern | @SEC (re-review after fix) |
+
+      Two acceptances happen here and they are not the same act. PO judges the demo against the AC and emits
+      "PO Accepted: Story #X" or "PO Rejected Story #X: [specific reason]" — a product verdict, consumed by
+      KANBAN's Done entry criteria and, on rejection, by Sprint Backlog re-entry. HITL judges the release and
+      merges. A PO acceptance without a HITL merge leaves the story short of Done; a HITL merge is never
+      delegated to PO.
+
+      **Human merge authority is non-transferable.** CI/CD automation does not grant merge. Approval comments do not grant merge. Only the human clicking merge — or explicitly delegating to ARCH for a hotfix — constitutes a merge.
+
+      **Push authority follows the same principle.** `git push` is not hook-blocked — the workspace's git-guardrail hook only hard-blocks irreversible operations (force-push, `reset --hard`, `clean -f`/`-fd`, `branch -D`, `checkout .` / `restore .`). A plain `git push` instead goes through Claude Code's normal per-command permission prompt: live human approval, case by case. Before attempting it, the agent states plainly what it's about to push — branch, what changed, why — so the human is approving a stated intent, not a surprise.
+
+      **Hotfix exception:** In a P0 incident, HITL may delegate merge authority to ARCH for a single, scoped hotfix. This exception must be logged.
+
+      ---
+
+      ## Signals Outside the Gate Chain
+
+      Ceremony and escalation signals never enter Gates 1–5, but each still has exactly one consumer. An emitted
+      signal with no consumer is a parked story; a consumed signal with no emitter is a stage that can never start.
+
+      | Signal | Emitter | Consumer |
+      |---|---|---|
+      | "Sprint <N> started: Goal = <goal>" | SM | KANBAN → Sprint Backlog exit criteria; nothing moves to In Progress before it |
+      | "Standup <date>: [summary]" | SM | SM flow monitoring — any blocker still open in the summary opens impediment removal the same turn, it does not wait for the next standup |
+      | "Impediment resolved: [what, how]" | SM | the blocked agent resumes; clears a WIP breach (KANBAN) and lifts a P0 sprint freeze (Gate 4) |
+      | "Sprint Review complete — HITL acceptance pending" | SM | Gate 5 entry at the ceremony |
+      | "Retro done: <N> experiments for next sprint" | SM | next Sprint Planning — experiments enter as explicit agenda items (CEREMONIES.md) |
+      | "Spike Result — [recommendation]" | ARCH | SM closes the technical impediment; PO grooms the unblocked story back toward "Sprint-Ready" |
+      | "ADR created: [decision title]" | ARCH | Gate 3 ADR-conflict re-entry; binding on every later Gate 3 |
+      | "P0 SECURITY HALT: [what, where] — @HITL IMMEDIATE" | SEC | @HITL in the same turn + @SM freezes the board (Gate 4 severity escalation) |
+      | "TW: Docs gap in Story #X — [what's missing…]" | TW | the named @PO / @BE supplies the fact; TW then returns to Gate 2 |
+      | "/blocked @[agent]: [specific need]" | BE / FE | SM impediment removal (agents/SM.md) |
+    KANBAN: |
+      # Kanban Board — States, WIP Limits, Entry/Exit Criteria
+
+      The harness uses a 6-column Kanban board. WIP limits are enforced per column.
+      Violating a WIP limit means something upstream is blocked — surface it to SM before adding more work.
+
+      ---
+
+      ## Board Columns
+
+      ```
+      ┌─────────────────┬────────────────┬──────────────────┬───────────────┬───────────────┬───────────────┐
+      │  Product        │  Sprint        │  In Progress     │  QA           │  In Review    │  Done         │
+      │  Backlog        │  Backlog       │  [WIP: 3]        │  [WIP: 2]     │  [WIP: 2]     │               │
+      ├─────────────────┼────────────────┼──────────────────┼───────────────┼───────────────┼───────────────┤
+      │ All stories     │ Stories        │ Active           │ QA running    │ ARCH code     │ Shipped,      │
+      │ (PO-owned)      │ committed      │ implementation   │ test suite    │ review + PR   │ merged,       │
+      │                 │ to this sprint │ by BE/FE         │ validation    │ creation      │ done ✓        │
+      └─────────────────┴────────────────┴──────────────────┴───────────────┴───────────────┴───────────────┘
+      ```
+
+      ---
+
+      ## Column Specifications
+
+      ### 1. Product Backlog
+      **Owner:** PO  
+      **WIP limit:** None  
+      **Entry criteria:** Story exists (even partial)  
+      **Exit criteria (to Sprint Backlog):**
+      - ☐ User story format complete
+      - ☐ Numbered, testable Acceptance Criteria written
+      - ☐ Definition of Done checklist attached
+      - ☐ Story points estimated
+      - ☐ Priority label assigned (P0–P3)
+      - ☐ Approved for sprint commitment by PO + SM
+      - ☐ PO signals "Sprint-Ready: Story #X" (Gate 1 pass)
+
+      ### 2. Sprint Backlog
+      **Owner:** SM (moves stories in at Sprint Planning)  
+      **WIP limit:** None (bounded by sprint capacity)  
+      **Entry criteria:** PO exit state "Sprint-Ready: Story #X"  
+      **Re-entry:** "PO Rejected Story #X: [specific reason]" from Sprint Review — feedback attached, story re-groomed before re-commitment  
+      **Exit criteria (to In Progress):**
+      - ☐ Story assigned to implementer(s)
+      - ☐ Sprint Goal set
+      - ☐ SM signals "Sprint <N> started: Goal = <goal>"
+
+      ### 3. In Progress
+      **Owner:** BE / FE (implementer)  
+      **WIP limit: 3 stories maximum**  
+      **Entry criteria:** Story in Sprint Backlog + sprint assigned  
+      **Exit criteria (to QA):**
+      - ☐ Implementation complete
+      - ☐ All code committed with atomic commit messages
+      - ☐ Local tests passing
+      - ☐ Generator–Evaluator loop exited at or above threshold (mechanics: ORCHESTRATION.md → The Generator–Evaluator Loop)
+      - ☐ Implementer signals "Ready for QA"
+
+      **WIP limit breach protocol:** If 3 stories are In Progress and a 4th needs to start → SM resolves a blocker first, and the 4th starts only once a slot frees.
+
+      ### 4. QA
+      **Owner:** QA agent  
+      **WIP limit: 2 stories maximum**  
+      **Entry criteria:** Implementer signals "Ready for QA"  
+      **Exit criteria (to In Review):**
+      - ☐ Full test suite passing (unit + integration + E2E)
+      - ☐ Each AC item verified by a test
+      - ☐ DoD checklist verified
+      - ☐ Evidence collected and posted
+      - ☐ QA signals "Approved for Architecture Review"
+
+      ### 5. In Review
+      **Owner:** ARCH  
+      **WIP limit: 2 stories maximum**  
+      **Entry criteria:** QA exit state "Approved for Architecture Review"  
+      **Exit criteria (to Done — after SEC sign-off + HITL merge):**
+      - ☐ ARCH code review complete
+      - ☐ PR created with full description
+      - ☐ Evidence package assembled
+      - ☐ ARCH signals "Ready for Security Review"
+      - ☐ SEC review complete (always independent subagent)
+      - ☐ SEC signals "Ready for HITL Review"
+
+      ### 6. Done
+      **Owner:** PO (accepts) + HITL (merges)  
+      **WIP limit:** None  
+      **Entry criteria:**
+      - ☐ HITL approved and merged
+      - ☐ CI/CD pipeline green
+      - ☐ PO signals "PO Accepted: Story #X" in Sprint Review
+      - ☐ TW signals "Docs Updated: Story #X" — or "TW: No docs required for Story #X" (per DoD)
+
+      ---
+
+      ## WIP Limit Breach Response
+
+      If any WIP-limited column is at capacity:
+
+      1. **SM is notified** — surface the constraint immediately
+      2. SM identifies the bottleneck story (oldest item in column)
+      3. SM works to unblock it before pulling new work in
+      4. Unblocked → SM signals "Impediment resolved: [what, how]"; normal flow resumes
+      5. Still blocked at the next standup → escalate with an explicit blocker ticket
+
+      **The pull system is sacred.** Work is pulled downstream by capacity, not pushed upstream by urgency. Urgency is a signal to SM, not a reason to break WIP limits.
+
+      ---
+
+      ## Sprint Velocity Tracking
+
+      At end of each sprint (in Retro):
+      - Record: stories committed vs. stories done
+      - Record: total story points committed vs. completed
+      - Trend velocity over 3 sprints for forecasting
+      - SM owns velocity data; PO uses it for planning
+
+      Velocity is reality-based: record what actually completed to DoD, and let the number carry the estimate.
+    ORCHESTRATION: |
+      # Orchestration — Context Engineering for the Harness
+
+      The harness is, above all, a delivery mechanism for good context engineering (LangChain). Every orchestration
+      decision answers one question: *what is the minimum context this agent needs to do this step well?*
+
+      **Reading it as a graph, if that's a useful lens:** nodes are the stages in FLOW.md (PO intake, Gate 1, Sprint
+      Planning, BE/FE implementation, Gates 2–4, Gate 5), edges are GATES.md's routing table — keyed by the exit-state
+      signal strings each stage emits ("Sprint-Ready: Story #X", "Ready for QA", "Approved for Architecture Review", …),
+      not by command — and the shared state that flows along those edges is exactly the ledger described below
+      (`story.md`, `ledger.md`, `board.md`, `GOAL.md`, now templated in [`templates/`](templates/)). This isn't a
+      different architecture from what's documented elsewhere in this skill — it's the same event-driven dispatch,
+      named for whoever finds the graph framing clarifying.
+
+      ---
+
+      ## The Filesystem Ledger
+
+      The filesystem is the most foundational primitive: durable state, cross-session memory, and the natural
+      collaboration surface between agents and the human. The harness keeps a ledger per story:
+
+      ```
+      .harness/
+      ├── sprint-<N>/
+      │   ├── GOAL.md            — sprint goal, one sentence
+      │   ├── board.md           — current Kanban state (columns + stories)
+      │   └── story-<ID>/
+      │       ├── story.md       — story + AC + DoD (the contract)
+      │       ├── ledger.md      — running state: what's done, what's next, decisions made
+      │       └── evidence/      — QA output, SEC report, ARCH notes
+      ```
+
+      Copy-paste-ready skeletons for all four files live in [`templates/`](templates/) — `GOAL.md`, `board.md`,
+      `story.md`, `ledger.md`. Use them verbatim rather than freehand: `scripts/ralph-continuation-guard.sh` reads
+      `board.md` and `story.md` with plain pattern-matching, not semantic understanding, so the exact headers and
+      column vocabulary matter (see HOOKS.md → H5 for what it looks for).
+
+      Rules:
+      - Every agent **reads the ledger before starting** and **appends before exiting**. The ledger is how a fresh
+        context resumes without replaying a conversation.
+      - Ledger entries are dense: decisions and state, not narration. "Chose SSE over WebSocket — simpler, one-way
+        is enough" is a ledger entry. "Then I looked at the file and thought about it" is not.
+      - **TDD slices** belong in the ledger: AC# → seam → RED (failing test + error) → GREEN (same test pass + command). QA uses this to verify test-first discipline without reading the implementer's chat history.
+      - Git is part of the ledger: atomic commits are the fine-grained history; `ledger.md` is the coarse-grained intent.
+
+      ---
+
+      ## Subagent Spawning (fresh-context principle)
+
+      Spawn a subagent when the subtask benefits from a **clean 0% context**, not just when work can parallelize:
+
+      | Situation | Spawn? | Why |
+      |---|---|---|
+      | QA reviewing implementation | Always | Independence — the builder's context is contaminated with the builder's assumptions |
+      | SEC review | Always | Same — self-audit finds nothing |
+      | Evaluator scoring generator output (Generator–Evaluator loop) | Always | Anthropic: evaluator must not share the generator's context, or it inherits the generator's blind spots |
+      | BE + FE on one story | Yes, parallel | Domains don't overlap; each gets only its own AC subset |
+      | Implementer continuing own story | No — same context or ledger-resume | Continuity is the value; spawning would pay re-derivation cost |
+
+      **Context diet per spawn:** a subagent gets the story contract (`story.md`), the relevant ledger, and its
+      agent profile — not the full sprint history. If a subagent needs to ask "what happened before?", the ledger
+      was written badly; fix the ledger, don't widen the context.
+
+      ---
+
+      ## The Generator–Evaluator Loop
+
+      The harness's one name for this loop — FLOW, GATES, KANBAN and the agent profiles all point here.
+      For any story where quality is judgeable (code, design, prose), run this Anthropic GAN-inspired loop:
+
+      ```
+      Generator (implementer) → produces artifact
+              ↓
+      Evaluator (fresh context) → scores against explicit criteria, returns defect list
+              ↓
+      score ≥ threshold → exit to QA Gate
+      score < threshold → defect list re-injected to Generator; repeat (budget below)
+      ```
+
+      - The Evaluator gets the **criteria and the artifact — never the Generator's reasoning.** An evaluator that
+        reads "why I did it this way" starts grading intentions instead of results.
+      - Criteria are the story's AC plus the relevant gate checklist (GATES.md). Vague criteria produce vague
+        evaluations; if the evaluator can't decide PASS/FAIL from what's written, route the criteria back to @PO.
+      - For visual work the Evaluator applies hallmark's slop-test; for prose, anti-slop scoring (≥ 35/50).
+
+      ---
+
+      ## Sprint Contracts (long-horizon decomposition)
+
+      From Anthropic's harness design: long-running work survives by decomposition into **contracted sprints** —
+      each with a defined deliverable, verified before the next begins. Our mapping:
+
+      - The story's AC **is** the contract. Not a vibe, a checklist.
+      - One story = one contract = one deliverable verified by QA before the next story of the same epic starts.
+      - Epics (13+ points) are never implemented directly — PO breaks them into contracted stories first
+        (see PO.md). An unbroken epic in a sprint is a planning defect.
+
+      ---
+
+      ## Context Rot Countermeasures
+
+      Applied at orchestrator level, in this order of preference:
+
+      1. **Don't load it** — progressive disclosure. Agents read agent profiles and gate files on demand, not upfront. Skills reference sub-files that load only when the path is taken.
+      2. **Offload it** — large tool outputs (test logs, build output) go to `evidence/`, with head+tail in context and a path reference for the rest.
+      3. **Checkpoint + reset** — at phase boundaries (gate transitions), write the ledger and continue in fresh context. A gate transition is a natural amnesia point: what matters crossed the gate as an exit state + evidence; the rest was scaffolding.
+      4. **Compact** — last resort, only mid-phase. Compaction summarizes; summaries lose the tails. Prefer reaching a checkpoint.
+
+      The 40% Smart Zone rule (H4 in HOOKS.md) triggers countermeasure 3 automatically.
+
+      ---
+
+      ## Knowledge Injection (RAG discipline)
+
+      Model weights are frozen; all post-cutoff or project-specific knowledge arrives via context injection:
+
+      - **Memory files** — `CLAUDE.md` / `AGENTS.md` at startup: project conventions, commands, architecture. Keep them dense; every line is paid on every session.
+      - **Ledger** — per-story state (above). This is the harness's episodic memory.
+      - **Retrieval on demand** — docs lookups (Context7, web search) happen inside the implementer's context only when the AC touches an unfamiliar API. Never pre-fetch "just in case"; speculative retrieval is context rot with extra steps.
+      - **Continual learning loop** — when a retro experiment succeeds (CEREMONIES.md), the SM writes the resulting practice into the memory file. The retro is how the harness learns; the memory file is where it remembers.
+
+      ---
+
+      ## Model Routing
+
+      Route by cognitive load, not habit (Anthropic's cost data: planner-heavy split cut cost ~20x):
+
+      | Role | Model tier | Why |
+      |---|---|---|
+      | Orchestrator / Planner / ARCH | strongest available | Decomposition and judgment errors are the expensive ones — they multiply downstream |
+      | BE / FE implementation | mid tier | Contract is explicit; the thinking already happened in planning |
+      | Evaluator / QA | mid tier, fresh context | Checklist verification, not open-ended reasoning |
+      | Format/lint/mechanical | hooks, no model | Determinism is free and correct |
+
+      ---
+
+      ## Loop Budgets (anti-spin)
+
+      Every loop the harness itself drives has an explicit budget, because a loop without a budget is an outage
+      with narrative. One loop is deliberately unbudgeted, and the table says which:
+
+      | Loop | Budget | On exhaustion |
+      |---|---|---|
+      | Generator–Evaluator | 3 rounds | @SM — likely an AC or criteria defect, not an effort defect |
+      | QA bounce | 3 bounces per story | @SM + @PO — story is mis-specified |
+      | Ralph continuation (H5) | soft 5/story and 10/session (`HARNESS_RALPH_BUDGET`, `HARNESS_RALPH_SESSION_BUDGET`); hard ceilings 20/story and 40/session, clamped in-script and unreachable by env | @SM escalation with ledger — either counter halts the loop |
+      | SEC re-review | 2 | @HITL — risk decision belongs to the human |
+      | `gauntlet-loop` (optional, AC-driven — FLOW.md → Implementation) | none, by design — the skill refuses a round count | n/a — it exits on convergence, when the blind critic picks our artifact over the named bar. Add a cap only if the AC names one |
+    templates/GOAL: |
+      # Sprint <N> Goal
+
+      <One sentence — what will the user be able to do by the end of this sprint that they cannot do now?
+      Bad: "Complete stories 42, 43, 44." Good: "Users can upload documents and see AI-generated summaries.">
+
+      **HITL confirmation (CEREMONIES.md Sprint Planning Step 4):** <pending / confirmed <date> — adjusted from: <original, if changed>>
+
+      This field is not decorative — Sprint Planning Step 4 is never skipped, including for a single ad hoc story
+      opened through the "asks to implement a feature" front door (SKILL.md). Nothing in Sprint Backlog moves to
+      In Progress while this reads "pending".
+    templates/board: |
+      # Sprint <N> Board
+
+      Column cell must be one of the six KANBAN.md columns, spelled out (case-insensitive, but not paraphrased —
+      `scripts/ralph-continuation-guard.sh` pattern-matches these literal strings to decide what to auto-continue):
+      `Product Backlog`, `Sprint Backlog`, `In Progress`, `QA`, `In Review`, `Done`. For a story waiting on the
+      human merge decision inside In Review, add `Awaiting HITL` to the notes column — the script counts any column
+      or note containing "hitl" or "human" toward the pending-review count (KANBAN.md's pull-system limit).
+
+      | Story | Column | Notes |
+      |---|---|---|
+      | <ID> | Product Backlog | |
+    templates/ledger: |
+      # Ledger — Story <ID>
+
+      Read before starting, append before exiting (ORCHESTRATION.md → The Filesystem Ledger). Dense entries only —
+      decisions and state, not narration. "Chose SSE over WebSocket — simpler, one-way is enough" is a ledger entry.
+      "Then I looked at the file and thought about it" is not.
+
+      ## Entries
+
+      - <turn/date> — <agent> — <decision or state>
+
+      ## TDD slices
+
+      AC# → seam → RED (failing test + error) → GREEN (same test pass + command). QA reads this to verify
+      test-first discipline without replaying the implementer's chat history.
+
+      - AC#1 → <seam> → RED: <failing test + error> → GREEN: <passing command>
+    templates/story: |
+      # Story <ID> — <Short descriptor>
+
+      As a <type of user>,
+      I want <goal/desire>,
+      So that <benefit/value>.
+
+      ## Acceptance Criteria
+      1. <Falsifiable, observable behavior — no "fast" / "easy" / "good". Example: "User can upload a PDF file ≤ 50MB and see a 'Processing...' state within 1 second">
+      2. …
+
+      ## Testing seams
+      - AC#1 → <seam, e.g. POST /api/foo handler> → <test kind>
+      - AC#2 → …
+
+      ## Definition of Done
+      - [ ] Feature code complete and committed
+      - [ ] TDD ledger: RED/GREEN recorded per AC slice (see `tdd` skill)
+      - [ ] Unit tests written (coverage ≥ 80% for new code)
+      - [ ] Integration tests passing
+      - [ ] Documentation updated (if user-facing feature)
+      - [ ] Security review complete
+      - [ ] PO accepted in Sprint Review
+
+      ## Story Points
+      <Fibonacci: 1, 2, 3, 5, 8, 13 — see `agents/PO.md` § Story Points for sizing guide>
+
+      ## Priority
+      <P0 Critical / P1 High / P2 Normal / P3 Low — see `agents/PO.md` § Backlog Priority>
+  agents:
+    ARCH: |
+      # Architect / Technical Lead (ARCH) — Agent Profile
+
+      ## Role
+      ARCH owns the technical shape of the system: patterns, decisions, PR creation, and Stage 1 review.
+      ARCH sees across stories — where BE and FE are heads-down in their domains, ARCH watches for
+      drift, accumulation of technical debt, and violations of established decisions (ADRs).
+
+      ## Entry Triggers
+      - QA exits with "Approved for Architecture Review"
+      - SM routes a technical spike request (impediment removal)
+      - Story has significant architectural implications at Sprint Planning
+      - SM requests an ADR for a new technical decision
+
+      ## Responsibilities (Owns)
+
+      ### Code Review (Stage 1 — before SEC)
+      - Pattern compliance (SOLID, DRY, project conventions)
+      - ADR compliance (existing architectural decisions must not be silently violated)
+      - Schema migration completeness
+      - Performance concerns (N+1 queries, missing indexes, synchronous where async needed)
+      - Code organization (right layer, right module, right abstraction level)
+
+      ARCH does NOT review for bugs — that's QA's job. ARCH reviews for architectural correctness.
+
+      ### PR Creation
+      Every PR is ARCH's artifact:
+      ```markdown
+      ## Story #<ID> — <Story title>
+
+      ### What changed
+      [What was built, in user terms, not implementation terms]
+
+      ### Why
+      [Link to story, AC summary, business reason]
+
+      ### Technical notes
+      [Schema changes, new dependencies, performance considerations, ADR references]
+
+      ### Evidence
+      - QA: [link or paste]
+      - Tests: [summary]
+      - DoD: ✓
+
+      ### Checklist
+      - [ ] Tests passing in CI
+      - [ ] No secrets in code
+      - [ ] Migration included (if schema changed)
+      - [ ] ADRs followed or new ADR created
+      ```
+
+      ### ADR (Architecture Decision Records)
+      When a significant technical decision is made:
+      - What was decided
+      - Why (context, alternatives considered)
+      - Consequences (what becomes easier, what becomes harder)
+      - Status: Proposed / Accepted / Deprecated
+
+      ADRs live in the project's `docs/adr/` directory.
+
+      ### Technical Spikes (when SM requests one)
+      Time-boxed investigation: 2–4 hours maximum.
+      Output: a written recommendation with options, tradeoffs, and a recommended path.
+      Not a proof-of-concept (unless the spike goal is specifically to validate feasibility).
+
+      ## Hard Limits (Does NOT Own)
+      - QA gate (ARCH cannot approve their own code for QA)
+      - Security review (ARCH is not the SEC agent — those are independent)
+      - Product priority (ARCH can flag technical debt as a story, but PO prioritizes)
+      - Merge (that's HITL)
+      - Writing business logic for BE/FE (consult, don't implement for them)
+
+      ## Routing on Failure
+
+      | Issue Found | Action |
+      |---|---|
+      | Pattern violation | Route to @BE or @FE with specific refactor instruction |
+      | Missing migration | Route to @BE |
+      | ADR conflict | Discuss with team, create new ADR if decision is evolving |
+      | Scope creep in PR | Route to @PO for scope adjudication |
+      | Performance risk | Route to @BE with specific concern |
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Code review passed, PR created | "Ready for Security Review: PR #<N> — Story #X" | Gate 4 entry signal (GATES.md); KANBAN In Review exit criteria |
+      | Code review failed | "ARCH Review Bounce — Story #X: [specific issue, @route]" | the named @BE / @FE / @PO; the fix re-enters through Gate 2 |
+      | Spike complete | "Spike Result — [recommendation]" | @SM closes the technical impediment; @PO grooms the unblocked story back toward "Sprint-Ready" |
+      | ADR created | "ADR created: [decision title]" | Gate 3 ADR-conflict re-entry — the new ADR supersedes and binds every later Gate 3 |
+    BE: |
+      # Backend Developer (BE) — Agent Profile
+
+      ## Role
+      BE owns all server-side implementation: API routes, business logic, data access, background jobs.
+      BE works from the AC as a contract — not a suggestion, not a starting point.
+
+      ## Entry Triggers
+      - SM assigns a story to BE at Sprint Planning
+      - QA bounces a story back with a specific BE failure
+      - ARCH identifies a backend pattern violation during code review
+
+      ## Responsibilities (Owns)
+      - API route implementation
+      - Business logic and service layer
+      - Database queries and ORM usage
+      - Background jobs and queues
+      - Server-side validation
+      - Unit and integration tests for own code
+      - Atomic commits with conventional format: `feat(scope): what`, `fix(scope): what`, `test(scope): what`
+
+      ## Implementation Contract
+
+      Before writing any code:
+      1. Read the story AC in full — all numbered items
+      2. Identify which AC items are backend-owned (vs. FE or shared)
+      3. Identify the data model changes required (if any — coordinate with @ARCH; schema/migration completeness is reviewed at the Architecture Gate, GATES.md Gate 3)
+      4. Run the Stop-the-Line check: if AC is unclear, /blocked @PO before coding
+
+      While implementing:
+      - **TDD red → green** — load `tdd`. One AC slice at a time: failing test → minimal code → ledger RED/GREEN entry → commit. No handler/service code for behavior not yet covered by a red test.
+      - Each commit covers one logical change (not "WIP" or "stuff"); prefer separate `test(scope):` and `feat(scope):` commits per slice
+      - Local tests pass before signaling Ready for QA (H3 runs the full suite again)
+      - Before signaling, run the Generator–Evaluator loop against the diff (ORCHESTRATION.md → The Generator–Evaluator Loop)
+      - No commented-out code, no debug logs left in
+      - No `.env` values, secrets, or credentials in code or commits
+
+      ## Hard Limits (Does NOT Own)
+      - UI components or client-side logic (that's FE)
+      - Database schema design decisions (coordinate with @ARCH if schema changes are required)
+      - PR creation (that's ARCH)
+      - Merge (that's HITL)
+      - Writing or modifying AC (that's PO)
+      - Inventing features not in the story (scope creep — signal SM)
+
+      ## Commit Format
+      ```
+      feat(api): add PDF upload endpoint with size validation
+      fix(auth): prevent token refresh race condition
+      test(uploads): cover file size validation edge cases
+      refactor(service): extract upload logic into UploadService
+      ```
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Implementation complete | "Ready for QA: Story #X — [brief summary of what was built]" | Gate 2 entry signal (GATES.md); KANBAN In Progress exit criteria |
+      | Blocked waiting for input | "/blocked @[agent]: [specific need]" | @SM impediment removal; work resumes on "Impediment resolved" |
+      | QA bounce received | "Fixing: [specific QA failure]" then back to "Ready for QA" | the open QA Bounce closes; Gate 2 re-runs |
+    FE: |
+      # Frontend Developer (FE) — Agent Profile
+
+      ## Role
+      FE owns all client-side implementation: UI components, state management, API integration,
+      accessibility, and client-side validation. Mirrors BE's discipline but on the client side.
+
+      ## Entry Triggers
+      - SM assigns a story to FE at Sprint Planning
+      - QA bounces a story with a FE-specific failure
+      - ARCH identifies a frontend pattern violation
+
+      ## Responsibilities (Owns)
+      - UI components and pages
+      - Client-side state management
+      - API calls and response handling
+      - Client-side input validation (in addition to server-side, not instead of)
+      - Accessibility (WCAG 2.1 AA minimum)
+      - Visual regression baseline (if project uses visual testing)
+      - Unit tests for components, integration tests for user flows
+      - Atomic commits in conventional format
+
+      ## Implementation Contract
+
+      Before writing any code:
+      1. Read AC for all user-facing behaviors
+      2. Verify the API contract with BE (endpoint, request/response shape)
+      3. If the API isn't ready yet → either mock it (with explicit TODO: replace mock) or /blocked @BE
+
+      While implementing:
+      - **TDD red → green** — load `tdd`. One AC slice at a time: failing component/integration test → minimal UI → ledger RED/GREEN entry → commit. No user-facing behavior without a red test at the agreed seam (render, hook, or flow test).
+      - Every interactive element must be keyboard accessible
+      - Error states are implemented, not just the happy path
+      - Loading states shown for async operations
+      - No inline styles; use the project's design system
+      - No hardcoded copy — use i18n keys if the project uses i18n
+
+      ## Hard Limits (Does NOT Own)
+      - Server-side logic or API routes (that's BE)
+      - Database access (that's BE)
+      - PR creation (that's ARCH)
+      - Merge (that's HITL)
+      - Design decisions beyond existing design system (route to design/HITL)
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Implementation complete | "Ready for QA: Story #X — [what was built]" | Gate 2 entry signal (GATES.md); KANBAN In Progress exit criteria |
+      | Blocked on API | "/blocked @BE: need endpoint [X] before FE can proceed" | @SM impediment removal; work resumes on "Impediment resolved" |
+      | QA bounce received | "Fixing: [specific failure]" then "Ready for QA" | the open QA Bounce closes; Gate 2 re-runs |
+
+      ## Visual Quality Gate — Hallmark
+
+      Any story with a visual surface (new page, component, redesign) runs the `hallmark` design skill before signaling "Ready for QA":
+      1. New UI → hallmark default flow: pick a theme DNA, apply typography/color/spacing rules
+      2. Changed UI → hallmark `audit` verb on the changed screens; fix all slop-test failures
+      3. Attach the theme choice + slop-test result to the QA evidence package
+
+      The slop-test is the Evaluator's criteria set for visual stories — it runs inside the Generator–Evaluator loop
+      (ORCHESTRATION.md → The Generator–Evaluator Loop), fresh context, before "Ready for QA" is emitted.
+
+      Slop-test failures are FE defects — QA will bounce them like any other bug.
+    PO: |
+      # Product Owner (PO) — Agent Profile
+
+      ## Role
+      The PO owns the product vision and the Product Backlog. Every story the team implements flows through PO first.
+      PO is the single source of truth for *what* the team builds and *why* — never *how*.
+
+      ## Entry Triggers
+      - User brings a feature request, bug report, or business need
+      - SM routes an ambiguous requirement back for clarification
+      - HITL rejects a story in Sprint Review with scope feedback
+      - QA bounces work due to ambiguous AC
+      - Backlog grooming cadence (mid-sprint)
+
+      ## Responsibilities (Owns)
+
+      ### Story Creation
+      Write every story in format:
+      ```
+      Title: <Short descriptor>
+      As a <type of user>,
+      I want <goal/desire>,
+      So that <benefit/value>.
+      ```
+
+      ### Acceptance Criteria
+      - Numbered list, 3–8 items per story
+      - Each item must be independently testable by QA
+      - Written from the user's perspective (observable behavior, not implementation detail)
+      - No vague terms: "fast", "easy", "good" — every AC must be falsifiable
+      - Example AC: "User can upload a PDF file ≤ 50MB and see a 'Processing...' state within 1 second"
+
+      ### Intake from a raw request (front door)
+
+      On a raw plain-language request, draft the full story inline in the same turn — story format, AC, Testing
+      seams, DoD, points, priority (all per the sections above) — using `templates/story.md` as the skeleton.
+
+      **Ambiguous** means only: acceptance boundary, priority, or scope can't support falsifiable AC — Gate 1's own
+      bar, applied earlier. Not "several ways to build it" (ARCH's call), not "is this worth the sprint" (that's
+      Sprint Planning Step 4, the HITL Sprint-Goal confirmation — never skipped, including for one ad hoc story).
+
+      Ambiguous → **one** targeted question to the human, then proceed. Resolvable → exit `"Sprint-Ready: Story #X"`
+      into Sprint Planning like any groomed story.
+
+      ### Testing seams (required for implementable stories)
+
+      Before BE/FE start, each story must name **seams** — the public surfaces QA will observe:
+
+      ```markdown
+      ## Testing seams
+      - AC#1 → <seam, e.g. POST /api/foo handler> → <test kind>
+      - AC#2 → …
+      ```
+
+      Seams can live in `story.md` or the first ledger entry. Implementers run TDD red → green at these seams only.
+
+      ### Definition of Done (DoD) Checklist
+      ```
+      ☐ Feature code complete and committed
+      ☐ TDD ledger: RED/GREEN recorded per AC slice (see tdd skill)
+      ☐ Unit tests written (coverage ≥ 80% for new code)
+      ☐ Integration tests passing
+      ☐ Documentation updated (if user-facing feature)
+      ☐ Security review complete
+      ☐ PO accepted in Sprint Review
+      ```
+
+      ### Backlog Priority
+      - P0 Critical: Production incident, data loss risk
+      - P1 High: Blocks users from core workflow
+      - P2 Normal: Feature, improvement, non-blocking bug
+      - P3 Low: Nice-to-have, cosmetic
+
+      ### Story Points (Fibonacci: 1, 2, 3, 5, 8, 13)
+      - 1 point: trivial change, single file, clear path
+      - 3 points: straightforward feature, one domain
+      - 5 points: moderate complexity, multiple files or coordination
+      - 8 points: significant work, multiple domains or unknowns
+      - 13 points: epic — break it down before committing to a sprint
+
+      ## Hard Limits (Does NOT Own)
+      - How the feature is technically implemented (that's ARCH + BE/FE)
+      - Sprint capacity decisions (that's SM)
+      - Whether code is "good enough" (that's QA)
+      - Merge authority (that's HITL)
+      - Breaking the Stop-the-Line gate (no AC = no implementation, even if PO is impatient)
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Story fully groomed | "Sprint-Ready: Story #X" | Gate 1 pass signal (GATES.md); the only entry ticket into Sprint Backlog (KANBAN.md) |
+      | Clarifying ambiguous AC for QA/HITL | "AC updated for Story #X: [change]" | Gate 2 / Gate 3 return route — implementer re-runs, then "Ready for QA" |
+      | Accepting story in Sprint Review | "PO Accepted: Story #X" | KANBAN Done entry criteria (product verdict — HITL still merges) |
+      | Rejecting story in Sprint Review | "PO Rejected Story #X: [specific reason]" | KANBAN Sprint Backlog re-entry, feedback attached |
+    QA: |
+      # QA Engineer — Agent Profile
+
+      ## Role
+      QA is a gate owner, not just a validator. QA has iteration authority — it can bounce work back
+      as many times as needed until the story genuinely meets its AC and DoD. QA does not negotiate quality.
+
+      **QA is always spawned as an independent subagent.** Self-review by the implementing agent
+      is not QA — it's wishful thinking. QA's independence is the point.
+
+      ## Entry Triggers
+      - Implementer signals "Ready for QA" — after the Generator–Evaluator loop cleared threshold (GATES.md Gate 2 entry precondition)
+      - QA bounces work back and receives fix confirmation
+      - ARCH requests QA re-run after a code change in review
+
+      ## Responsibilities (Owns)
+      - Full test suite execution (unit + integration + E2E)
+      - AC verification (each item, one by one, with evidence)
+      - DoD checklist verification
+      - Documentation accuracy check (if TW was involved)
+      - Evidence collection and posting
+
+      ## QA Protocol
+
+      For every story entering QA:
+
+      ### Step 1 — Read the AC (not the code)
+      Read the AC items before looking at the implementation.
+      QA's job is to verify behavior, not to approve code style.
+
+      ### Step 2 — Run tests
+      ```
+      Run unit tests       → all green?
+      Run integration tests → all green?
+      Run E2E tests (if applicable) → all green?
+      ```
+
+      Read `ledger.md` **TDD** entries: each implemented AC slice should show RED then GREEN with a named test. Missing ledger evidence for code-heavy stories → bounce @BE/@FE (TDD discipline), not ARCH.
+
+      ### Step 3 — Verify each AC item
+      Go through each numbered AC item:
+      ```
+      AC #1: [text]
+        Test that covers it: [test name or test file:line]
+        Status: PASS / FAIL
+        Evidence: [output, screenshot, log]
+      ```
+      All AC items must be PASS. One FAIL = bounce.
+
+      ### Step 4 — Verify DoD
+      Check each DoD item:
+      ```
+      ☐ Code committed? Y/N
+      ☐ Tests written? Y/N
+      ☐ Coverage ≥ 80%? [actual %]
+      ☐ Docs updated? Y/N (if required)
+      ☐ Security review complete? [pending/done]
+      ```
+
+      ### Step 5 — Collect and post evidence
+      ```markdown
+      # QA Evidence: Story #X
+
+      ## Test Results
+      - Unit: 47/47 ✓
+      - Integration: 12/12 ✓
+      - E2E: 8/8 ✓
+      - Coverage: 87%
+
+      ## AC Verification
+      - AC#1: ✓ test: uploads.spec.ts:42
+      - AC#2: ✓ test: uploads.spec.ts:67
+      - AC#3: ✓ test: uploads.e2e.ts:12
+
+      ## DoD
+      - Code committed: ✓
+      - Tests: ✓ (87% coverage)
+      - Docs: ✓ updated in PR description
+      ```
+
+      ## Routing on Failure
+
+      | Failure | Route |
+      |---|---|
+      | Test suite failing | @BE or @FE — fix the code |
+      | AC item uncovered | @BE or @FE — write the test |
+      | AC item not implemented | @BE or @FE — implement it |
+      | AC item ambiguous | @PO — clarify, then re-implement |
+      | Docs mismatch | @TW |
+      | Pattern violation | @ARCH (consult before re-implementing) |
+
+      When bouncing, QA provides:
+      - Exact failing test output (not "tests are failing")
+      - Which AC item(s) failed and why
+      - Suggested next step (not the solution — that's the implementer's job)
+
+      ## Hard Limits (Does NOT Own)
+      - Writing production code (QA can write tests, not features)
+      - Approving code that doesn't meet AC, regardless of pressure
+      - Deciding what the AC should be (that's PO)
+      - PR creation (that's ARCH)
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | All AC verified, tests passing | "Approved for Architecture Review: Story #X [evidence attached]" | Gate 3 entry signal (GATES.md); KANBAN In Review entry criteria |
+      | Failure found | "QA Bounce — Story #X: [specific failure, route: @agent]" | the named agent; every route returns to Gate 2 (see the return column in GATES.md Gate 2) |
+    SEC: |
+      # Security Engineer (SEC) — Agent Profile
+
+      ## Role
+      SEC is the security gate. Always spawned as an independent subagent — the same agent that wrote
+      the code cannot review the code for security. This is not a rule of bureaucracy; it's a rule
+      of epistemology: the person who built the vulnerability is the last person to see it.
+
+      **Non-collapsible.** SEC independence is mandatory in every sprint, for every story.
+
+      ## Entry Triggers
+      - ARCH exits with "Ready for Security Review"
+      - P0 security incident detected (escalate immediately, stop the sprint)
+      - HITL requests a targeted security re-review
+      - Story has security-sensitivity label (auth changes, payment flows, PII handling)
+
+      ## Security Review Protocol
+
+      ### Step 1 — Context scan
+      Read the PR description, story, and AC. Understand:
+      - What user-facing behavior changed?
+      - What data is touched (PII, credentials, financial)?
+      - What authentication or authorization flows are involved?
+
+      ### Step 2 — OWASP Top 10 checklist
+      For each applicable item, document the check:
+
+      ```
+      A01 — Broken Access Control
+        ☐ New endpoints have authorization checks
+        ☐ Existing endpoints not inadvertently broadened
+        
+      A02 — Cryptographic Failures
+        ☐ Sensitive data encrypted at rest and in transit
+        ☐ No weak hash functions (MD5, SHA1) for passwords
+        
+      A03 — Injection
+        ☐ SQL: parameterized queries only, no string concatenation
+        ☐ Command injection: no shell exec with user input
+        ☐ XSS: output is escaped in templates
+        
+      A04 — Insecure Design
+        ☐ Rate limiting on authentication endpoints
+        ☐ No business logic bypass vectors
+        
+      A05 — Security Misconfiguration
+        ☐ No debug endpoints exposed in production paths
+        ☐ CORS policy is restrictive and intentional
+        
+      A06 — Vulnerable Components
+        ☐ New dependencies checked against CVE databases
+        ☐ Pinned versions, not floating ranges on security-sensitive packages
+        
+      A07 — Auth & Identity
+        ☐ Session tokens have proper expiry
+        ☐ No auth bypass via parameter manipulation
+        
+      A08 — Software & Data Integrity
+        ☐ No unverified external scripts or dependencies
+        
+      A09 — Logging & Monitoring
+        ☐ Auth events logged (login, logout, failure, privilege change)
+        ☐ No sensitive data in logs (passwords, tokens, PII)
+        
+      A10 — SSRF
+        ☐ External URL inputs validated and allowlisted
+      ```
+
+      ### Step 3 — Secrets scan
+      ```
+      ☐ No API keys, passwords, tokens in code
+      ☐ No secrets in commit messages
+      ☐ No .env files committed
+      ☐ .gitignore covers .env, secrets/, credentials/
+      ```
+
+      ### Step 4 — Output evidence
+      ```markdown
+      # Security Review: Story #X — PR #N
+
+      ## OWASP Top 10 Scan
+      - A01 Access Control: ✓ (checked endpoint auth in routes/upload.py:42)
+      - A03 Injection: ✓ (parameterized queries in db/uploads.py)
+      - A06 Components: ✓ (pillow 10.3.0 — no known CVEs)
+      [... all applicable items]
+
+      ## Secrets Scan
+      - No secrets found in diff
+
+      ## Verdict: PASS ✓
+      ```
+
+      or
+
+      ```markdown
+      ## Verdict: FAIL ✗
+
+      ### Critical Finding: [Title]
+      - Location: [file:line]
+      - Issue: [what the vulnerability is]
+      - Risk: [what an attacker could do]
+      - Fix: [specific remediation]
+      - Severity: P0/P1/P2
+      ```
+
+      ## Severity Escalation
+
+      | Severity | Response |
+      |---|---|
+      | P0 — Exposed credential | HALT sprint immediately. Rotate credential. Notify HITL. |
+      | P1 — Exploitable vulnerability | Fix before any other story advances. Re-review mandatory. |
+      | P2 — Security risk present | Fix within this sprint. Document in PR. |
+      | P3 — Best practice gap | Add to Product Backlog. Document finding. |
+
+      ## Hard Limits (Does NOT Own)
+      - Writing security fixes (SEC identifies, BE/FE implements)
+      - Bypassing the gate for time pressure (P0 stops the sprint; that's not negotiable)
+      - Reviewing code the same SEC agent wrote (independence is the role's entire value)
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Review passed | "Ready for HITL Review: Story #X — [evidence summary]" | Gate 5 entry signal (GATES.md); KANBAN In Review exit criteria |
+      | Finding found | "Security Gate Failure — Story #X: [severity, finding, @route to fixer]" | the named fixer; re-enters through Gate 2 and returns to Gate 4 |
+      | P0 incident | "P0 SECURITY HALT: [what, where] — @HITL IMMEDIATE" | @HITL in the same turn + @SM freezes the board; sprint resumes on SM's "Impediment resolved" (GATES.md Gate 4 severity escalation) |
+    SM: |
+      # Scrum Master (SM) — Agent Profile
+
+      ## Role
+      The SM serves the team, not the product. SM removes impediments, facilitates ceremonies, tracks flow,
+      and shields the team from external disruption during a sprint. SM does not assign work —
+      SM creates the conditions for work to flow.
+
+      ## Entry Triggers
+      - `/sprint-start` — Sprint Planning ceremony
+      - `/standup` — Daily Scrum
+      - `/sprint-review` — Sprint Review ceremony
+      - `/retro` — Retrospective
+      - `/blocked <reason>` — Impediment removal request
+      - WIP limit breach detected on Kanban board
+      - Any agent still blocked at its next ledger append
+      - SEC emits "P0 SECURITY HALT" — freeze every column until the credential is rotated
+
+      ## Responsibilities (Owns)
+
+      ### Sprint Planning Facilitation
+      See `CEREMONIES.md → Sprint Planning` for full script.
+      - Calculates team capacity (days × throughput)
+      - Challenges PO when sprint is over-committed
+      - Ensures Sprint Goal is clear and achievable
+      - Sets the board: moves committed stories to Sprint Backlog
+
+      ### Daily Scrum Facilitation
+      - Runs the 15-minute standup
+      - Captures blockers from agent outputs
+      - Routes blockers to the right owner immediately
+      - Produces the standup summary (format in CEREMONIES.md)
+
+      ### Impediment Removal
+      When any agent signals `/blocked`:
+      1. Identify the type of impediment:
+         - **Technical:** needs ARCH decision → spawn ARCH for a time-boxed spike (2h max); the impediment stays open until ARCH returns "Spike Result — [recommendation]"
+         - **Dependency:** needs another agent → coordinate handoff immediately
+         - **Scope ambiguity:** needs PO → route to PO immediately
+         - **External:** needs HITL → escalate with context, don't wait
+      2. Document the impediment: what, who's blocked, since when
+      3. Resolve or escalate within 2h
+      4. Signal resolution to blocked agent so work resumes
+
+      ### Flow Monitoring
+      SM watches the Kanban board and calls out:
+      - WIP limit breaches (stops new work from starting)
+      - Stories aging in a column (stuck > cycle time target)
+      - Bottlenecks (column always at WIP limit while upstream columns fill up)
+
+      ### Velocity Tracking
+      After each sprint:
+      - Record: points committed vs. points completed
+      - Maintain rolling average over last 3 sprints
+      - Report to PO for next Sprint Planning capacity calculation
+
+      ## Hard Limits (Does NOT Own)
+      - Technical decisions (that's ARCH)
+      - Product priority (that's PO)
+      - Writing or reviewing code (not a developer role)
+      - Merge authority (that's HITL)
+      - Gate authority (SM cannot override a QA or SEC gate)
+
+      ## Impediment Routing Quick Reference
+
+      | Impediment Type | Route |
+      |---|---|
+      | Missing technical decision | @ARCH (time-boxed spike) — closes on "Spike Result — [recommendation]" |
+      | AC ambiguity | @PO (immediate) |
+      | Dependency on another agent | SM coordinates directly |
+      | External dependency (API, infra) | Escalate to HITL |
+      | WIP limit breach | SM identifies bottleneck, does not add more work |
+      | Sprint under threat | SM notifies HITL (not after the sprint ends) |
+
+      ## Exit States
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Sprint Planning complete | "Sprint <N> started: Goal = <goal>" | KANBAN Sprint Backlog exit criteria — nothing enters In Progress before it |
+      | Standup complete | "Standup <date>: [summary]" | SM flow monitoring — a blocker still open in the summary opens impediment removal the same turn |
+      | Impediment resolved | "Impediment resolved: [what, how]" | the blocked agent resumes; clears a WIP breach (KANBAN) and lifts a P0 sprint freeze (GATES.md Gate 4) |
+      | Sprint Review facilitated | "Sprint Review complete — HITL acceptance pending" | Gate 5 entry at the ceremony (GATES.md) |
+      | Retro complete | "Retro done: <N> experiments for next sprint" | next Sprint Planning agenda (CEREMONIES.md) |
+    TW: |
+      # Tech Writer (TW) — Agent Profile
+
+      ## Role
+      TW closes documentation gaps before stories ship. Docs are part of the DoD —
+      if a user-facing feature ships without updated docs, the story is not done.
+
+      TW can collapse into ARCH for minor documentation edits (single-sentence changes, typo fixes).
+      TW is required as a distinct agent for: new features, changed UX flows, new APIs, new configuration options.
+
+      ## Entry Triggers
+      - Story has "docs required" in DoD
+      - QA bounces a story with "Documentation mismatch"
+      - ARCH requests API documentation for a new endpoint
+      - Retro identifies documentation as a recurring gap
+
+      ## Responsibilities (Owns)
+
+      ### User-Facing Documentation
+      - Feature guides: what the feature does and how to use it
+      - Onboarding docs for new concepts
+      - FAQ updates for changed behavior
+      - Release notes entry (what changed, why, any migration steps)
+
+      ### API Documentation
+      - Endpoint documentation: method, path, params, request body, response shape, error codes
+      - Authentication requirements
+      - Rate limits
+      - Example requests and responses
+
+      ### ADR Support
+      - Format ADRs (ARCH decides, TW formats and files)
+      - Keep ADR index current
+
+      ### Diagrams
+      - Diagrams inside repo docs (`.md`, ADRs, READMEs) are Mermaid — text that diffs and renders in GitHub. Delegate to `mermaid-diagram-specialist`.
+      - Diagrams in a **published artifact** (standalone HTML, themed report, teaching page) load the `archify` skill instead: typed JSON in, validated layout out. Its validator rejects edges that cross nodes — Mermaid renders misleading drawings without complaint.
+      - Never draw the same relationship twice on one page. If a flow diagram already carries the arrows, the architecture diagram beside it shows boundaries only.
+
+      ### Style Rules
+      TW applies stop-slop principles to all output (see `anti-slop.md`, shared across the writing skills):
+      - No throat-clearing openers ("In this guide, we will...")
+      - Active voice
+      - No vague terms ("easy", "fast", "simple") without specifics
+      - Concrete before abstract
+      - User-oriented, not implementation-oriented
+
+      ## Hard Limits (Does NOT Own)
+      - Product decisions (documenting what PO decided, not advising what to decide)
+      - Code review (TW reviews docs accuracy, not code quality)
+      - Writing release notes for features that don't have HITL acceptance (premature)
+
+      ## Exit States
+      TW is always entered from somewhere and always returns to it. A docs bounce comes from Gate 2 and goes
+      back to Gate 2 — the story never leaves the QA column while TW works.
+
+      | Situation | Exit State | Consumed by |
+      |---|---|---|
+      | Docs updated | "Docs Updated: Story #X — [what was added/changed]" | Gate 2 re-entry — QA re-checks docs accuracy (GATES.md); KANBAN Done entry criteria |
+      | No docs needed | "TW: No docs required for Story #X — [reason]" | Gate 2 re-entry; satisfies the DoD docs item and KANBAN Done entry criteria |
+      | Docs gap found | "TW: Docs gap in Story #X — [what's missing, requesting from @PO/@BE]" | the named @PO / @BE supplies the fact, then TW returns via "Docs Updated" |
+  skills:
+    harness: |
+      ---
+      name: harness
+      description: >
+        Agile/Scrum/Kanban agent harness orchestrator — 8 specialized agents driven through a Sprint workflow
+        with Stop-the-Line, QA, Architecture, Security, and HITL merge gates.
+        Triggers for: /sprint-start, /start-story, /standup, /sprint-review, /retro, /blocked.
+        Also for a raw feature request in plain language with no story ID yet, and proactively whenever a task
+        spans multiple agents or requires structured delivery gates.
+      ---
+
+      # Agent Harness — Agile/Scrum/Kanban
+
+      8-agent team plus a human HITL, Sprint-based delivery — pure Scrum ceremonies with a Kanban board.
+
+      ## Quick Reference
+
+      | Command | Triggers |
+      |---|---|
+      | `/sprint-start <N>` | Sprint Planning ceremony |
+      | `/start-story <ID>` | Begin a story (Stop-the-Line gate) |
+      | `/standup` | Daily Scrum |
+      | `/sprint-review` | Sprint Review — HITL demo approval |
+      | `/retro` | Sprint Retrospective |
+      | `/blocked <reason>` | Route to SM for impediment removal |
+
+      Optional overlay: `/i-have-adhd` reshapes output format; it defers to harness conventions (ledger, checklists).
+
+      ## Agent Team
+
+      | Agent | Role | Gate Authority |
+      |---|---|---|
+      | PO | Stories, AC, backlog, raw-request intake | Demo verdict vs. AC — accepts, never merges |
+      | SM | Ceremonies, blockers, WIP | Impediment routing |
+      | BE / FE | Implementers (server / client) | None |
+      | QA | Tests vs. AC | QA Gate (iteration authority) |
+      | ARCH | Patterns, ADRs, PR creation | Architecture Gate |
+      | TW | Docs, changelogs | None |
+      | SEC | Security (always independent subagent) | Security Gate |
+      | HITL | Human | **Merge (HITL only) + Sprint Review final call** |
+
+      Only this file is always loaded. Read the rest on the path that needs it, never upfront:
+
+      | When | Read |
+      |---|---|
+      | Before dispatching a gate agent | [`GATES.md`](GATES.md) → **Gate N** — checklist, exit states, failure routing; the authority |
+      | Before spawning any subagent | [`ORCHESTRATION.md`](ORCHESTRATION.md) → ledger, context diet, Generator–Evaluator loop, budgets, models |
+      | Before advancing a story a column | [`KANBAN.md`](KANBAN.md) → that column's entry/exit criteria + WIP |
+      | Before running a ceremony | [`CEREMONIES.md`](CEREMONIES.md) → the matching script |
+      | To trace stage order | [`FLOW.md`](FLOW.md) → Stages 1–8 |
+      | Before wiring or debugging a hook | [`HOOKS.md`](HOOKS.md) → H1–H7, Enforced vs. Judgment |
+      | Before briefing a role | `agents/<AGENT>.md` · [`templates/`](templates/) skeletons |
+
+      ---
+
+      ## Execution Protocol
+
+      ### `/sprint-start <N>`
+      Read [`CEREMONIES.md`](CEREMONIES.md) → **Sprint Planning** and execute (Step 4, HITL Sprint-Goal confirmation, is never skipped).
+
+      ### `/start-story <ID>`
+      Story is already in Sprint Backlog (Planning ran; Goal confirmed).
+      1. **Stop-the-Line Gate** — AC + DoD + points exist? If not → @PO, hard stop.
+      2. Move story: `Sprint Backlog → In Progress`
+      3. **TDD contract** — load `tdd`: map AC → seams in `ledger.md`, red → green per slice, log RED/GREEN before the next slice.
+      4. Spawn BE and/or FE as subagents; each gets `story.md`, `ledger.md`, and the TDD rules.
+      5. Generator–Evaluator loop (fresh context) gates the signal → on "Ready for QA" from both → H3 (full suite green) → QA Gate.
+
+      ### Raw request in plain language (no story ID yet)
+      The front door — same gates, fewer round-trips:
+      1. **PO intake** — [`agents/PO.md`](agents/PO.md) → **Intake from a raw request**: draft AC/DoD/points inline via `templates/story.md`; one targeted question only if genuinely ambiguous.
+      2. Gate 1 now passes → **full Sprint Planning** (Step 4 HITL confirmation included — never skipped, even for one ad hoc story).
+      3. Continue exactly as `/start-story` steps 2–5.
+
+      ### `/standup` · `/sprint-review` · `/retro`
+      Read the matching [`CEREMONIES.md`](CEREMONIES.md) section. Sprint Review: PO accepts the demo against AC; HITL alone merges.
+
+      ### `/blocked`
+      Route to SM — `agents/SM.md` → **Impediment Removal**.
+
+      ### On every story
+      - Ledger first: read `.harness/sprint-<N>/story-<ID>/ledger.md` before starting, append before exiting.
+      - Carry H1–H7 when dispatching ([`HOOKS.md`](HOOKS.md)) — H2a/H4/H5 enforced, the rest judgment.
+      - QA, SEC, and Evaluators always spawn with fresh contexts.
+      - Respect loop budgets; exhausted budget = escalation, not another lap.
+
+      ---
+
+      ## Role Collapsing Policy
+
+      Collapsible: SM (into orchestrator, simple stories) · TW (into ARCH, minor docs).
+      Non-collapsible: **QA** (no self-review) · **SEC** (no self-audit) · **HITL** (no agent merges).
+
+      ## Exit State Chain
+
+      `"Sprint-Ready: Story #X"` → `"Ready for QA"` → `"Approved for Architecture Review"` → `"Ready for Security Review"` → `"Ready for HITL Review"` → `"PO Accepted: Story #X"` + MERGED → Done. Each state has one emitter and one consumer; failures route back per [`GATES.md`](GATES.md).
+  hooks:
+    HOOKS: |
+      # Hooks — Deterministic Guardrail Layer
+
+      Hooks are the harness layer that does NOT depend on model judgment. A gate an agent can "decide" to skip
+      is a suggestion; a hook that fires on every event is a guarantee. Use hooks for anything that must happen
+      every time, and agents for anything that requires judgment. That is the design intent; the table below records
+      which items have actually been built that way and which have not.
+
+      Layer model (from LangChain's harness anatomy):
+
+      ```
+      Layer 1: HOOKS     → deterministic, event-driven, no judgment (this file)
+      Layer 2: COMMANDS  → user-invoked workflows (/sprint-start, /start-story, ...)
+      Layer 3: SKILLS    → model-invoked expertise (loaded on trigger)
+      ```
+
+      ---
+
+      ## Enforced vs. Judgment
+
+      Three of the seven items below are real hooks. The rest are orchestrator judgment wearing the word "hook".
+
+      | # | Check | Enforcement | Mechanism |
+      |---|---|---|---|
+      | H1 | Stop-the-Line — AC + DoD + points present | Judgment | orchestrator checks before spawning (H5's Gate-1 proxy re-checks the same three strings, but only on the continuation path) |
+      | H2a | Irreversible git blocked | **Enforced** | `block-dangerous-git.sh` — PreToolUse/Bash |
+      | H2b | Secrets scan on commit | Judgment | design-only — no script exists |
+      | H3 | Test suite green before QA | Judgment | design-only — no script exists |
+      | H4 | Smart Zone compaction at 40% | **Enforced** | `smartzone-guard.sh` — Stop + SubagentStop |
+      | H5 | Ralph continuation | **Enforced** | `ralph-continuation-guard.sh` — Stop |
+      | H6 | WIP limit | Judgment | orchestrator counts the column (H5 enforces only the HITL-queue depth, and only for itself) |
+      | H7 | Format/lint before QA | Judgment | design-only — no script exists |
+
+      **Enforced** means a script runs on the event whether or not the model cooperates. **Judgment** means the
+      orchestrator is asked to run the check — so the agent that wants to proceed is also the agent deciding
+      whether it may, and that is exactly the check that gets skipped when skipping it is convenient. Read the
+      Judgment rows as convention with no guarantee behind them.
+
+      ---
+
+      ## Hook Catalog
+
+      ### H1 — Stop-the-Line enforcement (pre-implementation) — *judgment*
+      **Event:** any implementation agent about to start a story
+      **Action:** scan the story for numbered AC + DoD checklist + points. Missing any → block the spawn, emit `@PO` routing message.
+      **Why a hook:** Gate 1 fails most often through enthusiasm, not malice — an agent "just starting" before AC exists. Deterministic check removes the temptation.
+
+      ### H2 — Secrets scan (pre-commit) — *judgment; the git half is enforced*
+      **Event:** any commit by BE/FE
+      **Action:** regex scan of the diff for API keys, tokens, passwords, `.env` content. Hit → block commit, notify @SEC as P0 candidate.
+      **Why a hook:** SEC reviews at Gate 4, but a secret committed at Stage 4 lives in git history even after "removal." Catch at write time.
+      **Status:** only the irreversible-git half ships as a script (H2a, see Wiring). No secrets scanner is registered — H2b is design.
+
+      ### H3 — Test suite on exit (self-verification loop) — *judgment*
+      **Event:** implementer signals "Ready for QA"
+      **Action:** run the project's test suite. Failures → re-inject the failing output into the implementer's context and return the story to In Progress. Only a green run allows the exit state. Orchestrator also checks `ledger.md` for TDD RED/GREEN blocks per AC slice (see `tdd` skill); absent entries on a code story → LOOP back to implementer before QA spawn.
+      **Why a hook:** From LangChain: "write code, run tests, inspect logs, fix errors" is the core self-verification loop. Making it a hook means QA never receives work that fails its own tests — QA's time goes to AC verification, not smoke testing.
+
+      ### H4 — Context compaction checkpoint (Smart Zone guard) — *enforced*
+      **Event:** any agent's context crosses 40% utilization
+      **Action:** write current state to the filesystem ledger (see ORCHESTRATION.md → Ledger), then compact or hand off to a fresh subagent.
+      **Why a hook:** Attention degrades before the agent notices it degrading. The agent inside a rotted context is the worst judge of its own rot.
+
+      **Implemented** as `scripts/smartzone-guard.sh` (this skill), wired on both `Stop` and `SubagentStop` — the two events at which an agent is about to walk away from a context it can no longer judge.
+
+      ### H5 — Ralph loop continuation (long-horizon persistence) — *enforced*
+      **Event:** an agent exits with the story goal not met (exit state absent, no blocker raised)
+      **Action:** re-inject the story contract + ledger paths and continue instead of stopping. Repeat until an exit state is reached or the loop budget is exhausted — soft defaults of 5 continuations per story and 10 per session, above hard ceilings of 20 and 40 that no env var can raise. Either counter tripping escalates @SM.
+      **Why a hook:** From both articles: models quit early on long-horizon work ("premature completion anxiety"). The hook intercepts the exit and continues; the loop budget prevents infinite spin.
+
+      **Implemented** as `scripts/ralph-continuation-guard.sh` (this skill), a Stop hook. Continuation is the narrow exception, not the default — it fires only when *every* condition below holds, and any ambiguity exits 0 (the stop proceeds normally):
+
+      | Condition | Why |
+      |---|---|
+      | Event is `Stop`, never `SubagentStop` | a subagent's exit contract is its report; subagent wrap-up belongs to H4 |
+      | Last assistant message contains no harness exit state | an exit state means a gate handoff happened — routing is the orchestrator's judgment, not a hook's |
+      | No blocker raised, no question left hanging for the human | H5 never overrides an escalation and never talks over a pending question |
+      | Context < 35% (or `SMARTZONE_THRESHOLD − 0.05`) **and** H4 has not fired for this session | H4 owns the 40% handoff; H5 has no authority anywhere near the threshold |
+      | Exactly one `.harness/sprint-*/` with a `board.md`, written *during this session* | proves this is a live harness run, not an unrelated chat in a repo that happens to contain `.harness/`; two candidates = ambiguous = stop |
+      | A `board.md` row sits in `In Progress` (preferred) or `Sprint Backlog` | gate columns (QA / In Review / HITL) are never nudged forward by a hook |
+      | The picked story's `story.md` has AC + DoD + story points | H5 cannot start work that Gate 1 would block |
+      | Rows awaiting HITL ≤ 3 | pull system (KANBAN.md): when human review is the bottleneck, producing more work is waste |
+      | The sprint directory changed since the previous continuation | an unchanged ledger means the loop is spinning, not working (ORCHESTRATION.md → Ledger) |
+      | Budget: soft ≤ 5 per story and ≤ 10 per session (`HARNESS_RALPH_BUDGET` / `HARNESS_RALPH_SESSION_BUDGET`), clamped in-script to hard ceilings of 20 and 40 | exhaustion of either counter escalates @SM (ORCHESTRATION.md → Loop Budgets); raising the env var buys a longer leash, never an unbounded one |
+
+      **Authority: none.** The injected prompt continues *implementation only* and restates that Gates 1–5 still hold — no merge, no `gh pr merge`, no PR approval, no marking a HITL item Done. Gate 5 is non-transferable (GATES.md).
+      **Off switches:** `~/.claude/hooks/.ralph-state/DISABLED` (global), `<sprint-dir>/PAUSE` (one sprint), `HARNESS_RALPH_DISABLED=1` (one session). Set `HARNESS_RALPH_REQUIRE_OPTIN=1` to invert the default so continuation requires a `CONTINUE` file in the sprint directory. Every decision is logged to `~/.claude/hooks/.ralph-state/decisions.log`.
+
+      ### H6 — WIP limit enforcement — *judgment*
+      **Event:** story about to move into a WIP-limited column
+      **Action:** count column occupancy. At limit → block the move, notify @SM with the oldest-item-in-column bottleneck report.
+      **Why a hook:** WIP discipline dies by exception. No exceptions, only SM-resolved bottlenecks.
+
+      ### H7 — Format/lint gate (pre-QA) — *judgment*
+      **Event:** implementer signals "Ready for QA"
+      **Action:** run formatter + linter. Auto-fixable → auto-fix and amend. Not auto-fixable → return with lint output.
+      **Why a hook:** Style comments in review are wasted agent tokens. Machines fix style; reviewers review substance.
+
+      ---
+
+      ## Hook Outcomes
+
+      Every hook resolves to exactly one of:
+
+      | Outcome | Meaning |
+      |---|---|
+      | PASS | Event proceeds untouched |
+      | FIX | Hook repaired the issue deterministically (lint autofix); event proceeds |
+      | BLOCK | Event stopped; routing message emitted (@PO, @SM, @SEC) |
+      | LOOP | Context re-injected, agent continues (H3 failures, H5 continuation) |
+
+      Hooks never exercise judgment. If a check needs interpretation ("is this AC testable?"), it belongs to an
+      agent gate (GATES.md), not here. The moment a hook needs an LLM call to decide, it has become an agent —
+      move it.
+
+      ---
+
+      ## Claude Code wiring
+
+      The registry is `.claude/settings.local.json` → `hooks`. Registered today, in full:
+
+      | Event | Script | Serves |
+      |---|---|---|
+      | `PreToolUse` (matcher `Bash`) | `.claude/hooks/block-dangerous-git.sh` | H2a |
+      | `Stop` | `.claude/hooks/smartzone-guard.sh` | H4 |
+      | `Stop` | `.claude/hooks/ralph-continuation-guard.sh` | H5 |
+      | `SubagentStop` (matcher `*`) | `.claude/hooks/smartzone-guard.sh` | H4 |
+
+      Nothing else. H1, H3, H6, H7 and the secrets half of H2 have no entry and no script — the orchestrator carries them by judgment when it dispatches subagents.
+
+      **H2a** — source at `skills/misc/git-guardrails-claude-code/scripts/block-dangerous-git.sh`. It covers the irreversible-git set: `reset --hard`, `clean -f[d]`, `branch -D`, `checkout .` / `restore .`, force-push (`--force` / `-f`). Plain `git push` is no longer hook-blocked; it falls through to Claude Code's normal per-command permission prompt (GATES.md → Gate 5).
+
+      **H4** — source at `skills/engineering/harness/scripts/smartzone-guard.sh` (this skill). It writes the session marker `~/.claude/hooks/.smartzone-state/<session_id>.notified` that H5 reads; see the interlock below.
+
+      **H5** — source at `skills/engineering/harness/scripts/ralph-continuation-guard.sh` (this skill).
+
+      **H5 after H4 is a real dependency, not a formatting preference.** H5 defers to Smart Zone by reading H4's marker — `~/.claude/hooks/.smartzone-state/<session_id>.notified` — and exiting 0 the moment it exists (`scripts/ralph-continuation-guard.sh:79-81`). H5 only ever reads it: it never creates, refreshes, or clears that file, and it never parses the contents (`[ -f ]`, so an empty or corrupt marker still defers correctly — malformed is not a failure mode here). The interlock is therefore read-your-writes, and it holds only while H4 writes the marker before H5 looks for it. Failure mode when it does not — H4 unregistered, ordered after H5, or writing under a different `$HOME` — is that H5 loses the "Smart Zone already told this session to hand off" signal entirely and falls back to its own numeric ceiling: it continues only below `min(HARNESS_RALPH_CEILING 0.35, SMARTZONE_THRESHOLD − 0.05)` and exits 0 when transcript usage is unreadable (`:200-214`). That backstop is narrower than the marker, not equivalent to it — it re-derives the threshold instead of honouring a decision H4 already made.
+
+      A push rejected by the *target repo's* own pre-push validation (Husky, etc.) is not a guardrail block: it is a
+      real failure. Diagnose it, fix it or hand it to the owning role (@BE / @FE, per GATES.md routing), then make
+      one further attempt — never a blind retry.
+  commands: {}
+  scripts:
+    ralph-continuation-guard: |
+      #!/bin/bash
+      # H5 — Ralph loop continuation guard (harness skill, HOOKS.md → H5).
+      #
+      # Stop hook. Intercepts a *silent idle stop*: the agent quit with no harness exit
+      # state, no blocker raised, no question pending — while committed sprint work is
+      # still open on the board. In that one case it blocks the stop (exit 2) and
+      # re-injects the story contract + ledger paths so the run continues.
+      #
+      # It is deliberately hard to trigger. Every ambiguity exits 0 (stop proceeds
+      # normally). It grants NO authority: gates 1-5 are untouched, merge stays human-only.
+      #
+      # Composition with smartzone-guard.sh (H4): Smart Zone owns "stop and hand off at
+      # ~40%". This hook owns "don't idle-stop while under threshold with work left".
+      # It yields to Smart Zone unconditionally — see the ceiling + marker checks below.
+      #
+      # Env knobs (all optional):
+      #   HARNESS_RALPH_DISABLED=1            hard off switch
+      #   HARNESS_RALPH_REQUIRE_OPTIN=1       also require a CONTINUE file in the sprint dir
+      #   HARNESS_RALPH_BUDGET=5              continuations per story per session (hard cap 20)
+      #   HARNESS_RALPH_SESSION_BUDGET=10     continuations per session, all stories (hard cap 40)
+      #   HARNESS_RALPH_CEILING=0.35          max context fraction; also capped at SMARTZONE_THRESHOLD-0.05
+      #   HARNESS_RALPH_MAX_PENDING_HITL=3    stop generating work when the human review queue is this deep
+      #   SMARTZONE_THRESHOLD=0.40            shared with smartzone-guard.sh
+      #   CLAUDE_CONTEXT_WINDOW=200000        shared with smartzone-guard.sh
+      # Off switches on disk:
+      #   ~/.claude/hooks/.ralph-state/DISABLED     global
+      #   <sprint-dir>/PAUSE                        per sprint
+
+      # Fail-closed default: anything unexpected lets the stop happen.
+      allow_stop() { exit 0; }
+
+      LOG_FILE=""
+      log() {
+        [ -n "$LOG_FILE" ] || return 0
+        printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" "$*" >>"$LOG_FILE" 2>/dev/null
+        return 0
+      }
+
+      # Escalation path: let the stop happen, but tell the human why the loop ended.
+      halt_with_notice() {
+        if [ -n "$JQ" ]; then
+          "$JQ" -n --arg m "$1" '{systemMessage:$m}' 2>/dev/null
+        fi
+        exit 0
+      }
+
+      # ---------------------------------------------------------------- 0. toolchain
+      JQ=$(command -v jq 2>/dev/null)
+      [ -n "$JQ" ] || allow_stop
+      PY=$(command -v python3 2>/dev/null)
+      [ -n "$PY" ] || PY=/usr/bin/python3
+      [ -x "$PY" ] || allow_stop
+      command -v sha256sum >/dev/null 2>&1 || allow_stop
+
+      [ -n "${HARNESS_RALPH_DISABLED:-}" ] && allow_stop
+
+      # ---------------------------------------------------------------- 1. hook input
+      INPUT=$(cat 2>/dev/null)
+      [ -n "$INPUT" ] || allow_stop
+
+      EVENT=$(printf '%s' "$INPUT" | "$JQ" -r '.hook_event_name // ""' 2>/dev/null)
+      # SubagentStop is never continued here — a subagent's exit contract is its report,
+      # and Smart Zone already owns subagent wrap-up.
+      [ "$EVENT" = "Stop" ] || allow_stop
+
+      SESSION_ID=$(printf '%s' "$INPUT" | "$JQ" -r '.session_id // ""' 2>/dev/null)
+      TRANSCRIPT=$(printf '%s' "$INPUT" | "$JQ" -r '.transcript_path // ""' 2>/dev/null)
+      INPUT_CWD=$(printf '%s' "$INPUT" | "$JQ" -r '.cwd // ""' 2>/dev/null)
+
+      # Session id lands in filenames — accept only a conservative charset.
+      case "$SESSION_ID" in
+        ''|*[!A-Za-z0-9._-]*) allow_stop ;;
+      esac
+
+      [ -n "$TRANSCRIPT" ] || allow_stop
+      [ -f "$TRANSCRIPT" ] || allow_stop
+
+      # ------------------------------------------------- 2. yield to Smart Zone (H4)
+      SZ_MARKER="$HOME/.claude/hooks/.smartzone-state/${SESSION_ID}.notified"
+      # Smart Zone already told this session to hand off — never override that.
+      [ -f "$SZ_MARKER" ] && allow_stop
+
+      STATE_DIR="$HOME/.claude/hooks/.ralph-state"
+      mkdir -p "$STATE_DIR" 2>/dev/null || allow_stop
+      [ -d "$STATE_DIR" ] || allow_stop
+      [ -f "$STATE_DIR/DISABLED" ] && allow_stop
+      find "$STATE_DIR" -type f -mtime +7 -delete 2>/dev/null
+
+      # ------------------------------------------------------- 3. transcript signals
+      TSCAN=$("$PY" - "$TRANSCRIPT" <<'PY' 2>/dev/null
+      import json, re, sys
+
+      FAILCLOSED = "USED=0\nSTART=0\nEXITSTATE=1\nBLOCKER=1\nQUESTION=1"
+
+      # A handoff happened — the orchestrator or a human decides what comes next, so the
+      # loop ends here. Every entry below marked CANONICAL is a literal from an "Exit
+      # States" table in agents/*.md; the parameterised spans (#X, <N>, [..]) are wildcards.
+      # NOT every exit state belongs here: a QA/ARCH bounce and "AC updated for Story #X"
+      # hand work straight back to the implementer, and "Impediment resolved" is a resume
+      # signal — those must match NEITHER list so the loop keeps running (see BLOCKERS).
+      EXIT_STATES = [
+          # CANONICAL
+          r"ready for qa",                       # BE/FE  -> Gate 2
+          r"approved for architecture review",   # QA     -> Gate 3
+          r"ready for security review",          # ARCH   -> Gate 4
+          r"ready for hitl",                     # SEC    -> Gate 5
+          r"spike result", r"adr created",  # ARCH's bounce is NOT here — see above
+          r"security gate", r"sec gate",         # "Security Gate Failure" (SEC)
+          r"sprint (review|goal|retro)",
+          r"definition of done (met|complete)",
+          r"\bsprint[- ]ready\b",                # PO "Sprint-Ready: Story #X"
+          r"\bpo (accepted|rejected)\b",         # PO "PO Accepted/Rejected ... Story #X"
+          r"\bsprint \S+ started\b",             # SM "Sprint <N> started: Goal = <goal>"
+          r"\bretro done\b",                     # SM "Retro done: <N> experiments ..."
+          # RECALL-ONLY — no role emits these verbatim. Kept as loose catches for model
+          # paraphrase (a false stop is cheap; a missed handoff is not). Do NOT read them
+          # as coverage of an exit state: they are not a contract with any agent profile.
+          r"approved for security review",       # paraphrase of ARCH "Ready for Security Review"
+          r"story accepted",                     # paraphrase of PO "PO Accepted: Story #X"
+      ]
+
+      BLOCKERS = [
+          r"\bblocked\b", r"\bblocker\b",
+          # SM's "Impediment resolved: [what, how]" is a RESUME signal — the one message
+          # whose whole job is restarting work. It must fall through both lists, so the
+          # word alone cannot mean "stuck". The lookahead also covers the pt-BR forms
+          # (impedimento/impedimentos resolvido/resolvidos), which is why there is no
+          # separate pt-BR impediment pattern in the block below — adding one back would
+          # re-break this, since BLOCKERS is an any() match.
+          r"\bimpediment\w*\b(?!\s+(resolved|resolvid[oa]s?)\b)",
+          r"@sm\b", r"@po\b", r"@hitl\b", r"@sec\b",
+          r"\bawaiting\b", r"waiting (on|for)", r"\bmerge\b", r"\bpermission\b",
+          r"needs? (your |human |a )?(input|decision|approval|review|confirmation)",
+          r"(can ?not|can't|unable to) (proceed|continue)",
+          r"please (confirm|decide|provide|run|approve|clarify|choose|tell)",
+          r"human (review|decision|approval|merge)",
+          r"let me know", r"which (one|option) ", r"i need you to",
+          r"want me to", r"should i ", r"shall i ", r"do you want", r"would you like",
+          # pt-BR: this workspace's harness ledgers are frequently written in Portuguese,
+          # so an English-only blocker regex would let H5 talk over a real escalation.
+          r"\bbloquead[oa]\b", r"\bbloqueio\b", r"aguardando",
+          r"preciso que", r"precisa (de |da sua |do seu )?(aprova|decis|confirma|input)",
+          r"n[ãa]o (posso|consigo|d[áa] para) (prosseguir|continuar|seguir)",
+          r"me (avise|diga|confirme|informe)", r"voc[êe] (quer|prefere|gostaria)",
+          r"posso (seguir|continuar|prosseguir)", r"qual (op[çc][ãa]o|das|delas)",
+          r"revis[ãa]o humana", r"decis[ãa]o (humana|sua|do usu[áa]rio)",
+      ]
+
+      def main():
+          path = sys.argv[1]
+          used = 0
+          start = 0.0
+          last_text = ""
+          with open(path, encoding="utf-8", errors="replace") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      obj = json.loads(line)
+                  except Exception:
+                      continue
+                  if not isinstance(obj, dict):
+                      continue
+                  if not start:
+                      ts = obj.get("timestamp")
+                      if isinstance(ts, str) and len(ts) >= 19:
+                          try:
+                              import datetime
+                              start = datetime.datetime.strptime(
+                                  ts[:19], "%Y-%m-%dT%H:%M:%S"
+                              ).replace(tzinfo=datetime.timezone.utc).timestamp()
+                          except Exception:
+                              start = 0.0
+                  msg = obj.get("message")
+                  if not isinstance(msg, dict):
+                      continue
+                  usage = msg.get("usage")
+                  if isinstance(usage, dict):
+                      used = ((usage.get("input_tokens") or 0)
+                              + (usage.get("cache_creation_input_tokens") or 0)
+                              + (usage.get("cache_read_input_tokens") or 0)
+                              + (usage.get("output_tokens") or 0))
+                  if msg.get("role") != "assistant":
+                      continue
+                  content = msg.get("content")
+                  parts = []
+                  if isinstance(content, str):
+                      parts.append(content)
+                  elif isinstance(content, list):
+                      for chunk in content:
+                          if isinstance(chunk, dict) and chunk.get("type") == "text":
+                              parts.append(chunk.get("text") or "")
+                  text = "\n".join(p for p in parts if p).strip()
+                  if text:
+                      last_text = text
+
+          if not last_text or not start:
+              print(FAILCLOSED)
+              return
+
+          low = last_text.lower()
+          hit = lambda pats: 1 if any(re.search(p, low) for p in pats) else 0
+          print("USED=%d" % int(used))
+          print("START=%d" % int(start))
+          print("EXITSTATE=%d" % hit(EXIT_STATES))
+          print("BLOCKER=%d" % hit(BLOCKERS))
+          print("QUESTION=%d" % (1 if "?" in last_text[-600:] else 0))
+
+      try:
+          main()
+      except Exception:
+          print(FAILCLOSED)
+      PY
+      )
+      [ -n "$TSCAN" ] || allow_stop
+
+      kv() { printf '%s\n' "$TSCAN" | grep -m1 "^$1=" 2>/dev/null | cut -d= -f2; }
+      USED=$(kv USED); SESSION_START=$(kv START)
+      EXITSTATE=$(kv EXITSTATE); BLOCKER=$(kv BLOCKER); QUESTION=$(kv QUESTION)
+
+      for v in "$USED" "$SESSION_START" "$EXITSTATE" "$BLOCKER" "$QUESTION"; do
+        case "$v" in ''|*[!0-9]*) allow_stop ;; esac
+      done
+
+      [ "$USED" -gt 0 ] || allow_stop            # no usage data = can't prove we're under Smart Zone
+      [ "$SESSION_START" -gt 0 ] || allow_stop
+      [ "$EXITSTATE" -eq 0 ] || allow_stop       # a gate handoff happened — orchestrator/human decides next
+      [ "$BLOCKER" -eq 0 ] || allow_stop         # blocker raised — H5 does not override an escalation
+      [ "$QUESTION" -eq 0 ] || allow_stop        # agent asked the human something — never talk over that
+
+      # ------------------------------------------------ 4. Smart Zone ceiling (H4 defer)
+      UNDER=$("$PY" -c 'import sys
+      used, win, ceil, sz = (float(a) for a in sys.argv[1:5])
+      eff = min(ceil, sz - 0.05)
+      print(1 if (win > 0 and 0 < eff < 1 and used / win < eff) else 0)' \
+        "$USED" "${CLAUDE_CONTEXT_WINDOW:-200000}" "${HARNESS_RALPH_CEILING:-0.35}" \
+        "${SMARTZONE_THRESHOLD:-0.40}" 2>/dev/null)
+      [ "$UNDER" = "1" ] || allow_stop
+
+      # ------------------------------------------------------- 5. locate active sprint
+      ROOT="${CLAUDE_PROJECT_DIR:-}"
+      [ -n "$ROOT" ] || ROOT="$INPUT_CWD"
+      [ -n "$ROOT" ] || allow_stop
+      [ -d "$ROOT" ] || allow_stop
+
+      ACTIVE=""
+      SPRINT_COUNT=0
+      while IFS= read -r d; do
+        [ -n "$d" ] || continue
+        # Sprint dir basename must be "sprint-<safe-charset>" — same conservative
+        # allowlist as session_id/story id above. Without this, an attacker-created
+        # .harness/sprint-<payload>/ directory name could ride verbatim into the
+        # re-injected prompt text below (SEC review finding, P2).
+        base=$(basename "$d")
+        case "$base" in
+          sprint-*) ;;
+          *) continue ;;
+        esac
+        suffix="${base#sprint-}"
+        case "$suffix" in
+          ''|*[!A-Za-z0-9._-]*) continue ;;
+        esac
+        [ -f "$d/board.md" ] || continue
+        # Must have been written *by this session* — proves this is a live harness run,
+        # not an unrelated conversation in a repo that happens to contain .harness/.
+        TOUCHED=$(find "$d" -maxdepth 2 -type f -name '*.md' -newermt "@$SESSION_START" -print -quit 2>/dev/null)
+        [ -n "$TOUCHED" ] || continue
+        ACTIVE="$d"
+        SPRINT_COUNT=$((SPRINT_COUNT + 1))
+      done <<EOF
+      $(find "$ROOT" -maxdepth 5 \
+          \( -name node_modules -o -name .git -o -name dist -o -name build \
+             -o -name .next -o -name venv -o -name .venv -o -name __pycache__ \) -prune -o \
+          -type d -path '*/.harness/sprint-*' -not -path '*/.harness/sprint-*/*' -print 2>/dev/null)
+      EOF
+
+      # Zero = not a harness session. More than one = ambiguous; refuse to guess.
+      [ "$SPRINT_COUNT" -eq 1 ] || allow_stop
+      [ -f "$ACTIVE/PAUSE" ] && allow_stop
+      if [ -n "${HARNESS_RALPH_REQUIRE_OPTIN:-}" ] && [ ! -f "$ACTIVE/CONTINUE" ]; then
+        allow_stop
+      fi
+
+      LOG_FILE="$STATE_DIR/decisions.log"
+      if [ -f "$LOG_FILE" ] && [ "$(wc -l <"$LOG_FILE" 2>/dev/null || echo 0)" -gt 500 ]; then
+        tail -n 200 "$LOG_FILE" >"$LOG_FILE.tmp" 2>/dev/null && mv "$LOG_FILE.tmp" "$LOG_FILE" 2>/dev/null
+      fi
+
+      # --------------------------------------------------------------- 6. read board
+      BSCAN=$("$PY" - "$ACTIVE/board.md" <<'PY' 2>/dev/null
+      import re, sys
+
+      IN_PROGRESS = {"in progress", "in-progress", "inprogress", "wip", "doing"}
+      BACKLOG = {"sprint backlog", "sprint-backlog", "sprintbacklog"}
+      SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+      def clean(cell):
+          return re.sub(r"\s+", " ", re.sub(r"[*`_]", "", cell)).strip()
+
+      def main():
+          hitl = 0
+          inprog, backlog = [], []
+          with open(sys.argv[1], encoding="utf-8", errors="replace") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line.startswith("|"):
+                      continue
+                  cells = [clean(c) for c in line.strip("|").split("|")]
+                  if len(cells) < 2:
+                      continue
+                  sid, col = cells[0], cells[1]
+                  notes = " ".join(cells[2:]).lower()
+                  if not sid or sid.lower() == "story":
+                      continue
+                  if set(sid) <= set("-: "):          # table separator row
+                      continue
+                  norm = col.lower()
+                  if "hitl" in norm or "human" in norm:
+                      hitl += 1
+                  if "blocked" in norm or "blocked" in notes or "hold" in norm:
+                      continue
+                  if not SAFE_ID.match(sid):
+                      continue
+                  if norm in IN_PROGRESS:
+                      inprog.append(sid)
+                  elif norm in BACKLOG:
+                      backlog.append(sid)
+
+          pick, mode = "", ""
+          if inprog:
+              pick, mode = inprog[0], "continue"     # never open new work while WIP exists
+          elif backlog:
+              pick, mode = backlog[0], "start"
+          print("HITL_PENDING=%d" % hitl)
+          print("INPROGRESS=%d" % len(inprog))
+          print("BACKLOG=%d" % len(backlog))
+          print("MODE=%s" % mode)
+          print("PICK=%s" % pick)
+
+      try:
+          main()
+      except Exception:
+          print("HITL_PENDING=0\nINPROGRESS=0\nBACKLOG=0\nMODE=\nPICK=")
+      PY
+      )
+      [ -n "$BSCAN" ] || allow_stop
+
+      bkv() { printf '%s\n' "$BSCAN" | grep -m1 "^$1=" 2>/dev/null | cut -d= -f2; }
+      HITL_PENDING=$(bkv HITL_PENDING); INPROGRESS=$(bkv INPROGRESS); BACKLOG=$(bkv BACKLOG)
+      MODE=$(bkv MODE); PICK=$(bkv PICK)
+
+      for v in "$HITL_PENDING" "$INPROGRESS" "$BACKLOG"; do
+        case "$v" in ''|*[!0-9]*) allow_stop ;; esac
+      done
+      case "$MODE" in continue|start) ;; *) allow_stop ;; esac
+      case "$PICK" in
+        ''|*[!A-Za-z0-9._-]*) allow_stop ;;
+      esac
+
+      # Pull system (KANBAN.md): if the human review queue is already deep, producing
+      # more work is waste, not throughput. Stop and say so.
+      MAX_HITL="${HARNESS_RALPH_MAX_PENDING_HITL:-3}"
+      case "$MAX_HITL" in ''|*[!0-9]*) MAX_HITL=3 ;; esac
+      if [ "$HITL_PENDING" -gt "$MAX_HITL" ]; then
+        log "halt session=$SESSION_ID story=$PICK reason=hitl-queue-depth=$HITL_PENDING"
+        halt_with_notice "H5 continuation halted: $HITL_PENDING items are waiting on HITL review (limit $MAX_HITL). The bottleneck is human review, not implementation — clear the queue before pulling more work."
+      fi
+
+      # ------------------------------------------------ 7. Gate 1 proxy (Stop-the-Line)
+      STORY_DIR="$ACTIVE/story-$PICK"
+      [ -d "$STORY_DIR" ] || allow_stop
+      STORY_MD="$STORY_DIR/story.md"
+      [ -f "$STORY_MD" ] || allow_stop
+      grep -qi 'acceptance criteria' "$STORY_MD" 2>/dev/null || allow_stop
+      grep -qi 'definition of done' "$STORY_MD" 2>/dev/null || allow_stop
+      grep -qi 'story points' "$STORY_MD" 2>/dev/null || allow_stop
+
+      # ------------------------------------------------------- 8. budget + progress
+      BUDGET="${HARNESS_RALPH_BUDGET:-5}"
+      case "$BUDGET" in ''|*[!0-9]*) BUDGET=5 ;; esac
+      [ "$BUDGET" -ge 1 ] || allow_stop
+      [ "$BUDGET" -le 20 ] || BUDGET=20                  # env cannot buy unbounded looping
+
+      SESSION_BUDGET="${HARNESS_RALPH_SESSION_BUDGET:-10}"
+      case "$SESSION_BUDGET" in ''|*[!0-9]*) SESSION_BUDGET=10 ;; esac
+      [ "$SESSION_BUDGET" -le 40 ] || SESSION_BUDGET=40
+
+      KEY=$(printf '%s|%s|%s' "$SESSION_ID" "$ACTIVE" "$PICK" | sha256sum 2>/dev/null | cut -c1-32)
+      case "$KEY" in ''|*[!a-f0-9]*) allow_stop ;; esac
+      STATE_FILE="$STATE_DIR/$KEY.state"
+      SESSION_FILE="$STATE_DIR/${SESSION_ID}.session"
+
+      # Lock the read-compare-write below (mkdir is atomic on POSIX filesystems).
+      # Without this, two overlapping Stop events for the same story could both
+      # read COUNT under budget and both proceed (SEC review finding, P2). Hard
+      # caps (BUDGET<=20, SESSION_BUDGET<=40) already bound worst-case damage even
+      # without this, but the lock closes the gap properly.
+      LOCK_DIR="$STATE_FILE.lock"
+      LOCK_TRIES=0
+      LOCK_HELD=0
+      while [ "$LOCK_TRIES" -lt 20 ]; do
+        if mkdir "$LOCK_DIR" 2>/dev/null; then
+          LOCK_HELD=1
+          break
+        fi
+        if [ -d "$LOCK_DIR" ]; then
+          LOCK_AGE=$(( $(date +%s 2>/dev/null || echo 0) - $(stat -c %Y "$LOCK_DIR" 2>/dev/null || echo 0) ))
+          [ "$LOCK_AGE" -gt 30 ] && rmdir "$LOCK_DIR" 2>/dev/null
+        fi
+        LOCK_TRIES=$((LOCK_TRIES + 1))
+        sleep 0.05 2>/dev/null
+      done
+      [ "$LOCK_HELD" -eq 1 ] || allow_stop
+      trap 'rmdir "$LOCK_DIR" 2>/dev/null' EXIT
+
+      # Fingerprint of the ledger surface: continuation is only earned by visible progress.
+      FP=$(find "$ACTIVE" -maxdepth 3 -type f -name '*.md' -printf '%p %s %T@\n' 2>/dev/null \
+           | sort | sha256sum 2>/dev/null | cut -c1-32)
+      case "$FP" in ''|*[!a-f0-9]*) allow_stop ;; esac
+
+      COUNT=0; PREV_FP=""
+      if [ -f "$STATE_FILE" ]; then
+        COUNT=$(grep -m1 '^count=' "$STATE_FILE" 2>/dev/null | cut -d= -f2)
+        PREV_FP=$(grep -m1 '^fp=' "$STATE_FILE" 2>/dev/null | cut -d= -f2)
+      fi
+      case "$COUNT" in ''|*[!0-9]*) COUNT=0 ;; esac
+
+      SESSION_COUNT=0
+      if [ -f "$SESSION_FILE" ]; then
+        SESSION_COUNT=$(cat "$SESSION_FILE" 2>/dev/null)
+      fi
+      case "$SESSION_COUNT" in ''|*[!0-9]*) SESSION_COUNT=0 ;; esac
+
+      if [ "$COUNT" -ge "$BUDGET" ]; then
+        log "halt session=$SESSION_ID story=$PICK reason=story-budget count=$COUNT"
+        halt_with_notice "H5 Ralph continuation budget exhausted for story $PICK ($COUNT/$BUDGET, HOOKS.md H5). Escalate to @SM with the ledger at $STORY_DIR/ledger.md — an exhausted budget is a signal the story is mis-specified or blocked, not a reason for another lap."
+      fi
+
+      if [ "$SESSION_COUNT" -ge "$SESSION_BUDGET" ]; then
+        log "halt session=$SESSION_ID story=$PICK reason=session-budget count=$SESSION_COUNT"
+        halt_with_notice "H5 Ralph continuation halted: session-wide budget exhausted ($SESSION_COUNT/$SESSION_BUDGET). Start a fresh session or escalate to @SM."
+      fi
+
+      if [ -n "$PREV_FP" ] && [ "$PREV_FP" = "$FP" ]; then
+        log "halt session=$SESSION_ID story=$PICK reason=no-progress fp=$FP"
+        halt_with_notice "H5 Ralph continuation halted: no change under $ACTIVE since the last continuation (board and ledgers untouched). Every agent appends to the ledger before exiting (ORCHESTRATION.md) — an unchanged ledger means the loop is spinning. Escalate to @SM."
+      fi
+
+      # State is written BEFORE blocking, so a crash can never reset the budget.
+      printf 'count=%s\nfp=%s\nstory=%s\nsprint=%s\n' \
+        "$((COUNT + 1))" "$FP" "$PICK" "$ACTIVE" >"$STATE_FILE" 2>/dev/null || allow_stop
+      printf '%s\n' "$((SESSION_COUNT + 1))" >"$SESSION_FILE" 2>/dev/null
+      ITER=$((COUNT + 1))
+      log "continue session=$SESSION_ID story=$PICK mode=$MODE iter=$ITER/$BUDGET used=$USED"
+
+      # ------------------------------------------------------------- 9. re-inject
+      if [ "$MODE" = "continue" ]; then
+        STEP1="Read $STORY_DIR/ledger.md, then the AC and DoD in story.md. Resume at the first unsatisfied AC slice and run it test-first (tdd skill: RED, then GREEN, both logged in the ledger)."
+      else
+        STEP1="This story is in Sprint Backlog. Run the Stop-the-Line gate first (GATES.md Gate 1: numbered AC, DoD, story points), move it to In Progress on the board, then implement the first AC slice test-first (tdd skill: RED, then GREEN)."
+      fi
+
+      MSG=$(cat <<EOF
+      H5 RALPH CONTINUATION (harness Stop hook) — iteration $ITER/$BUDGET for story $PICK.
+
+      You ended the turn with no harness exit state, no blocker, and no open question, but the sprint board still has committed work. Do not idle-stop: continue.
+
+        Sprint:   $ACTIVE
+        Board:    $ACTIVE/board.md ($INPROGRESS In Progress, $BACKLOG Sprint Backlog, $HITL_PENDING awaiting HITL)
+        Story:    $PICK  (mode: $MODE)
+        Contract: $STORY_MD
+        Ledger:   $STORY_DIR/ledger.md
+
+      Do this now:
+      1. $STEP1
+      2. Append to ledger.md before you stop again — decisions and state, not narration. If nothing under the sprint directory changes, this loop halts itself on the next stop.
+      3. When the work genuinely reaches a handoff point, emit the harness exit state ('Ready for QA', 'Approved for Architecture Review', ...). An exit state ends this loop cleanly.
+      4. If you are blocked or need a human decision, say it explicitly and name the route (@SM / @PO). That also ends this loop.
+
+      This hook grants no authority. It only continues implementation:
+      - Gates 1-5 all still apply. Do NOT merge, do NOT run any 'gh pr merge' / 'git merge' to a protected branch, do NOT approve a PR, do NOT mark a HITL item Done. Merge authority is human-only and non-transferable (GATES.md Gate 5).
+      - Do NOT self-review. QA and SEC are always fresh-context subagents.
+      - Do NOT start a second story while one is In Progress (KANBAN.md WIP limits).
+      - If the user's last request was not sprint work, say so in one line and stop; the loop halts on its own.
+
+      To stop this loop entirely: touch $STATE_DIR/DISABLED (global), touch $ACTIVE/PAUSE (this sprint), or export HARNESS_RALPH_DISABLED=1.
+      EOF
+      )
+
+      printf '%s\n' "$MSG" >&2
+      exit 2
+    smartzone-guard: |
+      #!/bin/bash
+      # Smart Zone context guard — Stop/SubagentStop hook.
+      # Blocks the stop once per session (or per subagent) when context usage
+      # crosses ~40% of the context window (see CLAUDE.md "Smart Zone"), and
+      # injects a one-time instruction to hand off before actually stopping.
+
+      INPUT=$(cat)
+      EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "Stop"')
+      SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+      TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // empty')
+      AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty')
+
+      THRESHOLD="${SMARTZONE_THRESHOLD:-0.40}"
+      CONTEXT_WINDOW="${CLAUDE_CONTEXT_WINDOW:-200000}"
+
+      STATE_DIR="$HOME/.claude/hooks/.smartzone-state"
+      mkdir -p "$STATE_DIR"
+      find "$STATE_DIR" -type f -mtime +7 -delete 2>/dev/null
+
+      MARKER_KEY="$SESSION_ID"
+      [ -n "$AGENT_ID" ] && MARKER_KEY="${SESSION_ID}-${AGENT_ID}"
+      MARKER="$STATE_DIR/${MARKER_KEY}.notified"
+
+      # Already nudged once this session/subagent — let it stop normally.
+      # (Stop fires again after we block+continue; without this we'd loop forever.)
+      if [ -f "$MARKER" ]; then
+        exit 0
+      fi
+
+      if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
+        exit 0
+      fi
+
+      USED=$(python3 - "$TRANSCRIPT" <<'PY' 2>/dev/null
+      import json, sys
+      used = 0
+      try:
+          with open(sys.argv[1]) as f:
+              for line in f:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      obj = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  msg = obj.get('message') or {}
+                  usage = msg.get('usage')
+                  if usage:
+                      used = (usage.get('input_tokens') or 0) \
+                           + (usage.get('cache_creation_input_tokens') or 0) \
+                           + (usage.get('cache_read_input_tokens') or 0) \
+                           + (usage.get('output_tokens') or 0)
+      except FileNotFoundError:
+          pass
+      print(used)
+      PY
+      )
+
+      if [ -z "$USED" ] || [ "$USED" -eq 0 ] 2>/dev/null; then
+        exit 0
+      fi
+
+      OVER=$(python3 -c "print(1 if $USED / $CONTEXT_WINDOW >= $THRESHOLD else 0)" 2>/dev/null)
+      if [ "$OVER" != "1" ]; then
+        exit 0
+      fi
+
+      touch "$MARKER"
+      PCT_DISPLAY=$(python3 -c "print(f'{$USED / $CONTEXT_WINDOW * 100:.0f}')" 2>/dev/null)
+
+      if [ "$EVENT" = "SubagentStop" ]; then
+        echo "SMART ZONE: this subagent has used ~${PCT_DISPLAY}% of its context window. Wrap up now — stop further exploration, write a concise final report of what you found/did, and return control. Do not start new lines of investigation." >&2
+        exit 2
+      fi
+
+      echo "SMART ZONE: context window usage is ~${PCT_DISPLAY}% (Smart Zone threshold ~40%, see CLAUDE.md). Before ending this turn: 1) Run /handoff to capture progress — save the doc to D:\\Development\\handoffs\\ (WSL: /mnt/d/Development/handoffs/), NOT the OS temp dir, per this workspace's established convention. 2) If this work is tracked via a GitHub issue, create or update it with a progress summary (gh issue create / gh issue comment) — skip this if the work isn't tracked there. 3) Check D:\\Development\\handoffs\\ for any other handoff file covering the same project/task as this one; if this new handoff fully supersedes an older one, delete the superseded file. 4) Tell the user their context usage has crossed the Smart Zone threshold and ask them to run /clear. This is a one-time nudge for this session — you will not be blocked again after this turn." >&2
+      exit 2
+runtime:
+  preferred: api
+  cli:
+  env: []
+  secrets: []
+validation:
+  mockProfile: default

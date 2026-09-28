@@ -1,0 +1,4 @@
+base: &shared
+  x: 1
+extended:
+  <<: *shared

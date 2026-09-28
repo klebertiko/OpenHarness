@@ -1,0 +1,113 @@
+schemaVersion: 1.0.0
+manifest:
+  id: openharness.golden.fixture
+  name: Golden OHM Fixture
+  version: 0.2.0
+  description: 'Shared Python/TypeScript fixture exercising every P1 preservation case: multiline LF/CRLF content, Unicode, ambiguous-looking scalars, a big int, node Provider/position/handle data, and an authored (non-executable) cycle.'
+  license: MIT
+  tags:
+    - fixture
+    - golden
+    - ohm
+graph:
+  nodes:
+    - data:
+        bigId: 12345678901234567890
+        budgetTokensPerRun: 200000
+        flags:
+          autoApprove: "on"
+          empty: ""
+          retries: "3"
+        providers:
+          - id: anthropic-primary
+            primary: true
+            taskRouting:
+          - id: openrouter-fallback
+            primary: false
+      id: po
+      label: PO
+      position:
+        x: 0
+        y: 120.5
+      role: PO
+      type: agent
+    - id: sm
+      label: SM
+      position:
+        x: 240
+        y: 120.5
+      role: SM
+      type: agent
+    - data:
+        checklist:
+          - AC verified
+          - tests pass
+      id: gate-qa
+      label: QA Gate
+      position:
+        x: 480
+        y: 0
+      type: gate
+    - id: hitl-merge
+      label: HITL Merge
+      position:
+        x: 720
+        y: 120.5
+      type: hitl
+  edges:
+    - data:
+        signal: 'Sprint-Ready: Story #1'
+      id: po-sm
+      label: Sprint-Ready
+      source: po
+      sourceHandle: out
+      target: sm
+      targetHandle: in
+    - id: sm-gate
+      kind: signal
+      source: sm
+      target: gate-qa
+    - id: gate-hitl
+      kind: signal
+      label: PASS
+      source: gate-qa
+      target: hitl-merge
+    - id: gate-sm-bounce
+      kind: signal
+      label: FAIL
+      source: gate-qa
+      target: sm
+content:
+  prompts:
+    CRLF_NOTE: "Windows-authored line one\r\nline two\r\n"
+    GATES: |
+      # Gates
+
+      Blocking checkpoints.
+
+      Multiple
+      lines.
+    leading_space_block: |2
+        leading space on first line
+      second line
+    no_trailing_newline: no trailing newline here
+    quoted_number_like: "0x1A"
+    unicode: café — 日本語 😀
+  agents:
+    PO: |
+      # Product Owner
+
+      Owns AC.
+  skills:
+    harness: |
+      # Harness Skill
+  hooks: {}
+  commands: {}
+  scripts: {}
+runtime:
+  preferred: api
+  cli:
+  env: []
+  secrets: []
+validation:
+  mockProfile: default

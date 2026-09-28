@@ -1,0 +1,44 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      root-npm:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      frontend-npm:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /website
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      website-npm:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      backend-python:
+        patterns: ["*"]
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      tauri-rust:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      github-actions:
+        patterns: ["*"]

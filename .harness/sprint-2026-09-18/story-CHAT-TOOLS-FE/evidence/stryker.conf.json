@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/api/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "reporters": ["html", "json", "clear-text", "progress"],
+  "htmlReporter": { "fileName": "reports/mutation/index.html" },
+  "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+  "mutate": [
+    "src/components/agent/chatCommands.ts",
+    "src/components/agent-run/ToolCard.tsx",
+    "src/components/agent-run/rollup.ts",
+    "src/components/agent-run/runReducer.ts:18-31",
+    "src/components/agent-run/runReducer.ts:61-89",
+    "src/components/agent-run/runReducer.ts:102-142",
+    "src/components/agent-run/runReducer.ts:161-267",
+    "src/components/agent-run/runReducer.ts:284-318",
+    "src/components/agent-run/runReducer.ts:350-356"
+  ],
+  "thresholds": { "high": 80, "low": 70, "break": 0 },
+  "timeoutMS": 30000,
+  "concurrency": 4
+}

@@ -26,6 +26,13 @@ interface HistoryEntry {
 
 const MAX_HISTORY = 50;
 
+/** A HITL node parked mid-run, waiting on a person to approve or reject it. */
+export interface AwaitingHuman {
+  nodeId: string;
+  question: string;
+  context: string;
+}
+
 export interface CanvasState {
   nodes: HarnessNode[];
   edges: HarnessEdge[];
@@ -33,6 +40,9 @@ export interface CanvasState {
   executionMode: ExecutionMode;
   isRunning: boolean;
   harnessMeta: { id: string | null; name: string; description: string };
+  /** Set on `hitl_pause`, cleared on `hitl_resolved` / `resetExecution`. Drives
+   *  the approve/reject controls on the paused node's plate. */
+  awaitingHuman: AwaitingHuman | null;
 
   _history: HistoryEntry[];
   _historyIndex: number;
@@ -68,6 +78,7 @@ export interface CanvasState {
   appendNodeOutput: (nodeId: string, chunk: string) => void;
   setNodeResult: (nodeId: string, output: string, tokens: number, latencyMs: number) => void;
   setNodeError: (nodeId: string, error: string) => void;
+  setAwaitingHuman: (info: AwaitingHuman | null) => void;
   resetExecution: () => void;
 
   loadGraph: (nodes: HarnessNode[], edges: HarnessEdge[]) => void;
@@ -85,6 +96,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   executionMode: "mock",
   isRunning: false,
   harnessMeta: { id: null, name: "Untitled Harness", description: "" },
+  awaitingHuman: null,
 
   _history: [],
   _historyIndex: -1,
@@ -97,6 +109,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   undo: () => {
+    if (get().isRunning) return;
     const { _history, _historyIndex } = get();
     if (_historyIndex <= 0) return;
     const entry = _history[_historyIndex - 1];
@@ -104,6 +117,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   redo: () => {
+    if (get().isRunning) return;
     const { _history, _historyIndex } = get();
     if (_historyIndex >= _history.length - 1) return;
     const entry = _history[_historyIndex + 1];
@@ -154,6 +168,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   updateNodeData: (nodeId, data) => {
+    if (get().isRunning) return;
+    get().resetExecution();
     set({
       nodes: get().nodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n)),
     });
@@ -200,7 +216,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   setSelectedNode: (selectedNodeId) => set({ selectedNodeId }),
-  setExecutionMode: (executionMode) => set({ executionMode }),
+  setExecutionMode: (executionMode) => {
+    if (get().isRunning || get().executionMode === executionMode) return;
+    get().resetExecution();
+    set({ executionMode });
+  },
   setRunning: (isRunning) => set({ isRunning }),
   setHarnessMeta: (meta) => set({ harnessMeta: { ...get().harnessMeta, ...meta } }),
 
@@ -234,6 +254,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       ),
     }),
 
+  setAwaitingHuman: (awaitingHuman) => set({ awaitingHuman }),
+
   resetExecution: () =>
     set({
       nodes: get().nodes.map((n) => ({
@@ -247,11 +269,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           latencyMs: undefined,
         },
       })),
+      awaitingHuman: null,
     }),
 
   /* Every edge is a harness wire. Presets and imported JSON are normalised on
      the way in so no code path can ever produce a default bezier. */
   loadGraph: (nodes, edges) => {
+    if (get().isRunning) return;
+    set({ _history: [], _historyIndex: -1, awaitingHuman: null });
     set({
       nodes,
       edges: edges.map((e) => ({ ...e, type: "harness" })),

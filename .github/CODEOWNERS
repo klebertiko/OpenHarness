@@ -1,0 +1,9 @@
+# Replace @klebertiko with a team when the project gains additional maintainers.
+* @klebertiko
+
+# Security-sensitive delivery and policy surfaces require explicit owner review.
+/.github/ @klebertiko
+/backend/security/ @klebertiko
+/backend/sandbox/ @klebertiko
+/src-tauri/capabilities/ @klebertiko
+/src-tauri/tauri.conf.json @klebertiko

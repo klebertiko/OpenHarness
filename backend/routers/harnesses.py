@@ -1,6 +1,6 @@
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,7 +79,7 @@ async def update_harness(harness_id: str, body: HarnessUpdate, db: AsyncSession 
         h.description = body.description
     if body.graph_json is not None:
         h.graph_json = json.dumps(body.graph_json)
-    h.updated_at = datetime.utcnow()
+    h.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     return {"id": h.id, "name": h.name}
 
