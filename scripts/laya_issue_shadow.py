@@ -8,15 +8,52 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 from time import perf_counter
 
 from laya import Router
 
 
+def _load_event() -> dict:
+    return json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+
+
+def _fetch_issue(number: str | int) -> dict:
+    """Load issue JSON via gh (static argv; avoids dynamic urllib OpenGrep finding)."""
+    repo = os.environ["GITHUB_REPOSITORY"]
+    issue_no = int(number)
+    try:
+        raw = subprocess.check_output(
+            ["gh", "api", f"repos/{repo}/issues/{issue_no}"],
+            text=True,
+            stderr=subprocess.STDOUT,
+            env=os.environ,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"Failed to fetch issue #{issue_no} via gh api: {exc.output}"
+        ) from exc
+    return json.loads(raw)
+
+
+def _resolve_issue(event: dict) -> dict:
+    if isinstance(event.get("issue"), dict):
+        return event["issue"]
+    number = os.environ.get("LAYA_ISSUE_NUMBER") or (event.get("inputs") or {}).get(
+        "issue_number"
+    )
+    if not number:
+        raise SystemExit(
+            "No issue payload in GITHUB_EVENT_PATH and LAYA_ISSUE_NUMBER / "
+            "inputs.issue_number unset (workflow_dispatch requires an issue number)."
+        )
+    return _fetch_issue(number)
+
+
 def main() -> None:
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    issue = event["issue"]
+    event = _load_event()
+    issue = _resolve_issue(event)
     state = {
         "title": issue.get("title", "")[:500],
         "body": issue.get("body", "")[:6000],
