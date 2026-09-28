@@ -4,6 +4,16 @@ updates:
     directory: /
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
+    # Drive-by majors that break the monorepo in one PR — bump deliberately.
+    ignore:
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: vitest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
     groups:
       root-npm:
         patterns: ["*"]
@@ -11,6 +21,15 @@ updates:
     directory: /frontend
     schedule: { interval: weekly }
     cooldown: { default-days: 7 }
+    ignore:
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: vitest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend-npm:
         patterns: ["*"]
