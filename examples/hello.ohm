@@ -1,4 +1,4 @@
-# OHM em YAML 1.2 — suporte no desktop em migração.
+# OHM em YAML 1.2 — contrato declarativo.
 schemaVersion: "1.0.0"
 manifest:
   id: hello
