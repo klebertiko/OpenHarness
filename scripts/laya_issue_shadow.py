@@ -8,15 +8,55 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
+import urllib.request
 from pathlib import Path
 from time import perf_counter
 
 from laya import Router
 
 
+def _load_event() -> dict:
+    return json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
+
+
+def _fetch_issue(number: str | int) -> dict:
+    repo = os.environ["GITHUB_REPOSITORY"]
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/issues/{number}",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            **({"Authorization": f"Bearer {token}"} if token else {}),
+            "User-Agent": "openharness-laya-shadow",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise SystemExit(f"Failed to fetch issue #{number}: HTTP {exc.code}: {body}") from exc
+
+
+def _resolve_issue(event: dict) -> dict:
+    if isinstance(event.get("issue"), dict):
+        return event["issue"]
+    number = os.environ.get("LAYA_ISSUE_NUMBER") or (event.get("inputs") or {}).get(
+        "issue_number"
+    )
+    if not number:
+        raise SystemExit(
+            "No issue payload in GITHUB_EVENT_PATH and LAYA_ISSUE_NUMBER / "
+            "inputs.issue_number unset (workflow_dispatch requires an issue number)."
+        )
+    return _fetch_issue(number)
+
+
 def main() -> None:
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    issue = event["issue"]
+    event = _load_event()
+    issue = _resolve_issue(event)
     state = {
         "title": issue.get("title", "")[:500],
         "body": issue.get("body", "")[:6000],

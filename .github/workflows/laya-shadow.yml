@@ -22,15 +22,17 @@ concurrency:
 jobs:
   classify:
     name: Advisory classification only
+    # Advisory = not a required merge gate. Failures must still surface as red —
+    # never continue-on-error (that painted workflow_dispatch failures green).
     if: vars.ENABLE_LAYA_SHADOW == 'true' && (github.event_name == 'issues' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
     env:
       HF_HUB_DISABLE_XET: "1"
       USE_TF: "0"
       LAYA_OUTPUT: laya-shadow-result.json
       LAYA_ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
