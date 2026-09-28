@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-import urllib.error
-import urllib.request
+import subprocess
 from pathlib import Path
 from time import perf_counter
 
@@ -21,23 +20,21 @@ def _load_event() -> dict:
 
 
 def _fetch_issue(number: str | int) -> dict:
+    """Load issue JSON via gh (static argv; avoids dynamic urllib OpenGrep finding)."""
     repo = os.environ["GITHUB_REPOSITORY"]
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    req = urllib.request.Request(
-        f"https://api.github.com/repos/{repo}/issues/{number}",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            **({"Authorization": f"Bearer {token}"} if token else {}),
-            "User-Agent": "openharness-laya-shadow",
-        },
-    )
+    issue_no = int(number)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise SystemExit(f"Failed to fetch issue #{number}: HTTP {exc.code}: {body}") from exc
+        raw = subprocess.check_output(
+            ["gh", "api", f"repos/{repo}/issues/{issue_no}"],
+            text=True,
+            stderr=subprocess.STDOUT,
+            env=os.environ,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"Failed to fetch issue #{issue_no} via gh api: {exc.output}"
+        ) from exc
+    return json.loads(raw)
 
 
 def _resolve_issue(event: dict) -> dict:
