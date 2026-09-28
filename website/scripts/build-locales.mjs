@@ -36,7 +36,7 @@ function decorate(html, file, english) {
 }
 
 const yaml = (await readFile(new URL('examples/hello.ohm', root), 'utf8'))
-  .replace('OHM em YAML 1.2 — suporte no desktop em migração.', 'OHM in YAML 1.2 — desktop support is being migrated.')
+  .replace('OHM em YAML 1.2 — contrato declarativo.', 'OHM in YAML 1.2 — declarative contract.')
   .replace('Exemplo mínimo do Open Harness Model.', 'Minimal Open Harness Model example.')
   .replace('objetivo:', 'objective:')
   .replace('Descreva o objetivo do trabalho.', 'Describe the objective of the work.')
