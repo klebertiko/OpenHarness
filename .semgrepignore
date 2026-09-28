@@ -1,0 +1,6 @@
+# OpenGrep / Semgrep ignore — documented exceptions, not silent suppressions.
+#
+# Static marketing pages (CSP-locked, no third-party scripts). The html
+# missing-integrity rule flags our own GitHub Pages hreflang/canonical <link>
+# tags; SRI does not apply to HTML navigation documents.
+website/**/*.html

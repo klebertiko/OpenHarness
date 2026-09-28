@@ -66,6 +66,8 @@ async def run(argv: list[str], cwd: Path, timeout_s: float = 60) -> dict:
     tree = ProcessTree()
     proc = None
     try:
+        # nosemgrep: python.lang.security.audit.dangerous-asyncio-create-exec-audit
+        # Intentional: argv is policy-checked by the tool broker before reaching here.
         proc = await asyncio.create_subprocess_exec(*_argv(argv), cwd=str(cwd), env=scrub_env(),
             stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **options)
         tree.attach(proc.pid)

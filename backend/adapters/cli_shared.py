@@ -176,6 +176,8 @@ async def run_cli(
     None the child's stdin is explicitly closed (DEVNULL), never left to
     inherit the sidecar's own stdin.
     """
+    # nosemgrep: python.lang.security.audit.dangerous-asyncio-create-exec-audit
+    # Intentional: argv is built from allowlisted CLI adapters (SEC Gate 2026-09-11).
     proc = await asyncio.create_subprocess_exec(
         *argv,
         cwd=str(cwd),

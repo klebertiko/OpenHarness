@@ -125,7 +125,7 @@ class MockAdapter(AgentAdapter):
         script = _script_for(config)
         label = config.extra.get("label", "node")
         # Stable per-node id prefix so tool call ids are reproducible across runs.
-        seed = hashlib.sha1(f"{label}:{config.model}".encode()).hexdigest()[:6]
+        seed = hashlib.sha256(f"{label}:{config.model}".encode()).hexdigest()[:6]
 
         yield {
             "kind": "phase",

@@ -13,8 +13,8 @@ from repos.github import GitHubRepoProvider
 from repos.gitlab import GitLabRepoProvider
 from secret_store.memory import MemorySecrets
 
-GH_TOKEN = "ghp_TEST_TOKEN_NEVER_LEAK"
-GL_TOKEN = "glpat-TEST_TOKEN_NEVER_LEAK"
+GH_TOKEN = "test-github-token-never-leak"
+GL_TOKEN = "test-gitlab-token-never-leak"
 
 
 def _github_handler(request: httpx.Request) -> httpx.Response:
