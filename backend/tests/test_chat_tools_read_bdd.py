@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import httpx
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -86,8 +87,12 @@ def do_read(client, context, cwd, path):
     if context["auth"]:
         context["response"] = client.post("/chat/tools/read", json=body)
     else:
-        # Explicit auth=None — newer httpx rejects UseClientDefault when unbound request is used.
-        context["response"] = client.request("POST", "/chat/tools/read", json=body, auth=None)
+        # Bypass conftest's TestClient.request monkeypatch (always injects Bearer).
+        # Call httpx.Client.request unbound; auth=None required on httpx>=0.28
+        # (UseClientDefault TypeError when the unbound path is used).
+        context["response"] = httpx.Client.request(
+            client, "POST", "/chat/tools/read", json=body, auth=None
+        )
 
 
 @then(parsers.parse("the status is {code:d}"))
