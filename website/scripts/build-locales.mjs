@@ -34,13 +34,21 @@ function decorate(html, file, english) {
   ].join('\n');
   const ptAbs = file === 'index.html' ? publicUrl : publicUrl + file;
   const enAbs = file === 'index.html' ? publicUrl + 'en/' : publicUrl + 'en/' + file;
-  const enRel = file === 'index.html' ? './en/' : './en/' + file;
+  // Always link to the concrete file so language-switch + hash navigation
+  // matches /en/index.html#… (Playwright and relative hash carry).
+  const enRel = './en/' + file;
   const canonical = english ? enAbs : ptAbs;
+  // Absolute canonical/hreflang URLs are navigation documents — SRI does not
+  // apply. OpenGrep's missing-integrity rule still flags them; suppress inline.
   const metadata = [
     '<!-- locale-meta:start -->',
+    '<!-- nosemgrep: html.security.audit.missing-integrity -->',
     '<link rel="canonical" href="' + canonical + '">',
+    '<!-- nosemgrep: html.security.audit.missing-integrity -->',
     '<link rel="alternate" hreflang="pt-BR" href="' + ptAbs + '">',
+    '<!-- nosemgrep: html.security.audit.missing-integrity -->',
     '<link rel="alternate" hreflang="en-US" href="' + enAbs + '">',
+    '<!-- nosemgrep: html.security.audit.missing-integrity -->',
     '<link rel="alternate" hreflang="x-default" href="' + ptAbs + '">',
     '<meta property="og:url" content="' + canonical + '">',
     '<meta property="og:locale:alternate" content="' + (english ? 'pt_BR' : 'en_US') + '">',

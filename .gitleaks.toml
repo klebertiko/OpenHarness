@@ -1,7 +1,17 @@
 [extend]
 useDefault = true
 
+# Path-only allowlist (no synthetic glpat-/token strings here — Trivy's
+# secret scanner flags those literals inside this config file itself).
 [[allowlists]]
-description = "Synthetic GitLab token used only by the repository adapter tests"
-paths = ['''backend/tests/repos/test_github_gitlab_adapters\.py''']
-regexes = ['''glpat-TEST_TOKEN_NEVER_LEAK''']
+description = "Synthetic tokens in repository-adapter unit tests; never live credentials"
+paths = [
+  '''backend/tests/repos/test_github_gitlab_adapters\.py''',
+]
+
+# History scan still hits the pre-rewrite commit that introduced a glpat-shaped fixture.
+[[allowlists]]
+description = "Allowlisted historical test-fixture finding (rewritten in later commits)"
+fingerprints = [
+  '''8b75596f98ee2c29c9c20a2961b00e1c16de8aaf:backend/tests/repos/test_github_gitlab_adapters.py:gitlab-pat:17''',
+]

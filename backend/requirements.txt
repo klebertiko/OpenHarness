@@ -6,8 +6,8 @@ pydantic==2.11.3
 httpx==0.28.1
 anthropic==0.43.0
 openai==1.68.2
-python-dotenv==1.0.1
-anyio==4.7.0
+python-dotenv==1.2.2
+anyio==4.14.2
 jsonschema==4.23.0
 cryptography==50.0.0
 # OHM .ohm restricted YAML 1.2 profile (oharness/codec.py, ADR 0003). Pinned

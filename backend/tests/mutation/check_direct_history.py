@@ -34,7 +34,8 @@ report = {"source_sha256": hashlib.sha256(original.encode()).hexdigest(), "resul
 
 def run(label, args):
     env = {**os.environ, "PYTHONPYCACHEPREFIX": str(root / ".mutation-pycache" / label)}
-    result = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *args],
+    result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *args],
                             cwd=root, env=env, capture_output=True, text=True, timeout=90)
     (root / f"mutation-{label}.log").write_text(result.stdout + result.stderr, encoding="utf-8")
     return result

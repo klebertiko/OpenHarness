@@ -8,7 +8,7 @@ BACKEND = Path(__file__).resolve().parents[2]
 
 
 def run_validate(path: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    return subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
         [sys.executable, "-m", "oharness", "validate", str(path)],
         cwd=BACKEND,
         capture_output=True,

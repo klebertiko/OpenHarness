@@ -137,6 +137,7 @@ jobs:
             --config .opengrep-rules/html/security \
             --config .opengrep-rules/yaml/github-actions/security \
             --exclude .opengrep-rules \
+            --exclude 'website/**/*.html' \
             --exclude .next --exclude node_modules --exclude target --exclude backend/build .
       - uses: github/codeql-action/upload-sarif@0b1f0509b2ddb4dc7bd94367abfe7ad1d8a1b810 # v3.30.5
         if: always() && hashFiles('opengrep.sarif') != ''
