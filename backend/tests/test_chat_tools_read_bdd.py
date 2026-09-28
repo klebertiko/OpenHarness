@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-import httpx
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -84,8 +83,11 @@ def read_cwd(client, context, cwd, path):
 
 def do_read(client, context, cwd, path):
     body = {"cwd": cwd, "path": expand(path, context)}
-    context["response"] = (client.post("/chat/tools/read", json=body) if context["auth"] else
-                           httpx.Client.request(client, "POST", "/chat/tools/read", json=body))
+    if context["auth"]:
+        context["response"] = client.post("/chat/tools/read", json=body)
+    else:
+        # Explicit auth=None — newer httpx rejects UseClientDefault when unbound request is used.
+        context["response"] = client.request("POST", "/chat/tools/read", json=body, auth=None)
 
 
 @then(parsers.parse("the status is {code:d}"))
