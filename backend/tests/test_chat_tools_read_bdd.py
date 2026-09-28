@@ -84,8 +84,15 @@ def read_cwd(client, context, cwd, path):
 
 def do_read(client, context, cwd, path):
     body = {"cwd": cwd, "path": expand(path, context)}
-    context["response"] = (client.post("/chat/tools/read", json=body) if context["auth"] else
-                           httpx.Client.request(client, "POST", "/chat/tools/read", json=body))
+    if context["auth"]:
+        context["response"] = client.post("/chat/tools/read", json=body)
+    else:
+        # Bypass conftest's TestClient.request monkeypatch (always injects Bearer).
+        # Call httpx.Client.request unbound; auth=None required on httpx>=0.28
+        # (UseClientDefault TypeError when the unbound path is used).
+        context["response"] = httpx.Client.request(
+            client, "POST", "/chat/tools/read", json=body, auth=None
+        )
 
 
 @then(parsers.parse("the status is {code:d}"))
