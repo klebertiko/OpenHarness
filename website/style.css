@@ -154,6 +154,27 @@ img {
 .site-header nav a:hover,.text-link:hover {
   color: var(--color-accent);
 }
+.site-header nav .manifesto-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.manifesto-nav-link > span,
+.manifesto-footer-link > span:first-child {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: var(--color-accent);
+}
+.site-header nav .manifesto-nav-link:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
 .header-link {
   display: flex;
   align-items: center;
@@ -228,6 +249,15 @@ img {
 }
 .primary:hover {
   background: var(--color-ink);
+}
+.manifesto-cta {
+  border-color: var(--color-accent);
+  color: var(--color-ink);
+  box-shadow: inset 4px 0 0 var(--color-accent);
+}
+.manifesto-cta:hover {
+  background: var(--color-accent);
+  color: var(--color-action-ink);
 }
 .text-link {
   display: inline-flex;
@@ -701,8 +731,18 @@ img {
   margin-top: 32px;
   max-width: 39ch;
 }
-.manifesto-statement>.text-link {
+.manifesto-statement>.text-link,
+.manifesto-statement>.manifesto-section-cta {
   margin-top: 22px;
+}
+.manifesto-section-cta {
+  border-color: var(--color-teal);
+  color: var(--color-on-dark);
+  box-shadow: inset 4px 0 0 var(--color-teal);
+}
+.manifesto-section-cta:hover {
+  background: var(--color-teal);
+  color: var(--color-night);
 }
 .dark .text-link:hover {
   color: var(--color-teal);
@@ -835,6 +875,22 @@ img {
 .site-footer>span,.site-footer>a:last-child {
   font-size: 12px;
   color: var(--color-muted);
+}
+.site-footer .manifesto-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.site-footer .manifesto-footer-link:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 dialog {
   background: var(--color-night);

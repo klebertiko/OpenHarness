@@ -176,8 +176,9 @@ async def run_cli(
     None the child's stdin is explicitly closed (DEVNULL), never left to
     inherit the sidecar's own stdin.
     """
+    # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-asyncio-create-exec-audit
     # nosemgrep: python.lang.security.audit.dangerous-asyncio-create-exec-audit
-    proc = await asyncio.create_subprocess_exec(  # nosemgrep: python.lang.security.audit.dangerous-asyncio-create-exec-audit
+    proc = await asyncio.create_subprocess_exec(  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-asyncio-create-exec-audit
         *argv,
         cwd=str(cwd),
         env=env,
