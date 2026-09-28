@@ -1,0 +1,3 @@
+# Historical unit-test fixture (glpat-shaped), rewritten in later commits.
+# Fingerprint from gitleaks history scan — not a live credential.
+8b75596f98ee2c29c9c20a2961b00e1c16de8aaf:backend/tests/repos/test_github_gitlab_adapters.py:gitlab-pat:17

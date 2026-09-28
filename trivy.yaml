@@ -1,0 +1,12 @@
+# Skip intentional secret-shaped fixtures and harness notes from fs secret scan.
+# Vuln/misconfig scanners still cover the rest of the tree; severity gate stays HIGH/CRITICAL.
+scan:
+  skip-files:
+    - backend/tests/test_sandbox_secrets.py
+    - backend/sandbox/secrets.py
+
+secret:
+  skip-files:
+    - backend/tests/test_sandbox_secrets.py
+    - backend/sandbox/secrets.py
+    - backend/tests/repos/test_github_gitlab_adapters.py
