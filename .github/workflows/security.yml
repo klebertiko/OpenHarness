@@ -27,6 +27,22 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+      - name: Require Dependency graph (repo setting)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          code=$(gh api -i "repos/${GH_REPO}/dependency-graph/compare/${BASE}...${HEAD}" \
+            | awk 'NR==1 {print $2; exit}')
+          if [[ "${code}" != "200" ]]; then
+            echo "Dependency Review API returned HTTP ${code}." >&2
+            echo "Enable Dependency graph under Settings → Advanced Security for this public repo." >&2
+            echo "See https://github.com/${GH_REPO}/settings/security_analysis" >&2
+            exit 1
+          fi
       - uses: actions/dependency-review-action@595b5aeba73380359d98a5e087f648dbb0edce1b # v4.7.3
         with:
           fail-on-severity: high
@@ -90,6 +106,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # Pin rules by commit — never `--config auto` (mutable registry).
+      - name: Checkout OpenGrep rules (immutable)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: opengrep/opengrep-rules
+          ref: f1d2b562b414783763fd02a6ed2736eaed622efa
+          path: .opengrep-rules
+          persist-credentials: false
       - name: Install verified OpenGrep 1.22.0
         run: |
           set -euo pipefail
@@ -101,7 +125,14 @@ jobs:
           "${RUNNER_TEMP}/opengrep" --version
       - name: Scan
         run: |
-          "${RUNNER_TEMP}/opengrep" scan --config auto --error --sarif --output opengrep.sarif \
+          "${RUNNER_TEMP}/opengrep" scan --error --sarif --output opengrep.sarif \
+            --config .opengrep-rules/python/lang/security \
+            --config .opengrep-rules/javascript/lang/security \
+            --config .opengrep-rules/javascript/audit \
+            --config .opengrep-rules/dockerfile/security \
+            --config .opengrep-rules/html/security \
+            --config .opengrep-rules/yaml/github-actions/security \
+            --exclude .opengrep-rules \
             --exclude .next --exclude node_modules --exclude target --exclude backend/build .
       - uses: github/codeql-action/upload-sarif@0b1f0509b2ddb4dc7bd94367abfe7ad1d8a1b810 # v3.30.5
         if: always() && hashFiles('opengrep.sarif') != ''

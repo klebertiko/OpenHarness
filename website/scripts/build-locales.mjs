@@ -5,7 +5,8 @@ const publicUrl = 'https://klebertiko.github.io/OpenHarness/';
 const catalog = JSON.parse(await readFile(new URL('locales/en-US.json', root), 'utf8'));
 const neutral = new Set(['OpenHarness', 'Manifesto', 'manifesto', 'Menu', 'Skill', 'Gate', 'Harness Studio', 'Chats', 'Automate', 'Pull requests', 'Open Harness Model', 'OPEN HARNESS MODEL', 'YAML', 'manifest + graph', 'content', 'runtime + validation', 'AGENTS.md', 'Agent Skills', 'MCP', 'A2A', 'OpenHarness desktop', 'schemaVersion', 'manifest', 'graph', 'nodes', 'edges', 'runtime', 'validation', 'license', 'hello.ohm', '.ohm', '.oharness', 'Manifesto ↗', 'Manifesto — OpenHarness', 'Harness Model.']);
 const missing = new Set();
-const escape = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const htmlEscapes = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+const escape = text => text.replace(/[&<>"]/g, character => htmlEscapes[character]);
 
 function translate(text) {
   const key = text.trim();
@@ -62,7 +63,7 @@ for (const file of ['index.html', 'model.html', 'manifesto.html']) {
     const article = english.match(/<article>([\s\S]*?)<\/article>/)[1];
     const paragraphs = [...article.matchAll(/<p>([\s\S]*?)<\/p>/g)].map(match => match[1]
       .replace(/<\/?strong>/g, '**').replace(/<\/?code>/g, '`').replace(/<[^>]+>/g, '')
-      .replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim());
+      .replace(/&(quot|amp);/g, entity => ({ '&quot;': '"', '&amp;': '&' })[entity]).trim());
     outputs.push(['en/MANIFESTO.md', '# Toward an Open Harness Model\n\n' + paragraphs.join('\n\n') + '\n']);
   }
 }
