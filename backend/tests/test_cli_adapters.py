@@ -549,6 +549,7 @@ def test_codex_invoke_sends_prompt_on_stdin_and_parses_agent_message(monkeypatch
 
 
 def test_codex_invoke_errors_when_no_agent_message_in_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "codex")
     monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
@@ -567,6 +568,7 @@ def test_codex_invoke_errors_when_no_agent_message_in_stream(monkeypatch: pytest
 
 
 def test_codex_invoke_surfaces_cli_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "codex")
     monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
@@ -580,6 +582,7 @@ def test_codex_invoke_surfaces_cli_error(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_codex_invoke_surfaces_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "codex")
     monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
@@ -593,6 +596,7 @@ def test_codex_invoke_surfaces_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_codex_stream_yields_single_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("adapters.cli_codex.find_cli", lambda name: "codex")
     monkeypatch.setattr("adapters.cli_codex.is_windows", lambda: True)
 
     async def fake_runner(argv, *, cwd, env, timeout, stdin=None):
