@@ -33,8 +33,6 @@ import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
 import { ThreadsSidebar } from "@/components/agent/ThreadsSidebar";
-import { AutomationsPanel } from "@/components/automations/AutomationsPanel";
-import { GitPanel } from "@/components/git/GitPanel";
 import { PROVIDERS_PANEL_TITLE } from "@/components/providers/copy";
 import { ProvidersList } from "@/components/providers/ProvidersList";
 import { Dossier } from "@/components/providers/Dossier";
@@ -258,8 +256,8 @@ export default function Home() {
     </Panel>
   );
 
-  // The contextual left panel. Destinations that own the whole stage
-  // (Automate, Pull requests) don't get one.
+  // The contextual left panel. Destinations that own the whole stage don't
+  // get one.
   const left =
     section === "providers"
       ? providersLeft
@@ -286,17 +284,9 @@ export default function Home() {
     </div>
   );
 
-  const centered = (node: React.ReactNode) => (
-    <div className="mx-auto flex h-full w-full max-w-[860px] flex-col">{node}</div>
-  );
-
   const stage =
     section === "providers" ? (
       <Dossier />
-    ) : section === "automations" ? (
-      centered(<AutomationsPanel />)
-    ) : section === "git" ? (
-      centered(<GitPanel />)
     ) : isStudio ? (
       studioStage
     ) : (

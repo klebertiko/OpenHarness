@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import {
   Boxes,
-  CalendarClock,
-  GitPullRequest,
   Keyboard,
   MessagesSquare,
   Moon,
@@ -24,14 +22,12 @@ import { chordCaps, useIsMac } from "./keys";
  */
 type NavItem = { id: RailSection; label: string; icon: LucideIcon; chord: string };
 
-/* Order = how often you reach for it. Everyday work first, then the automated
-   surfaces, then the things you set up once and rarely revisit. */
+/* Order = how often you reach for it. Everyday work first, then the thing you
+   set up once and rarely revisit. */
 const NAV: NavItem[] = [
   { id: "chats", label: "Chats", icon: MessagesSquare, chord: "Alt+1" },
   { id: "studio", label: "Studio", icon: Boxes, chord: "Alt+2" },
-  { id: "automations", label: "Automate", icon: CalendarClock, chord: "Alt+3" },
-  { id: "git", label: "Pull requests", icon: GitPullRequest, chord: "Alt+4" },
-  { id: "providers", label: "Providers", icon: Plug, chord: "Alt+5" },
+  { id: "providers", label: "Providers", icon: Plug, chord: "Alt+3" },
 ];
 
 /** A hairline before the set-up-once group (Providers). Harnesses lives inside

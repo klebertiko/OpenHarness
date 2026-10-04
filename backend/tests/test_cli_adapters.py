@@ -6,8 +6,8 @@ No test in this file spawns a real process: every adapter takes an injectable
 ``runner`` (defaulting to the real ``cli_shared.run_cli``), so these assert on
 exactly what *would* be spawned and how a captured result is interpreted.
 Async assertions use ``asyncio.run(...)`` rather than a pytest-asyncio marker
-to match this repo's existing test convention (see test_runtime_router.py,
-tests/repos/test_origin_adapter.py) — pytest-asyncio is not a dependency here.
+to match this repo's existing test convention (see test_runtime_router.py)
+— pytest-asyncio is not a dependency here.
 
 Security Gate 2026-09-11 (harness, SEC review) bounced the prior version of
 these adapters on three proven P1s: argv-positional-prompt flag injection

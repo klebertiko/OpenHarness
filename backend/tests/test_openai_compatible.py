@@ -1,6 +1,5 @@
 """OpenAICompatibleAdapter.probe() — real GET /models, never a fabricated
-success. httpx.MockTransport fixtures, same convention as
-tests/repos/test_github_gitlab_adapters.py."""
+success. httpx.MockTransport fixtures."""
 
 from __future__ import annotations
 

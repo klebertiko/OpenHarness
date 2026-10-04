@@ -24,7 +24,7 @@ afterEach(cleanup);
 it("opens on slash, keeps input focus and executes the highlighted action with arrows and Enter", () => {
   render(<Composer />); const input = type("/");
   expect(screen.getByRole("listbox", { name: "Commands and skills" })).toBeTruthy();
-  expect(screen.getAllByRole("option")).toHaveLength(6);
+  expect(screen.getAllByRole("option")).toHaveLength(5);
   fireEvent.keyDown(input, { key: "ArrowDown" });
   const option = screen.getByRole("option", { name: /\/studio/ });
   expect(input.getAttribute("aria-activedescendant")).toBe(option.id);

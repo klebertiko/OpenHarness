@@ -1,8 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Boxes,
-  CalendarClock,
-  GitPullRequest,
   MessagesSquare,
   Plug,
   Power,
@@ -44,9 +42,7 @@ export function shellNavCommands(): Command[] {
   const nav: { section: RailSection; label: string; icon: LucideIcon; chord: string; keywords: string }[] = [
     { section: "chats", label: "Go to Chats", icon: MessagesSquare, chord: "Alt+1", keywords: "conversation thread agent" },
     { section: "studio", label: "Go to Studio", icon: Boxes, chord: "Alt+2", keywords: "canvas design harness graph" },
-    { section: "automations", label: "Go to Automate", icon: CalendarClock, chord: "Alt+3", keywords: "automations jobs schedule cron trigger cowork projects workspace folders" },
-    { section: "git", label: "Go to Pull requests", icon: GitPullRequest, chord: "Alt+4", keywords: "git github pr repo" },
-    { section: "providers", label: "Go to Providers", icon: Plug, chord: "Alt+5", keywords: "models keys anthropic openai ollama" },
+    { section: "providers", label: "Go to Providers", icon: Plug, chord: "Alt+3", keywords: "models keys anthropic openai ollama" },
   ];
 
   return [

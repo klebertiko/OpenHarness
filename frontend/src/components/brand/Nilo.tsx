@@ -5,8 +5,7 @@ type Props = {
   label?: string;
   state?: NiloState;
   /** CSS px per pixel cell. 6 (default) is the Chat-home size; use 4 for a
-      compact empty state inside a narrower panel (Automate, Pull requests,
-      Providers, Studio). */
+      compact empty state inside a narrower panel (Providers, Studio). */
   cell?: 4 | 6;
 };
 

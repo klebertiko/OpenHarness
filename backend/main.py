@@ -10,12 +10,8 @@ from routers.harnesses import router as harnesses_router
 from routers.execution import router as execution_router
 from routers.providers import router as providers_router
 from routers.cowork import router as cowork_router
-from routers.automations import router as automations_router
-from routers.repos import router as repos_router
 from routers.usage import router as usage_router
 from routers.chat_tools import router as chat_tools_router
-from automations.scheduler import AutomationScheduler
-from repos.fake import FakeRepoProvider
 from secret_store.factory import build_secrets_store
 from providers.store import load_all as load_provider_connections
 import models  # noqa: F401 — register ORM tables for create_all
@@ -34,15 +30,7 @@ async def lifespan(app: FastAPI):
         # 2026-09-12). `providers/store.py` is now the durable half.
         async with SessionLocal() as session:
             app.state.provider_connections = await load_provider_connections(session)
-    if not hasattr(app.state, "fake_repo_provider") or app.state.fake_repo_provider is None:
-        app.state.fake_repo_provider = FakeRepoProvider()
-    scheduler = AutomationScheduler(SessionLocal, app_state=app.state)
-    app.state.automation_scheduler = scheduler
-    scheduler.start()
-    try:
-        yield
-    finally:
-        await scheduler.stop()
+    yield
 
 
 app = FastAPI(title="OpenHarness API", version="0.1.0", lifespan=lifespan)
@@ -114,8 +102,6 @@ app.include_router(execution_router)
 app.include_router(bundles_router)
 app.include_router(providers_router)
 app.include_router(cowork_router)
-app.include_router(automations_router)
-app.include_router(repos_router)
 app.include_router(usage_router)
 app.include_router(chat_tools_router)
 
