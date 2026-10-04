@@ -56,7 +56,7 @@ def _url(httpd: HTTPServer, path: str) -> str:
 
 def test_health_does_not_touch_the_router(server) -> None:
     httpd, fake = server
-    with urllib.request.urlopen(_url(httpd, "/health"), timeout=5) as resp:
+    with urllib.request.urlopen(_url(httpd, "/health"), timeout=5) as resp:  # nosemgrep: opengrep-rules.python.lang.security.audit.dynamic-urllib-use-detected -- fixed http://127.0.0.1 test server
         assert resp.status == 200
         assert json.loads(resp.read()) == {"status": "ok"}
     assert fake.calls == []
@@ -70,7 +70,7 @@ def test_predict_returns_schema_version_and_latency_ms(server) -> None:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=5) as resp:
+    with urllib.request.urlopen(req, timeout=5) as resp:  # nosemgrep: opengrep-rules.python.lang.security.audit.dynamic-urllib-use-detected -- fixed http://127.0.0.1 test server
         assert resp.status == 200
         payload = json.loads(resp.read())
     assert payload["schema_version"] == "openharness-decision-node-v1"
@@ -88,7 +88,7 @@ def test_predict_failure_is_an_honest_500_never_a_fabricated_result(monkeypatch:
         method="POST",
     )
     with pytest.raises(urllib.error.HTTPError) as exc_info:
-        urllib.request.urlopen(req, timeout=5)
+        urllib.request.urlopen(req, timeout=5)  # nosemgrep: opengrep-rules.python.lang.security.audit.dynamic-urllib-use-detected -- fixed http://127.0.0.1 test server
     assert exc_info.value.code == 500
     payload = json.loads(exc_info.value.read())
     assert "model blew up" in payload["error"]
@@ -97,5 +97,5 @@ def test_predict_failure_is_an_honest_500_never_a_fabricated_result(monkeypatch:
 def test_unknown_path_is_404(server) -> None:
     httpd, _fake = server
     with pytest.raises(urllib.error.HTTPError) as exc_info:
-        urllib.request.urlopen(_url(httpd, "/nope"), timeout=5)
+        urllib.request.urlopen(_url(httpd, "/nope"), timeout=5)  # nosemgrep: opengrep-rules.python.lang.security.audit.dynamic-urllib-use-detected -- fixed http://127.0.0.1 test server
     assert exc_info.value.code == 404
