@@ -124,6 +124,35 @@ it("does not show a partial priced subtotal as the known total", () => {
   expect(screen.getByText("cost unknown", { selector: "dd" })).toBeTruthy();
 });
 
+it("leads a not-ready connection with the credential block, above the summary prose", () => {
+  const c = connection({ provider: "openrouter", enabled: false, health: "setup", secret: null });
+  useProviderStore.setState({ connections: [c], selectedId: c.id });
+  useUsageStore.setState({ hydrated: true });
+  render(<Dossier />);
+  const credentialHeading = screen.getByRole("heading", { name: "Credential" });
+  const summary = screen.getByText(/One key, many vendors/i);
+  // DOM order: the fix-it action comes first when the connection isn't ready.
+  expect(credentialHeading.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("moves the credential block below the summary once the connection is ready", () => {
+  const c = connection({ provider: "openrouter", enabled: true, health: "live", secret: null });
+  useProviderStore.setState({ connections: [c], selectedId: c.id });
+  useUsageStore.setState({ hydrated: true });
+  render(<Dossier />);
+  const credentialHeading = screen.getByRole("heading", { name: "Credential" });
+  const summary = screen.getByText(/One key, many vendors/i);
+  expect(summary.compareDocumentPosition(credentialHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("uses the same status word the chat combo uses for the header badge", () => {
+  const c = connection({ enabled: false, health: "setup" });
+  useProviderStore.setState({ connections: [c], selectedId: c.id });
+  useUsageStore.setState({ hydrated: true });
+  render(<Dossier />);
+  expect(screen.getByText("Not connected")).toBeTruthy();
+});
+
 it("does not invent a key length for a credential reference restored from backend", () => {
   const c = connection({ provider: "openrouter", secret: { service: "openharness/openrouter", prefix: "", tail: "", length: 0, savedAt: "", vault: "backend" } });
   useProviderStore.setState({ connections: [c], selectedId: c.id });

@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { KeyRound, ShieldCheck, Terminal, Trash2, TriangleAlert } from "lucide-react";
-import { VAULT_LABEL, activeVault } from "./secrets";
+import { VAULT_LABEL, activeVault, prefixMatches } from "./secrets";
 import type { Connection } from "./providerStore";
 import type { ProviderSpec } from "./catalog";
 import { Chip } from "./atoms";
@@ -209,7 +209,7 @@ export function CredentialSeal({
           onChange={(e) => {
             const v = e.currentTarget.value;
             setLen(v.length);
-            setPrefixOk(!expected || v.length < expected.length || v.startsWith(expected));
+            setPrefixOk(prefixMatches(v, expected));
           }}
           onKeyDown={(e) => e.key === "Enter" && void submit()}
           className="oh-focus-inner t-meta h-[27px] min-w-0 flex-1 rounded-control border border-line-soft bg-sub-200 px-2 tracking-[0.16em] text-ink outline-none focus:border-signal-deep"

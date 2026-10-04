@@ -3,6 +3,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 
 import type { Connection } from "@/components/providers/providerStore";
 import { useProviderStore } from "@/components/providers/providerStore";
+import { useChatProviderStore } from "@/store/chatProviderStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 import { useThreadStore } from "@/store/threadStore";
 
@@ -44,7 +45,7 @@ vi.mock("@/components/agent-run/Transcript", () => ({
 }));
 
 /**
- * Chat-only stage: Cowork / Automations / Git tabs must not appear (palette Task 5).
+ * Chat-only stage: a Cowork tab must not appear (palette Task 5).
  */
 describe("AgentStage chat-only surface", () => {
   afterEach(() => {
@@ -62,17 +63,13 @@ describe("AgentStage chat-only surface", () => {
     });
   });
 
-  it("does not expose Cowork / Automations / Git tablist", () => {
+  it("does not expose a Cowork tablist", () => {
     render(<AgentStage />);
 
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(screen.queryByRole("tab", { name: /^chat$/i })).toBeNull();
     expect(screen.queryByRole("tab", { name: /^cowork$/i })).toBeNull();
-    expect(screen.queryByRole("tab", { name: /^automations$/i })).toBeNull();
-    expect(screen.queryByRole("tab", { name: /^git$/i })).toBeNull();
     expect(screen.queryByText("Cowork")).toBeNull();
-    expect(screen.queryByText("Automations")).toBeNull();
-    expect(screen.queryByText("Git")).toBeNull();
   });
 
   it("New chat clears the previous run, empties the composer, and focuses it", () => {
@@ -126,6 +123,7 @@ function makeConnection(overrides: Partial<Connection>): Connection {
 describe("AgentStage provider gating", () => {
   afterEach(() => {
     cleanup();
+    useChatProviderStore.setState({ chosenId: null });
   });
 
   beforeEach(() => {
@@ -137,13 +135,28 @@ describe("AgentStage provider gating", () => {
     });
   });
 
-  it("empty state points at Providers when nothing is connected", () => {
+  it("empty state names the missing action instead of a bare 'Unavailable' — never a dead click", () => {
     useProviderStore.setState({ connections: [], selectedId: "" });
 
     render(<AgentStage />);
 
-    expect(screen.getByText(/no provider connected/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /connect one/i })).toBeTruthy();
+    // design.md § Provider stance: state exactly what's missing, as an
+    // action — never "No provider connected." dead text.
+    expect(screen.queryByText(/no provider connected/i)).toBeNull();
+    expect(screen.getAllByRole("button", { name: /connect a provider to send/i }).length).toBeGreaterThan(0);
+  });
+
+  it("empty state names the specific fix for an explicit, not-ready choice", () => {
+    useProviderStore.setState({
+      connections: [makeConnection({ id: "anthropic", label: "Anthropic", provider: "anthropic", enabled: false })],
+      selectedId: "",
+    });
+    useChatProviderStore.setState({ chosenId: "anthropic" });
+
+    render(<AgentStage />);
+
+    // Anthropic's catalog credential is "cli" — a switch, not a key paste.
+    expect(screen.getAllByRole("button", { name: /turn on anthropic to send/i }).length).toBeGreaterThan(0);
   });
 
   it("empty state shows the connected provider's label once one is live", () => {

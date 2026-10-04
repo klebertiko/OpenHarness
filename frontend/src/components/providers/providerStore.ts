@@ -536,9 +536,8 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     await runProbe(id, set, get);
   },
 
-  /** Clears the local reference and, where the OS keychain holds it, the
-      real credential. NOTE: for the backend-vault dev path there is no
-      DELETE-just-the-secret route yet — the key stays in the sidecar's
+  /** Clears the local reference. NOTE: there is no DELETE-just-the-secret
+      route yet — the key stays in the sidecar's
       SecretsStore until the whole connection is deleted. Disabling here at
       least stops it from being picked for a run. */
   revokeSecret: async (id) => {

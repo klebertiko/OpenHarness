@@ -2,12 +2,12 @@
 import { useEffect } from "react";
 import { Activity, ExternalLink, Info } from "lucide-react";
 import { Nilo } from "@/components/brand/Nilo";
+import { rowStatus } from "@/components/agent/chatProvider";
 import { type ConnectionUsage } from "@/lib/usageApi";
 import {
   BILLING_LABEL,
   CAPABILITY_LABEL,
   HEALTH_INK,
-  HEALTH_LABEL,
   RESIDENCE_LABEL,
 } from "./catalog";
 import { Chip, Monogram, ProbeTrace, ResidenceMark, Stamp } from "./atoms";
@@ -64,6 +64,7 @@ export function Dossier() {
     );
   }
   const spec = specOf(c);
+  const ready = c.enabled && c.health !== "fault";
   const usage = usageByConnection?.find((u) => u.connectionId === c.id);
   const spend = spendStamp(c, usage);
 
@@ -93,7 +94,7 @@ export function Dossier() {
                   style={{ background: HEALTH_INK[c.health] }}
                   aria-hidden
                 />
-                {HEALTH_LABEL[c.health]}
+                {rowStatus(c)}
               </span>
               {!c.enabled && <Chip>held out of runs</Chip>}
             </div>
@@ -105,7 +106,16 @@ export function Dossier() {
               <Activity size={12} strokeWidth={1.7} />
               {c.health === "probing" ? "Testing…" : "Test"}
             </Btn>
-            <Btn onClick={() => void toggleEnabled(c.id)}>
+            <Btn
+              onClick={() => {
+                const turningOn = !c.enabled;
+                // Turn on, then test — one flow, same promise the chat
+                // combo's inline setup makes (design.md § Provider stance).
+                void toggleEnabled(c.id).then(() => {
+                  if (turningOn) void probe(c.id);
+                });
+              }}
+            >
               {c.enabled ? "Hold back" : "Put in service"}
             </Btn>
           </div>
@@ -160,6 +170,20 @@ export function Dossier() {
       {/* ── Body ─────────────────────────────────────────────────────────── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="max-w-[860px] px-5 pb-10">
+          {/* A not-ready connection leads with the one action that makes it
+              ready — paste a key or flip the switch, then test, one flow —
+              before any caveat or summary prose. Once it's ready, the same
+              block moves below the prose; nobody needs "how to connect"
+              instructions for a connection they already use every day. */}
+          {!ready && (
+            <CredentialSeal
+              connection={c}
+              spec={spec}
+              onAttach={(v) => attachSecret(c.id, v)}
+              onRevoke={() => revokeSecret(c.id)}
+            />
+          )}
+
           {spec.caveat && (
             <div
               className="mt-4 flex gap-2.5 rounded-control bg-sub-200 py-2.5 pl-2.5 pr-3"
@@ -172,12 +196,14 @@ export function Dossier() {
 
           <p className="t-body mt-4 max-w-[74ch] text-ink-mute">{spec.summary}</p>
 
-          <CredentialSeal
-            connection={c}
-            spec={spec}
-            onAttach={(v) => attachSecret(c.id, v)}
-            onRevoke={() => revokeSecret(c.id)}
-          />
+          {ready && (
+            <CredentialSeal
+              connection={c}
+              spec={spec}
+              onAttach={(v) => attachSecret(c.id, v)}
+              onRevoke={() => revokeSecret(c.id)}
+            />
+          )}
 
           {/* Endpoint sits below the credential, not above it: on a connection
               that needs setup the key is the only thing standing between the

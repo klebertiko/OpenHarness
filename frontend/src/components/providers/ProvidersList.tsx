@@ -1,19 +1,27 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { rowStatus, rowTone, type ChatProviderTone } from "@/components/agent/chatProvider";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { type ConnectionUsage } from "@/lib/usageApi";
-import type { Health, Residence } from "./catalog";
+import { ResidenceMark } from "./atoms";
 import { useProviderStore, type Connection } from "./providerStore";
 import { usageCostLabel, useUsageStore } from "./usageStore";
 
 /**
- * Every connection this install holds, grouped by residence.
+ * Every connection this install holds, grouped by whether it can answer a
+ * run right now — "Ready" above "Needs setup" — the same split the chat
+ * combo groups its own rows by (`ChatProviderPicker.tsx`), so a connection
+ * never wears a different status word, or sits in a differently-named
+ * bucket, depending which surface you're looking at it from.
  *
- * Residence is the top-level grouping rather than vendor because it is the
- * question with a consequence: "did that prompt leave this machine?" changes
- * what you are allowed to put in it. The two Ollama rows land in different
- * groups for exactly that reason.
+ * This used to group by residence instead (did the prompt leave this
+ * machine?) on the reasoning that residence is the property with a
+ * consequence. That's still true, so it survives here as the small filled
+ * / hollow mark on each row (`ResidenceMark`) rather than disappearing —
+ * readiness answers "what can I use right now", residence answers "what am
+ * I allowed to put in it", and a list grouped by the first still needs the
+ * second visible per row.
  *
  * Credentials never appear here — only labels and health.
  * ADR 0001 § Consequences ¶6 (`docs/adr/0001-desktop-packaging.md`):
@@ -22,18 +30,23 @@ import { usageCostLabel, useUsageStore } from "./usageStore";
  * Endpoints, probes and billing live in the dossier, one click away.
  */
 
-const GROUPS: { key: Residence; label: string }[] = [
-  { key: "local", label: "On this machine" },
-  { key: "cloud", label: "Cloud" },
+const GROUPS: { key: "ready" | "needsSetup"; label: string }[] = [
+  { key: "ready", label: "Ready" },
+  { key: "needsSetup", label: "Needs setup" },
 ];
 
-/** Health as one plain sentence, and the one colour that goes with it. */
-const STATUS: Record<Health, { text: string; tone: Tone }> = {
-  live: { text: "Connected", tone: "ok" },
-  setup: { text: "Needs setup", tone: "warn" },
-  degraded: { text: "Unstable connection", tone: "warn" },
-  fault: { text: "Can't connect", tone: "fault" },
-  probing: { text: "Checking…", tone: "idle" },
+/** Same six-way split the chat combo's dot uses (`ChatProviderPicker.tsx`'s
+    `toneDotClass`), mapped onto this list's plainer four-tone vocabulary —
+    this panel has never carried the "checking" vs "never probed" pulse
+    distinction, and introducing it here would be a new promise this list
+    doesn't otherwise keep. */
+const TONE: Record<ChatProviderTone, Tone> = {
+  verified: "ok",
+  attention: "warn",
+  checking: "idle",
+  failing: "fault",
+  unverified: "idle",
+  unconfigured: "idle",
 };
 
 /** Cost badge text for one connection's row — undefined (render nothing)
@@ -56,17 +69,17 @@ function ProviderRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const status = STATUS[c.health];
   const costLabel = rowCostLabel(c, usage);
   return (
     <ListRow
       title={c.label}
-      subtitle={status.text}
-      leading={<StatusDot tone={status.tone} pulse={c.health === "probing"} />}
+      subtitle={rowStatus(c)}
+      leading={<StatusDot tone={TONE[rowTone(c)]} pulse={c.health === "probing"} />}
       selected={selected}
       onSelect={onSelect}
       trailing={
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-2">
+          <ResidenceMark residence={c.residence} />
           {costLabel && <span className="t-meta text-ink-faint">{costLabel}</span>}
           <ChevronRight
             size={14}
@@ -185,7 +198,8 @@ export function ProvidersList() {
     <div className="h-full min-h-0 overflow-y-auto pb-3">
       <BudgetStrip />
       {GROUPS.map((g) => {
-        const rows = connections.filter((c) => c.residence === g.key);
+        const ready = (c: Connection) => c.enabled && c.health !== "fault";
+        const rows = connections.filter((c) => (g.key === "ready" ? ready(c) : !ready(c)));
         if (!rows.length) return null;
         return (
           <ListGroup key={g.key} label={g.label}>

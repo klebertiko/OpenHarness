@@ -9,8 +9,9 @@ import { useChatTools } from "@/components/agent/useChatTools";
 import type { ToolPreset } from "@/components/agent/chatCommands";
 import { ChatProviderPicker } from "@/components/agent/ChatProviderPicker";
 import { WorkspacePicker } from "@/components/agent/WorkspacePicker";
-import { pickChatProvider } from "@/components/agent/chatProvider";
+import { missingProviderAction, pickChatProvider } from "@/components/agent/chatProvider";
 import { useChatProviderStore } from "@/store/chatProviderStore";
+import { useChatSetupRequestStore } from "@/store/chatSetupStore";
 import { chosenWorkspace, useWorkspaceStore } from "@/store/workspaceStore";
 import { Nilo } from "@/components/brand/Nilo";
 import { ThinkingStatus } from "@/components/brand/ThinkingStatus";
@@ -52,6 +53,14 @@ export function AgentStage() {
     () => pickChatProvider(connections, chosenProviderId),
     [connections, chosenProviderId],
   );
+  // design.md § Provider stance: never a bare "Unavailable" — when nothing
+  // resolves, the composer states exactly what's missing as an action, and
+  // that action opens the combo's inline setup for the right connection.
+  const missing = useMemo(
+    () => missingProviderAction(connections, chosenProviderId),
+    [connections, chosenProviderId],
+  );
+  const requestProviderSetup = useChatSetupRequestStore((s) => s.requestSetup);
   // Chat tools broker (contract v1.1): what `/` can offer for this workspace
   // with this connection. Absent workspace → the menu says why.
   const chatTools = useChatTools(
@@ -258,17 +267,13 @@ export function AgentStage() {
                   <span className="text-ink-mute">{provider.label}</span>
                 </>
               ) : (
-                <>
-                  No provider connected.{" "}
-                  <button
-                    type="button"
-                    onClick={() => goToProviders("providers")}
-                    className="font-[550] text-signal underline-offset-2 hover:underline"
-                  >
-                    Connect one
-                  </button>{" "}
-                  to start a chat.
-                </>
+                <button
+                  type="button"
+                  onClick={() => requestProviderSetup(missing?.id ?? null)}
+                  className="font-[550] text-signal underline-offset-2 hover:underline"
+                >
+                  {missing?.text ?? "Connect a provider to send"}
+                </button>
               )}
             </p>
           </div>
@@ -361,7 +366,18 @@ export function AgentStage() {
             <ChatProviderPicker onConnect={() => goToProviders("providers")} />
             <WorkspacePicker />
             <span className="flex-1" />
-            <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to send</span>
+            {missing ? (
+              <button
+                type="button"
+                onClick={() => requestProviderSetup(missing.id)}
+                title={missing.text}
+                className="hidden min-w-0 max-w-[240px] truncate text-[11px] font-[550] text-signal underline-offset-2 hover:underline sm:block"
+              >
+                {missing.text}
+              </button>
+            ) : (
+              <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to send</span>
+            )}
             {live ? (
               <button
                 type="button"
@@ -377,6 +393,7 @@ export function AgentStage() {
                 type="button"
                 disabled={!canStart}
                 onClick={onStart}
+                title={!canStart && missing ? missing.text : undefined}
                 aria-label="Send message"
                 className="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
               >
