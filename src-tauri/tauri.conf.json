@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "dev.openharness.app",
   "build": {
-    "beforeDevCommand": "npm run build --prefix ../frontend",
+    "beforeDevCommand": "npm run build --prefix frontend",
     "devUrl": "http://127.0.0.1:3000",
-    "beforeBuildCommand": "npm run build --prefix ../frontend",
+    "beforeBuildCommand": "npm run build --prefix frontend",
     "frontendDist": "../frontend/out"
   },
   "app": {

@@ -32,3 +32,13 @@ Thumbs.db
 # Backend build/test cache artifacts (regenerable, not source)
 backend/build/
 backend/.mutmut-cache
+
+# Local agent/tooling state (machine-specific, never source)
+.claude/
+.pytest_cache/
+__pycache__/
+
+# Gauntlet scratch workspace: CI failure logs, raw scanner SARIF,
+# ad-hoc GitHub API scripts and third-party reference screenshots.
+# Durable gauntlet write-ups live in docs/product/gauntlet-automate/.
+.gauntlet/
