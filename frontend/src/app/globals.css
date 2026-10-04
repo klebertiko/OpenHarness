@@ -69,6 +69,9 @@
   --role-skill: oklch(0.520 0.075 255);
   --role-mcp: oklch(0.520 0.075 160);
   --role-tool: oklch(0.470 0.035 235);
+  /* EXPERIMENTAL (ADR-0005, spike) — distinct hue so a "decision" node never
+     reads as a Gate/HITL (both real gates); this one never is. */
+  --role-decision: oklch(0.560 0.130 310);
 
   /* ── Nilo (mascot): the body follows --signal; the face stays fixed so it
      reads the same in both themes. Screen/desk/code are animation props. ── */

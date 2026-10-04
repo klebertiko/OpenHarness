@@ -202,6 +202,49 @@ describe("Transcript — trajectory breakdown", () => {
     expect(within(qaRow).queryByText(/pinned/i)).toBeNull();
   });
 
+  it("shows a failover indicator, visually distinct from the pinned badge, on a node AC#4 fired for", () => {
+    // engine.py only attaches `failover` once an earlier providerIds entry
+    // was tried and rejected (AC#4) — QA here served on "ol" only after "an"
+    // was tried and rejected first, never a plain pin. Composer default is
+    // also "ol" here so the two badges' conditions are isolated: this
+    // asserts failover renders on its own vocabulary, not layered under a
+    // pinned-mismatch badge that would fire for an unrelated reason.
+    useChatProviderStore.setState({ chosenId: "ol" });
+    const run = makeRun({
+      plan: [
+        seg({ nodeId: "po", label: "PO", tokens: 1200, latencyMs: 2200, state: "done" }),
+        seg({
+          nodeId: "qa",
+          label: "QA",
+          tokens: 900,
+          latencyMs: 1300,
+          state: "done",
+          connectionId: "ol",
+          failover: { attempts: [{ connectionId: "an", reason: "Provider execution failed." }] },
+        }),
+      ],
+    });
+    render(<Transcript run={run} onResolve={() => {}} elapsed={500} />);
+    const table = screen.getByRole("table");
+    const qaRow = within(table).getByText("QA").closest("tr")!;
+
+    const failoverBadge = within(qaRow).getByText(/failover/i);
+    expect(failoverBadge).toBeTruthy();
+    // Distinct from the pinned badge's own vocabulary, not just adjacent to it.
+    expect(within(qaRow).queryByText(/^pinned:/i)).toBeNull();
+    // Hover/tooltip discloses which connection was tried and rejected first.
+    const badgeEl = failoverBadge.closest("[title]") ?? failoverBadge;
+    expect(badgeEl.getAttribute("title")).toMatch(/anthropic/i);
+    expect(badgeEl.getAttribute("title")).toMatch(/provider execution failed/i);
+  });
+
+  it("never shows a failover indicator on a node with a plain pin (no failover key at all)", () => {
+    render(<Transcript run={makeRun()} onResolve={() => {}} elapsed={500} />);
+    const table = screen.getByRole("table");
+    const devRow = within(table).getByText("Dev").closest("tr")!; // plain connectionId, no failover
+    expect(within(devRow).queryByText(/failover/i)).toBeNull();
+  });
+
   it("renders no rollup at all for a run that has not started — no fabricated zeros", () => {
     render(<Transcript run={emptyRun} onResolve={() => {}} elapsed={0} />);
     expect(screen.queryByText("elapsed")).toBeNull();

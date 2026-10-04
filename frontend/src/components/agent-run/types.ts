@@ -54,6 +54,13 @@ export type Block =
   | { kind: "text"; text: string }
   | { kind: "tool"; call: ToolCall };
 
+/** One providerIds entry that was tried and rejected before the connection
+    that actually served the turn (PROVIDER-FAILOVER story, AC#4). */
+export interface FailoverAttempt {
+  connectionId: string;
+  reason: string;
+}
+
 export type SegmentState = "pending" | "running" | "gate" | "done" | "error" | "skipped";
 
 export type Phase = "thinking" | "tool" | "writing" | "routing" | "";
@@ -75,6 +82,13 @@ export interface Segment {
       the connection that actually produced it instead of whichever one the
       composer happened to have selected. */
   connectionId?: string;
+  /** Present only when `connectionId` above is not this node's first
+      `providerIds` entry — one or more earlier connections were tried and
+      rejected first (backend/engine.py's `node_view["failover"]`, AC#4). A
+      plain pin never carries this key at all (absent, not null/empty), so
+      it is the one honest signal that distinguishes "pinned" from
+      "failed over" — never inferred from connectionId alone. */
+  failover?: { attempts: FailoverAttempt[] };
 
   state: SegmentState;
   phase: Phase;

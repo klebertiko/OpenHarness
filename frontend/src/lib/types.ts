@@ -4,7 +4,14 @@ export type NodeType =
   | "hitl"
   | "skill"
   | "mcp"
-  | "tool";
+  | "tool"
+  /** EXPERIMENTAL (ADR-0005, spike) — a typed Laya decision call over a
+      separate loopback process. Opt-in only: never part of the standard
+      Agile graph `compile_skills_harness.py` compiles. Its result
+      (`NodeData.decisionResult`) is advisory-shadow evidence attached to
+      the node's own run output — never read by gate/edge/HITL resolution
+      anywhere in the engine. See docs/adr/0005-laya-decision-node.md. */
+  | "decision";
 
 export type AdapterType = "mock" | "ollama" | "openai" | "claude" | "lmstudio" | "codex";
 export type ExecutionMode = "mock" | "live" | "local";
@@ -56,6 +63,31 @@ export interface NodeData {
   toolKind?: string;
   approvalLabel?: string;
   checklist?: string;
+  /** EXPERIMENTAL (ADR-0005, spike) — `type: "decision"` node only. Same
+      question shape `scripts/laya_issue_shadow.py` already uses in CI.
+      `noul` = "not or unlikely" binary-ish question; `choice` = one of
+      `criteria`'s keys. Authored input, not engine output. */
+  decisionQuestions?: Record<
+    string,
+    {
+      type: "choice" | "noul";
+      instructions: string;
+      criteria?: Record<string, string>;
+    }
+  >;
+  /** EXPERIMENTAL (ADR-0005, spike) — `type: "decision"` node only. Set by
+      the engine on `node_done`, never authored. This is EVIDENCE ONLY:
+      no conditional edge, Gate retry, or HITL resolution anywhere in
+      `backend/engine.py` reads this field. `authority` is always
+      `"advisory-shadow"` — constant, never a value this node (or anything
+      upstream of it) can set to anything else. See
+      docs/adr/0005-laya-decision-node.md item 5. */
+  decisionResult?: {
+    schema_version: string;
+    authority: "advisory-shadow";
+    model_result: unknown;
+    latency_ms: number;
+  };
   status?: "idle" | "running" | "complete" | "error" | "paused";
   output?: string;
   tokens?: number;

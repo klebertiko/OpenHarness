@@ -27,6 +27,12 @@ const LINES: Record<NodeType, Line> = {
   tool: {
     spec: (d) => `${String(d.toolKind ?? "shell")} · ${String(d.adapter ?? "mock")}`,
   },
+  // EXPERIMENTAL (ADR-0005, spike) — shows the evidence, never implies a
+  // gate/approval outcome the way Gate/HITL's own lines do.
+  decision: {
+    note: (d) =>
+      d.decisionResult ? "evidence attached (advisory-shadow)" : "no decision evidence yet",
+  },
 };
 
 function makeNode(type: NodeType) {

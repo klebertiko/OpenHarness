@@ -1,5 +1,6 @@
 "use client";
 import { Children, cloneElement, isValidElement, useId } from "react";
+import { ArrowDown, ArrowUp, X } from "lucide-react";
 import styles from "@/components/canvas/canvas.module.css";
 import { useCanvasStore } from "@/store/canvasStore";
 import { Panel } from "@/components/shell/Panel";
@@ -8,7 +9,8 @@ import { ROLE_CODE, ROLE_ICON, ROLE_VAR } from "@/lib/roles";
 import { PORTS } from "@/lib/ports";
 import type { NodeData, AdapterType, NodeType } from "@/lib/types";
 import { PROVIDERS_BIND_NONE } from "@/components/providers/copy";
-import { useProviderStore } from "@/components/providers/providerStore";
+import { useProviderStore, type Connection } from "@/components/providers/providerStore";
+import { connectionLabel } from "@/components/agent-run/pinnedConnection";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    The inspector.
@@ -99,6 +101,112 @@ function PortTable({ nodeId, type }: { nodeId: string; type: NodeType }) {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * `providerIds[1:]` — PROVIDER-FAILOVER story, AC#5. The primary pin (index
+ * 0, `Field label="Connection pin"` above) is edited elsewhere; this manages
+ * only the ordered fallback chain the engine walks when the pin above fails
+ * to resolve or errors before any output reaches the person (never once it
+ * has — that boundary is backend/engine.py's, not authored here). Nothing to
+ * fail over *to* without a primary pin, so this renders nothing without one;
+ * clearing the pin already discards the whole array (existing behaviour,
+ * untouched by this story).
+ */
+function FallbackConnections({
+  providerIds,
+  connections,
+  onChange,
+}: {
+  providerIds: string[];
+  connections: Connection[];
+  onChange: (ids: string[]) => void;
+}) {
+  const primary = providerIds[0];
+  if (!primary) return null;
+  const fallbacks = providerIds.slice(1);
+  const used = new Set(providerIds);
+  const available = connections.filter((c) => !used.has(c.id));
+
+  const setFallbacks = (next: string[]) => onChange([primary, ...next]);
+  const addFallback = (id: string) => {
+    if (!id || used.has(id)) return;
+    setFallbacks([...fallbacks, id]);
+  };
+  const removeFallback = (index: number) => setFallbacks(fallbacks.filter((_, i) => i !== index));
+  const moveFallback = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= fallbacks.length) return;
+    const next = [...fallbacks];
+    [next[index], next[target]] = [next[target], next[index]];
+    setFallbacks(next);
+  };
+
+  return (
+    <Field label="Fallback connections">
+      <div className="space-y-1">
+        {fallbacks.length === 0 && (
+          <p className="t-meta leading-4 text-ink-faint">
+            None configured — a resolution or first-output failure on the pin above stops the run today.
+          </p>
+        )}
+        {fallbacks.map((id, i) => {
+          const label = connectionLabel(connections, id);
+          return (
+            <div key={id} className="flex items-center gap-1.5">
+              <span className="t-meta w-4 flex-none text-right text-ink-faint">{i + 2}</span>
+              <span className="t-body min-w-0 flex-1 truncate text-ink">{label}</span>
+              <button
+                type="button"
+                className="rounded-control p-0.5 text-ink-faint hover:bg-sub-300 hover:text-ink-dim active:bg-sub-400 disabled:pointer-events-none disabled:opacity-30"
+                disabled={i === 0}
+                aria-label={`Move ${label} up`}
+                onClick={() => moveFallback(i, -1)}
+              >
+                <ArrowUp size={12} strokeWidth={2} aria-hidden />
+              </button>
+              <button
+                type="button"
+                className="rounded-control p-0.5 text-ink-faint hover:bg-sub-300 hover:text-ink-dim active:bg-sub-400 disabled:pointer-events-none disabled:opacity-30"
+                disabled={i === fallbacks.length - 1}
+                aria-label={`Move ${label} down`}
+                onClick={() => moveFallback(i, 1)}
+              >
+                <ArrowDown size={12} strokeWidth={2} aria-hidden />
+              </button>
+              <button
+                type="button"
+                className="rounded-control p-0.5 text-ink-faint hover:bg-sub-300 hover:text-ink-dim active:bg-sub-400"
+                aria-label={`Remove ${label} fallback`}
+                onClick={() => removeFallback(i)}
+              >
+                <X size={12} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+          );
+        })}
+        {available.length > 0 && (
+          <select
+            className={inputCls}
+            aria-label="Add fallback connection"
+            value=""
+            onChange={(e) => addFallback(e.target.value)}
+          >
+            <option value="">+ Add fallback connection…</option>
+            {available.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      <p className="t-meta mt-1 leading-4 text-ink-dim">
+        Tried in this order only if the pin above fails to resolve or errors before any output —
+        never a silent swap. The Transcript marks any node this happens on.
+      </p>
+    </Field>
   );
 }
 
@@ -324,6 +432,14 @@ export function PropertiesPanel() {
                   unpinned agents use the chat default. Connected Studio runs require an explicit pin.
                 </p>
               </Field>
+            )}
+
+            {node.type === "agent" && (
+              <FallbackConnections
+                providerIds={d.providerIds ?? []}
+                connections={connections}
+                onChange={(providerIds) => update({ providerIds })}
+              />
             )}
 
             <Field label="Model">

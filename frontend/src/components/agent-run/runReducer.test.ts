@@ -116,6 +116,64 @@ describe("runReducer", () => {
     expect(afterNodeStart.plan[0].model).toBe("sonnet");
   });
 
+  it("node_start records the failover attempts when backend/engine.py's AC#4 signal fires", () => {
+    // engine.py only ever attaches `node_view["failover"]` once at least one
+    // earlier providerIds entry was tried and rejected — a plain pin never
+    // carries the key at all (absent, not null). Mirrors connection_id's
+    // "arrives on node_start, camelCased for the client" shape.
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "PO", type: "agent", label: "PO", adapter: "mock", model: "" }],
+        unreachable: [],
+      },
+    });
+    expect(afterStart.plan[0].failover).toBeUndefined();
+
+    const afterNodeStart = runReducer(afterStart, {
+      type: "sse",
+      event: "node_start",
+      data: {
+        node_id: "PO",
+        adapter: "claude",
+        model: "",
+        connection_id: "ol",
+        failover: {
+          attempts: [{ connection_id: "an", reason: "Provider execution failed." }],
+        },
+      },
+    });
+
+    expect(afterNodeStart.plan[0].connectionId).toBe("ol");
+    expect(afterNodeStart.plan[0].failover).toEqual({
+      attempts: [{ connectionId: "an", reason: "Provider execution failed." }],
+    });
+  });
+
+  it("node_start leaves failover unset when the event carries none — a plain pin, not a mismarked failover", () => {
+    const afterStart = runReducer(emptyRun, {
+      type: "sse",
+      event: "run_start",
+      data: {
+        run_id: "r1",
+        mode: "live",
+        step: false,
+        order: [{ node_id: "PO", type: "agent", label: "PO", adapter: "mock", model: "" }],
+        unreachable: [],
+      },
+    });
+    const afterNodeStart = runReducer(afterStart, {
+      type: "sse",
+      event: "node_start",
+      data: { node_id: "PO", adapter: "claude", model: "", connection_id: "an" },
+    });
+    expect(afterNodeStart.plan[0].failover).toBeUndefined();
+  });
+
   it("node_skipped marks the segment skipped, not error — a branch not taken is not a failure", () => {
     // Backend engine.py, 2026-09-12: PASS/FAIL conditional routing emits
     // node_skipped for a branch this run's decisions didn't select.

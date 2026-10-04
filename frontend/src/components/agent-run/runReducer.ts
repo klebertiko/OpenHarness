@@ -1,5 +1,5 @@
 import type { NodeType } from "@/lib/types";
-import type { Block, RunState, Segment, ToolCall } from "./types";
+import type { Block, FailoverAttempt, RunState, Segment, ToolCall } from "./types";
 
 export const emptyRun: RunState = {
   runId: null,
@@ -59,6 +59,23 @@ function appendText(blocks: Block[], kind: "reason" | "text", text: string): Blo
     return [...blocks.slice(0, -1), { kind, text: last.text + text }];
   }
   return [...blocks, { kind, text }];
+}
+
+/** `node_start`'s `failover` key (AC#4) is present only once at least one
+    earlier `providerIds` entry was tried and rejected — absent entirely for
+    a plain pin, never `null`. Malformed/missing shape parses to `undefined`
+    rather than an empty attempts list, so a segment can't show a failover
+    badge with nothing to show inside it. */
+function parseFailover(raw: unknown): Segment["failover"] {
+  if (!raw || typeof raw !== "object") return undefined;
+  const attempts = (raw as { attempts?: unknown }).attempts;
+  if (!Array.isArray(attempts) || !attempts.length) return undefined;
+  return {
+    attempts: attempts.map((a): FailoverAttempt => {
+      const o = (a ?? {}) as Record<string, unknown>;
+      return { connectionId: String(o.connection_id ?? ""), reason: String(o.reason ?? "") };
+    }),
+  };
 }
 
 /** Contract §2.5 `args` may arrive as an object or as its JSON string. */
@@ -137,6 +154,10 @@ export function runReducer(state: RunState, action: Action): RunState {
         // never on the harness-off direct path — see Segment.connectionId.
         connectionId:
           action.data.connection_id !== undefined ? String(action.data.connection_id) : s.connectionId,
+        // Same "arrives on node_start, once real resolution happens" shape
+        // as connectionId above — see Segment.failover's own doc comment.
+        failover:
+          action.data.failover !== undefined ? parseFailover(action.data.failover) : s.failover,
       }));
       return { ...next, cursor: idx, status: "running", awaitingStep: null };
     }

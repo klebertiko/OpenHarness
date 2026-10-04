@@ -80,7 +80,90 @@ def resolve_node_provider(
             "from the chat provider chip and connect it under Providers."
         )
 
-    connection_id = str(provider_ids[0])
+    return _resolve_connection(
+        str(provider_ids[0]), data, node_type, label,
+        connections=connections, secrets_store=secrets_store, cwd=cwd,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class FailoverAttempt:
+    """A `providerIds` entry that was tried and rejected before another one
+    resolved — never populated for a plain pin (AC#4 of PROVIDER-FAILOVER
+    wants that distinguishable: a single successful id with no attempts
+    behind it is not a failover, it is just a pin)."""
+
+    connection_id: str
+    reason: str
+
+
+def resolve_node_provider_with_failover(
+    data: dict,
+    node_type: str,
+    label: str,
+    *,
+    connections: dict[str, dict] | None,
+    secrets_store: SecretsStore | None,
+    cwd: str | None = None,
+) -> tuple[ResolvedProvider, list[FailoverAttempt]]:
+    """
+    Walks `data["providerIds"]` in order, skipping any entry that fails to
+    *resolve* (AC#1: a disabled connection, an unknown provider id, a
+    missing credential — today's `ProviderResolutionError` cases) and
+    returning the first one that does.
+
+    Returns `(resolved, attempts)`. `attempts` lists every id tried and
+    rejected before the returned one, in the order they were tried — empty
+    when the very first entry resolves. Exhausting every entry re-raises the
+    *last* `ProviderResolutionError` untouched, with the exact same message
+    `resolve_node_provider` would have raised for that same last id — a
+    single-entry (or empty) `providerIds` therefore behaves byte-for-byte
+    like `resolve_node_provider` today (AC#6).
+
+    This function only ever walks *resolution* failures, decided before any
+    adapter is ever invoked. A connection that resolves fine but fails once
+    the adapter actually starts streaming (CLI missing, network error) is
+    `engine.py`'s concern (AC#2/#3) — it re-enters this function with the
+    remaining ids after such a failure to keep walking the same chain,
+    which is why `providerIds` is read from `data` each call rather than
+    being threaded through as a fixed parameter here.
+    """
+    connections = connections or {}
+    provider_ids = [str(p) for p in (data.get("providerIds") or []) if p]
+    if not provider_ids:
+        raise ProviderResolutionError(
+            "No provider is set for this node. Pin one on the node, or pick one "
+            "from the chat provider chip and connect it under Providers."
+        )
+
+    attempts: list[FailoverAttempt] = []
+    last_error: ProviderResolutionError | None = None
+    for connection_id in provider_ids:
+        try:
+            resolved = _resolve_connection(
+                connection_id, data, node_type, label,
+                connections=connections, secrets_store=secrets_store, cwd=cwd,
+            )
+        except ProviderResolutionError as exc:
+            attempts.append(FailoverAttempt(connection_id=connection_id, reason=str(exc)))
+            last_error = exc
+            continue
+        return resolved, attempts
+
+    assert last_error is not None  # provider_ids is non-empty, so the loop always sets this
+    raise last_error
+
+
+def _resolve_connection(
+    connection_id: str,
+    data: dict,
+    node_type: str,
+    label: str,
+    *,
+    connections: dict[str, dict],
+    secrets_store: SecretsStore | None,
+    cwd: str | None = None,
+) -> ResolvedProvider:
     connection = connections.get(connection_id)
     if not connection:
         raise ProviderResolutionError(

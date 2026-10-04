@@ -317,6 +317,38 @@ function PinnedBadge({ label }: { label: string }) {
   );
 }
 
+/** Distinct from `PinnedBadge` on purpose (PROVIDER-FAILOVER story, AC#5):
+    "pinned" means an author chose this connection; "failover" means the
+    engine chose it *for* them because an earlier one failed — conflating the
+    two vocabularies would hide the one thing this badge exists to disclose.
+    Signal teal (the app's other identity colour, "live/confirmed") rather
+    than warn amber ("notice this, unchanged") or fault red ("something is
+    broken now") — a completed failover is neither of those, it is the run
+    recovering the way it was configured to. */
+function FailoverBadge({
+  attempts,
+  servedLabel,
+  connections,
+}: {
+  attempts: NonNullable<Segment["failover"]>["attempts"];
+  servedLabel: string;
+  connections: Connection[];
+}) {
+  const rejected = attempts
+    .map((a) => `${connectionLabel(connections, a.connectionId)} (${a.reason})`)
+    .join("; ");
+  return (
+    <span
+      className="t-meta inline-flex items-center gap-1 rounded-control border px-1.5 py-[1px] text-ink-dim"
+      style={{ borderColor: "var(--signal)" }}
+      title={`Failover: ${rejected} rejected before this node ran on ${servedLabel}.`}
+    >
+      <span className="h-[5px] w-[5px] flex-none rounded-full" style={{ background: "var(--signal)" }} aria-hidden />
+      failover: {attempts.length} tried
+    </span>
+  );
+}
+
 function RunRollup({ run, elapsed }: { run: RunState; elapsed?: number }) {
   if (!run.startedAt) return null; // nothing has run yet — no honest total to show
   const totals = rollupTotals(run, elapsed);
@@ -388,6 +420,7 @@ function NodeBreakdown({
       <tbody>
         {segments.map((s) => {
           const mismatch = isPinnedMismatch(s.connectionId, defaultConnectionId);
+          const failover = s.failover?.attempts.length ? s.failover : undefined;
           return (
             <tr key={s.nodeId} className="border-t border-line-soft">
               <td className="px-1.5 py-1">
@@ -395,6 +428,15 @@ function NodeBreakdown({
                 {mismatch && (
                   <span className="ml-2 inline-block align-middle">
                     <PinnedBadge label={connectionLabel(connections, s.connectionId!)} />
+                  </span>
+                )}
+                {failover && (
+                  <span className="ml-2 inline-block align-middle">
+                    <FailoverBadge
+                      attempts={failover.attempts}
+                      servedLabel={connectionLabel(connections, s.connectionId!)}
+                      connections={connections}
+                    />
                   </span>
                 )}
               </td>
