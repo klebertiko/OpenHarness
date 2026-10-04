@@ -1,0 +1,67 @@
+{
+  "scope": "12 targeted semantic mutants; not an exhaustive mutation score",
+  "sandbox": "C:\\Users\\klebe\\AppData\\Local\\Temp\\openharness-ohm-mutation-q9A9hq",
+  "baseline": "passed",
+  "results": [
+    {
+      "id": "node-position",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "node-data",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "node-provider-pin",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "raw-api-key-export",
+      "status": "killed",
+      "failedAssertions": 2
+    },
+    {
+      "id": "edge-condition",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "edge-signal",
+      "status": "killed",
+      "failedAssertions": 2
+    },
+    {
+      "id": "edge-handles",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "bundle-content",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "import-position",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "import-data",
+      "status": "killed",
+      "failedAssertions": 4
+    },
+    {
+      "id": "import-edges",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "import-legacy-role",
+      "status": "killed",
+      "failedAssertions": 3
+    }
+  ]
+}

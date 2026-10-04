@@ -1,0 +1,50 @@
+Independent QA test execution — 2026-09-15
+Environment: D:\Development\src\OpenHarness (shared, uncommitted checkout)
+
+=== frontend: npm test -- --run ===
+Test Files  57 passed (57)
+     Tests  254 passed (254)
+  Start at  02:02:43
+  Duration  10.55s (transform 5.80s, setup 0ms, collect 36.06s, tests 11.55s, environment 59.64s, prepare 13.57s)
+[exited with code 0]
+
+Notable stderr (non-fatal, test still passed): src/components/agent/AgentStage.composition.test.tsx
+logged "Error: connect ECONNREFUSED 127.0.0.1:8000" twice — this test performs
+a real fetch and asserts the app's behavior when the sidecar is unreachable.
+Consistent with the independent finding (below) that the backend dev server
+was not actually listening on :8000 at the time of this QA pass.
+
+=== frontend: npm run typecheck ===
+> tsc --noEmit
+[exited with code 0]
+
+=== backend: .venv/Scripts/python.exe -m pytest -q ===
+321 passed, 7 warnings in 17.55s
+Warnings are pre-existing datetime.utcnow() deprecation notices
+(routers/automations.py:132, routers/cowork.py:107) and two pytest cache
+PermissionError warnings (.pytest_cache not writable) — unrelated to this
+story, no functional effect (confirmed by conftest.py's isolated-tempdir
+strategy, which does not depend on .pytest_cache).
+
+No single test or suite approached the ~30s hang threshold called out in the
+task (longest suite: backend at 17.55s total; longest single test observed:
+AutomationsPanel.test.tsx at 2.5s). No mutation-testing tool was run.
+
+=== Live dev servers (:3000 / :8000) ===
+Checked read-only, twice, by two independent methods, AFTER the three test
+runs above:
+  - Git Bash: `curl 127.0.0.1:8000/health` and `curl 127.0.0.1:3000/` both
+    failed to connect (exit 7 / HTTP 000).
+  - PowerShell: `Invoke-WebRequest` to both URLs both threw
+    "Unable to connect to the remote server"; `Get-NetTCPConnection -State
+    Listen` found no listener on either port.
+Neither server was reachable at check time. QA issued no command capable of
+stopping either process (only `npm test`, `npm run typecheck`, and pytest —
+each its own short-lived, isolated process; pytest's DB/secrets are
+redirected to a fresh tempfile.mkdtemp() root by backend/tests/conftest.py,
+which hard-asserts it never resolves under the real backend/data/, so the
+pytest run in particular could not have touched the live server's database
+even if the two processes had otherwise interacted). Most likely explanation
+is the servers were already down, or exited independently, before or during
+this QA pass — not a QA action. Flagged for Sonnet/the user; QA did not
+attempt to restart either server per the task's explicit instruction.

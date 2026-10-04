@@ -1,0 +1,448 @@
+
+> openharness@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 D:/Development/src/OpenHarness/frontend
+
+ ✓ src/components/agent-run/RunsPanel.test.tsx (2 tests) 661ms
+   ✓ RunsPanel > lists past runs with a human status and opens one for detail  526ms
+ ✓ src/components/agent/HarnessBar.test.tsx (5 tests) 743ms
+ ✓ src/components/harnesses/HarnessLibrary.studio.test.tsx (3 tests) 933ms
+   ✓ opens an imported copy with the default ID instead of substituting the built-in bundle  547ms
+ ✓ src/components/agent-run/HistoricalRunDetail.test.tsx (3 tests) 379ms
+ ✓ src/components/studio/ValidateDock.test.tsx (7 tests) 1291ms
+   ✓ Studio OHM import > loads legacy role/label bundles into the canvas instead of reporting success with a stale graph  320ms
+   ✓ Studio OHM import > exports and reimports the complete authored fixture through actual file and download boundaries  394ms
+ ✓ src/components/studio/StudioOverview.test.tsx (4 tests) 1293ms
+   ✓ identifies the local sample and opens the bundled framework through its loader  500ms
+   ✓ shows a loading failure and allows retry without hiding the draft  358ms
+   ✓ resumes the current draft and exposes new/import actions  400ms
+ ✓ src/components/agent/HarnessSwitch.test.tsx (6 tests) 2011ms
+   ✓ HarnessSwitch (harness picker) > opens a menu with No harness and every harness, the active one selected  418ms
+   ✓ HarnessSwitch (harness picker) > works from the keyboard: arrows move, Enter picks, Escape closes  573ms
+   ✓ HarnessSwitch (harness picker) > offers Edit in Studio from the menu  350ms
+ ✓ src/components/sidebar/PropertiesPanel.tokenLimit.test.tsx (3 tests) 669ms
+ ✓ src/components/sidebar/PropertiesPanel.provider.test.tsx (1 test) 898ms
+   ✓ keeps two agents pinned independently when the chat default changes or another pin is cleared  897ms
+ ✓ src/components/agent/ChatProviderPicker.test.tsx (3 tests) 2253ms
+   ✓ chooses without claiming verification and configures an unavailable entry by keyboard without changing the chat choice  1586ms
+   ✓ keeps the focused option valid if the connection list changes while open  370ms
+ ✓ src/components/agent/AgentStage.composition.test.tsx (1 test) 295ms
+ ✓ src/components/canvas/StudioPanels.test.tsx (1 test) 1396ms
+   ✓ adds a block with the keyboard and exposes its selected settings  1392ms
+stderr | Fetch.onError (file:\D:\Development\src\OpenHarness\frontend\node_modules\happy-dom\src\fetch\Fetch.ts:669:37)
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/fetch/Fetch.ts:682:17)
+    at Object.<anonymous> (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/fetch/Fetch.ts:518:10)
+    at AsyncTaskManager.abortAll (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/async-task-manager/AsyncTaskManager.ts:328:21)
+    at AsyncTaskManager.abort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/async-task-manager/AsyncTaskManager.ts:61:15)
+    at DetachedBrowserFrame.abort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/browser/detached-browser/DetachedBrowserFrame.ts:147:49)
+    at DetachedWindowAPI.abort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/window/DetachedWindowAPI.ts:62:29)
+    at teardownWindow (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/index.CmSc2RE5.js:336:22)
+    at Object.teardown (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/index.CmSc2RE5.js:391:10)
+    at withEnv (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/runBaseTests.9Ij9_de-.js:89:13)
+    at run (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/runBaseTests.9Ij9_de-.js:109:2)
+DOMException [AbortError]: The operation was aborted.
+    at Fetch.onAsyncTaskManagerAbort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/fetch/Fetch.ts:682:17)
+    at Object.<anonymous> (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/fetch/Fetch.ts:518:10)
+    at AsyncTaskManager.abortAll (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/async-task-manager/AsyncTaskManager.ts:328:21)
+    at AsyncTaskManager.abort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/async-task-manager/AsyncTaskManager.ts:61:15)
+    at DetachedBrowserFrame.abort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/browser/detached-browser/DetachedBrowserFrame.ts:147:49)
+    at DetachedWindowAPI.abort (file:///D:/Development/src/OpenHarness/frontend/node_modules/happy-dom/src/window/DetachedWindowAPI.ts:62:29)
+    at teardownWindow (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/index.CmSc2RE5.js:336:22)
+    at Object.teardown (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/index.CmSc2RE5.js:391:10)
+    at withEnv (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/runBaseTests.9Ij9_de-.js:89:13)
+    at run (file:///D:/Development/src/OpenHarness/frontend/node_modules/vitest/dist/chunks/runBaseTests.9Ij9_de-.js:109:2)
+
+ ✓ src/components/agent/AgentStage.test.tsx (4 tests) 403ms
+ ✓ src/components/git/GitPanel.test.tsx (6 tests) 2037ms
+   ✓ GitPanel > selecting a pull drives a real detail fetch across all six endpoints  330ms
+   ✓ GitPanel > posting a comment appends it to the visible activity list instead of vanishing  955ms
+ ✓ src/components/shell/HarnessLibrarySheet.test.tsx (1 test) 273ms
+ ✓ src/components/shell/TitleBar.test.tsx (3 tests) 166ms
+ ✓ src/components/agent/ChatComposer.test.tsx (7 tests) 477ms
+ ✓ src/lib/reposApi.test.ts (10 tests) 21ms
+ ✓ src/components/automations/AutomationsPanel.test.tsx (2 tests) 4082ms
+   ✓ identifies simulation mode and UTC without inventing a completed result after reload  832ms
+   ✓ keeps drafts local and saves coherent harness settings explicitly, retaining input after failed writes  3248ms
+ ✓ src/store/workspaceStore.test.ts (9 tests) 19ms
+ ✓ src/components/providers/ProvidersList.usage.test.tsx (1 test) 128ms
+ ✓ src/store/harnessLibraryStore.test.ts (6 tests) 16ms
+ ✓ src/lib/studio.test.ts (7 tests) 22ms
+ ❯ src/components/providers/Dossier.test.tsx (4 tests | 1 failed) 511ms
+   ✓ shows no contradictory unpriced caveat for a free local connection with real usage 245ms
+   ✓ still warns about unpriced tokens for a cloud connection that genuinely has them 65ms
+   ✓ labels local usage without claiming free and discloses unavailable measurement provenance 51ms
+   × does not show a partial priced subtotal as the known total 146ms
+     → Unable to find an element with the text: cost unknown, which matches selector 'dd'. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 flex-col"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex-none border-b border-line bg-sub-100 px-5 pb-3 pt-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-start gap-3"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"grid flex-none place-items-center rounded-control border bg-sub-200"[39m
+            [33mstyle[39m=[32m"width: 30px; height: 30px; border-color: var(--signal-deep); color: var(--ink-dim);"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-mono font-medium leading-none"[39m
+              [33mstyle[39m=[32m"font-size: 13px; letter-spacing: 0.04em;"[39m
+            [36m>[39m
+              [0mAN[0m
+            [36m</span>[39m
+          [36m</span>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+            [36m>[39m
+              [36m<h1[39m
+                [33mclass[39m=[32m"t-display text-[20px] text-ink"[39m
+              [36m>[39m
+                [0mAnthropic[0m
+              [36m</h1>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"t-meta flex items-center gap-1.5 rounded-control border px-1.5 py-px"[39m
+                [33mstyle[39m=[32m"border-color: var(--signal); color: var(--signal);"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"h-[5px] w-[5px] rounded-[1px]"[39m
+                  [33mstyle[39m=[32m"background: var(--signal);"[39m
+                [36m/>[39m
+                [0mlive[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"t-body mt-1 max-w-[76ch] text-ink-dim"[39m
+            [36m/>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-none gap-2"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"t-body inline-flex h-[27px] flex-none items-center gap-1.5 rounded-control border px-2.5 transition-colors disabled:opacity-40 border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mclass[39m=[32m"lucide lucide-activity"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.7"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"12"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mTest[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"t-body inline-flex h-[27px] flex-none items-center gap-1.5 rounded-control border px-2.5 transition-colors disabled:opacity-40 border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mHold back[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"-mx-5 mt-4 flex border-y border-line-soft bg-sub-200 px-5 py-2.5 [&>*:first-child]:border-l-0 [&>*:first-child]:pl-0"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1 border-l border-line-soft pl-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-label text-ink-faint"[39m
+            [36m>[39m
+              [0mruns on[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"flex-none rounded-[1px]"[39m
+                [33mstyle[39m=[32m"width: 6px; height: 6px; background: transparent; box-shadow: inset 0 0 0 1px var(--ink-mute);"[39m
+              [36m/>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"t-title truncate"[39m
+                [33mstyle[39m=[32m"color: var(--ink);"[39m
+              [36m>[39m
+                [0mvendor cloud[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-body mt-0.5 truncate text-ink-mute"[39m
+            [36m>[39m
+              [0mAnthropic infrastructure[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1 border-l border-line-soft pl-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-label text-ink-faint"[39m
+            [36m>[39m
+              [0manswers to[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"t-title truncate"[39m
+                [33mstyle[39m=[32m"color: var(--ink);"[39m
+              [36m>[39m
+                [0mcompletion[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-body mt-0.5 truncate text-ink-mute"[39m
+            [36m>[39m
+              [0mLLM nodes may target it[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"min-w-0 flex-1 border-l border-line-soft pl-2.5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-label text-ink-faint"[39m
+            [36m>[39m
+              [0mbilled as[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"mt-1 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"t-title truncate"[39m
+                [33mstyle...
+ ✓ src/components/agent-run/useRunStream.test.ts (19 tests) 154ms
+ ✓ src/components/providers/secrets.test.ts (4 tests) 16ms
+ ✓ src/components/toolbar/Toolbar.modes.test.tsx (2 tests) 296ms
+ ✓ src/lib/actions.hitl.test.ts (5 tests) 69ms
+ ✓ src/components/shell/TitleBar.studio.test.tsx (1 test) 203ms
+ ✓ src/store/harnessSessionStore.test.ts (6 tests) 12ms
+ ✓ src/lib/bundlesApi.test.ts (8 tests) 17ms
+ ✓ src/store/threadStore.test.ts (9 tests) 17ms
+ ✓ src/lib/runsApi.test.ts (4 tests) 12ms
+ ✓ src/components/brand/niloFrames.test.ts (10 tests) 10ms
+ ✓ src/components/agent/chatProvider.test.ts (6 tests) 8ms
+ ✓ src/lib/nativeDialog.test.ts (6 tests) 11ms
+ ✓ src/components/git/time.test.ts (4 tests) 67ms
+ ✓ src/lib/bundleGraph.test.ts (6 tests) 16ms
+ ✓ src/store/canvasStore.authoring.test.ts (3 tests) 8ms
+ ✓ src/components/providers/providerStore.secrets.test.ts (1 test) 13ms
+ ✓ src/components/shell/commands.test.ts (5 tests) 31ms
+ ✓ src/lib/bundleGraph.authoring.test.ts (5 tests) 15ms
+ ✓ src/components/providers/providerStore.runOutcome.test.ts (9 tests) 12ms
+ ✓ src/components/brand/niloGrid.test.ts (3 tests) 11ms
+ ✓ src/lib/scheduleCron.test.ts (3 tests) 27ms
+ ✓ src/components/agent/ThreadsSidebar.test.ts (2 tests) 7ms
+ ✓ src/components/git/checklist.test.ts (5 tests) 15ms
+ ✓ src/store/canvasStore.test.ts (5 tests) 14ms
+ ✓ src/lib/bundleGraph.import-safety.test.ts (2 tests) 5ms
+ ✓ src/lib/summarizeRun.test.ts (6 tests) 5ms
+ ✓ src/components/git/activity.test.ts (4 tests) 6ms
+ ✓ src/components/providers/usageStore.test.ts (9 tests) 12ms
+ ✓ src/store/modeStore.test.ts (3 tests) 6ms
+ ✓ src/lib/automationsApi.test.ts (2 tests) 5ms
+ ✓ src/lib/usageApi.test.ts (6 tests) 21ms
+ ✓ src/components/agent-run/runReducer.test.ts (7 tests) 8ms
+ ✓ src/components/shell/studioNavigation.test.ts (1 test) 6ms
+ ✓ src/components/canvas/nodeProvider.test.ts (3 tests) 5ms
+ ✓ src/components/providers/copy.test.ts (2 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/providers/Dossier.test.tsx > does not show a partial priced subtotal as the known total
+TestingLibraryElementError: Unable to find an element with the text: cost unknown, which matches selector 'dd'. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="flex h-full min-h-0 flex-col"
+    >
+      <header
+        class="flex-none border-b border-line bg-sub-100 px-5 pb-3 pt-4"
+      >
+        <div
+          class="flex items-start gap-3"
+        >
+          <span
+            aria-hidden="true"
+            class="grid flex-none place-items-center rounded-control border bg-sub-200"
+            style="width: 30px; height: 30px; border-color: var(--signal-deep); color: var(--ink-dim);"
+          >
+            <span
+              class="font-mono font-medium leading-none"
+              style="font-size: 13px; letter-spacing: 0.04em;"
+            >
+              AN
+            </span>
+          </span>
+          <div
+            class="min-w-0 flex-1"
+          >
+            <div
+              class="flex flex-wrap items-center gap-2"
+            >
+              <h1
+                class="t-display text-[20px] text-ink"
+              >
+                Anthropic
+              </h1>
+              <span
+                class="t-meta flex items-center gap-1.5 rounded-control border px-1.5 py-px"
+                style="border-color: var(--signal); color: var(--signal);"
+              >
+                <span
+                  aria-hidden="true"
+                  class="h-[5px] w-[5px] rounded-[1px]"
+                  style="background: var(--signal);"
+                />
+                live
+              </span>
+            </div>
+            <p
+              class="t-body mt-1 max-w-[76ch] text-ink-dim"
+            />
+          </div>
+          <div
+            class="flex flex-none gap-2"
+          >
+            <button
+              class="t-body inline-flex h-[27px] flex-none items-center gap-1.5 rounded-control border px-2.5 transition-colors disabled:opacity-40 border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink"
+              type="button"
+            >
+              <svg
+                class="lucide lucide-activity"
+                fill="none"
+                height="12"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.7"
+                viewBox="0 0 24 24"
+                width="12"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"
+                />
+              </svg>
+              Test
+            </button>
+            <button
+              class="t-body inline-flex h-[27px] flex-none items-center gap-1.5 rounded-control border px-2.5 transition-colors disabled:opacity-40 border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink"
+              type="button"
+            >
+              Hold back
+            </button>
+          </div>
+        </div>
+        <div
+          class="-mx-5 mt-4 flex border-y border-line-soft bg-sub-200 px-5 py-2.5 [&>*:first-child]:border-l-0 [&>*:first-child]:pl-0"
+        >
+          <div
+            class="min-w-0 flex-1 border-l border-line-soft pl-2.5"
+          >
+            <div
+              class="t-label text-ink-faint"
+            >
+              runs on
+            </div>
+            <div
+              class="mt-1 flex items-center gap-1.5"
+            >
+              <span
+                aria-hidden="true"
+                class="flex-none rounded-[1px]"
+                style="width: 6px; height: 6px; background: transparent; box-shadow: inset 0 0 0 1px var(--ink-mute);"
+              />
+              <span
+                class="t-title truncate"
+                style="color: var(--ink);"
+              >
+                vendor cloud
+              </span>
+            </div>
+            <div
+              class="t-body mt-0.5 truncate text-ink-mute"
+            >
+              Anthropic infrastructure
+            </div>
+          </div>
+          <div
+            class="min-w-0 flex-1 border-l border-line-soft pl-2.5"
+          >
+            <div
+              class="t-label text-ink-faint"
+            >
+              answers to
+            </div>
+            <div
+              class="mt-1 flex items-center gap-1.5"
+            >
+              <span
+                class="t-title truncate"
+                style="color: var(--ink);"
+              >
+                completion
+              </span>
+            </div>
+            <div
+              class="t-body mt-0.5 truncate text-ink-mute"
+            >
+              LLM nodes may target it
+            </div>
+          </div>
+          <div
+            class="min-w-0 flex-1 border-l border-line-soft pl-2.5"
+          >
+            <div
+              class="t-label text-ink-faint"
+            >
+              billed as
+            </div>
+            <div
+              class="mt-1 flex items-center gap-1.5"
+            >
+              <span
+                class="t-title truncate"
+                style...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/providers/Dossier.test.tsx:124:17
+    122|   useUsageStore.setState({ hydrated: true, summary });
+    123|   render(<Dossier />);
+    124|   expect(screen.getByText("cost unknown", { selector: "dd" })).toBeTru…
+       |                 ^
+    125| });
+    126| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 58 passed (59)
+      Tests  1 failed | 274 passed (275)
+   Start at  23:27:07
+   Duration  20.10s (transform 27.45s, setup 0ms, collect 95.19s, tests 22.12s, environment 89.25s, prepare 20.48s)
+

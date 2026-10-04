@@ -1,0 +1,117 @@
+OpenHarness
+Harness Studio
+/
+Search
+Ctrl
+K
+Run
+Ctrl
+↵
+MOCK
+CONNECTED
+Chats
+Studio
+Automate
+Pull requests
+Providers
+Blocks
+click or drag
+
+Add a block, then connect its named ports.
+
+Agent
+1 in · 1 out
+Gate
+1 in · 2 out
+HITL
+1 in · 2 out
+Skill
+0 in · 1 out
+McpServer
+0 in · 1 out
+Tool
+0 in · 1 out
+Use light theme
+Keyboard map
+Back to Studio
+Agent + review
+Use in chat
+READY FOR REVIEW
+PASS
+Codex draft preserved
+AGT
+Simulation · no provider called
+role BE
+signal
+signal
+Review Gate
+GATE
+tests · AC
+entry
+pass
+fail
+HITL
+HITL
+Accept
+proposal
+approve
+reject
+GRAPH WIREABLE
+3n·2e
+107%
+BUNDLE
+Validate
+Plan simulation
+Export .ohm
+Import .ohm
+Inspector
+AGT
+Codex draft preserved
+impl
+WIRING
+1 in · 1 out
+in
+signal
+—
+out
+signal
+Review Gate
+SETTINGS
+Label
+Role id
+Emits (Signals)
+PROVIDER
+resolved per node
+Connection pin
+Use chat default (in chat)
+Anthropic · Unavailable
+Cursor · Unavailable
+OpenAI · Unavailable
+Ollama local · Unavailable
+Ollama Cloud · Unavailable
+OpenRouter · Unavailable
+
+Applies to this agent only. In chat, a pinned connection overrides the chat provider; unpinned agents use the chat default. Connected Studio runs require an explicit pin.
+
+Model
+Legacy bundle settings
+System Prompt
+Temperature — 0.7
+Max Tokens
+Token Limit (budget)
+
+Stops this node honestly (not the whole run) if its own turn spends at or over this many tokens. Separate from Max Tokens, which only caps generation length.
+
+READY
+mode
+Studio · exec mock
+section
+studio
+graph
+3n · 2e
+sel
+impl
+backend
+connected
+?
+keys

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.1.0",
+  "manifest": {
+    "id": "openharness.default.agile",
+    "name": "Edited framework copy",
+    "version": "0.1.0",
+    "description": "Authoring fidelity",
+    "license": "MIT",
+    "tags": [
+      "test"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "edited-copy",
+        "type": "agent",
+        "position": {
+          "x": 120,
+          "y": 100
+        },
+        "data": {
+          "label": "Edited copy",
+          "providerIds": [
+            "openai"
+          ]
+        },
+        "measured": {
+          "width": 212,
+          "height": 100
+        },
+        "role": "agent",
+        "label": "Edited copy"
+      }
+    ],
+    "edges": []
+  },
+  "content": {
+    "prompts": {
+      "draft": "Line one\nLine two"
+    },
+    "agents": {},
+    "skills": {},
+    "hooks": {},
+    "commands": {},
+    "scripts": {}
+  },
+  "runtime": {
+    "preferred": "api",
+    "cli": null,
+    "env": [],
+    "secrets": []
+  },
+  "validation": {
+    "mockProfile": "default"
+  },
+  "extension": {
+    "formatOwner": "roundtrip-test"
+  }
+}
