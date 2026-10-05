@@ -8,6 +8,7 @@ import { Check } from "lucide-react";
 import {
   chatProviderOptions,
   pickChatProvider,
+  providerReadiness,
   rowStatus,
   type ChatProviderTone,
 } from "@/components/agent/chatProvider";
@@ -71,7 +72,7 @@ function InlineSetup({ id, onOpenProviders }: { id: string; onOpenProviders: () 
   if (!connection) return null;
   const spec = specOf(connection);
   const probing = connection.health === "probing";
-  const ready = connection.enabled && connection.health !== "fault";
+  const ready = providerReadiness(connection).ready;
   const failed = connection.health === "fault";
 
   const runKeyed = async () => {

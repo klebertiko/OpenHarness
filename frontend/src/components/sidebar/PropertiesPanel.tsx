@@ -10,6 +10,7 @@ import { PORTS } from "@/lib/ports";
 import type { NodeData, AdapterType, NodeType } from "@/lib/types";
 import { PROVIDERS_BIND_NONE } from "@/components/providers/copy";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
+import { providerReadiness } from "@/components/agent/chatProvider";
 import { connectionLabel } from "@/components/agent-run/pinnedConnection";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -423,7 +424,7 @@ export function PropertiesPanel() {
                   )}
                   {connections.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.label}{!c.enabled || c.health === "fault" ? " · Unavailable" : ""}
+                      {c.label}{providerReadiness(c).ready ? "" : " · Unavailable"}
                     </option>
                   ))}
                 </select>

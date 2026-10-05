@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { rowStatus, rowTone, type ChatProviderTone } from "@/components/agent/chatProvider";
+import { providerReadiness, rowStatus, rowTone, type ChatProviderTone } from "@/components/agent/chatProvider";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { type ConnectionUsage } from "@/lib/usageApi";
 import { ResidenceMark } from "./atoms";
@@ -198,7 +198,7 @@ export function ProvidersList() {
     <div className="h-full min-h-0 overflow-y-auto pb-3">
       <BudgetStrip />
       {GROUPS.map((g) => {
-        const ready = (c: Connection) => c.enabled && c.health !== "fault";
+        const ready = (c: Connection) => providerReadiness(c).ready;
         const rows = connections.filter((c) => (g.key === "ready" ? ready(c) : !ready(c)));
         if (!rows.length) return null;
         return (

@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { KeyRound, ShieldCheck, Terminal, Trash2, TriangleAlert } from "lucide-react";
 import { VAULT_LABEL, activeVault, prefixMatches } from "./secrets";
+import { providerReadiness } from "@/components/agent/chatProvider";
 import type { Connection } from "./providerStore";
 import type { ProviderSpec } from "./catalog";
 import { Chip } from "./atoms";
@@ -92,7 +93,11 @@ export function CredentialSeal({
      paste flow below never applies here — connection health *is* the
      credential state, read straight from the adapter's probe(). */
   if (spec.credential.kind === "cli") {
-    const connected = connection.health === "live" || connection.health === "degraded";
+    // Same gate as the list and the header chip: turned-off never reads
+    // "connected" even when a Test passed, and turned-on-but-untested is not
+    // "not connected".
+    const readiness = providerReadiness(connection);
+    const connected = readiness.verified;
     return (
       <Section
         title="Credential"
@@ -101,6 +106,11 @@ export function CredentialSeal({
             <Chip tone="signal">
               <Terminal size={11} strokeWidth={1.8} />
               connected via CLI
+            </Chip>
+          ) : readiness.ready ? (
+            <Chip>
+              <Terminal size={11} strokeWidth={1.8} />
+              turned on, not tested
             </Chip>
           ) : (
             <Chip tone="warn">
