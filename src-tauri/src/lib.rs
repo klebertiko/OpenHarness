@@ -120,6 +120,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(SidecarState(Mutex::new(None)))
         .setup(|app| {
             let token = generate_token().map_err(std::io::Error::other)?;
