@@ -3,7 +3,7 @@ import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
 import { bundleGraphToCanvas } from "./bundleGraph";
 import { composeBundleFromCanvas, fetchDefault, isOHarnessBundle } from "./bundlesApi";
-import { markClean } from "./studioDocuments";
+import { replaceStudioCanvas } from "./studioDocuments";
 import type { HARNESS_PRESETS } from "./templates";
 
 export function openStudioBundle(bundle: HarnessBundle): void {
@@ -14,13 +14,15 @@ export function openStudioBundle(bundle: HarnessBundle): void {
   // Convert before replacing the draft so an invalid graph cannot erase it.
   const copy = structuredClone(bundle);
   const { nodes, edges } = bundleGraphToCanvas(copy.graph!);
-  useHarnessSessionStore.getState().replaceBundle(copy);
-  const canvas = useCanvasStore.getState();
-  canvas.loadGraph(nodes, edges);
-  // A bundle identifier is not a saved harness record in the local database.
-  canvas.setHarnessMeta({ id: null, name: copy.manifest.name || copy.manifest.id, description: copy.manifest.description || "" });
-  // Opening is not editing: nothing is saved until the person changes it.
-  markClean();
+  // Opening is not editing: pending edits of the open harness are saved
+  // first, and nothing new is saved until the person changes it.
+  replaceStudioCanvas(() => {
+    useHarnessSessionStore.getState().replaceBundle(copy);
+    const canvas = useCanvasStore.getState();
+    canvas.loadGraph(nodes, edges);
+    // A bundle identifier is not a saved harness record in the local database.
+    canvas.setHarnessMeta({ id: null, name: copy.manifest.name || copy.manifest.id, description: copy.manifest.description || "" });
+  });
   useShellStore.getState().setSection("studio");
   useShellStore.getState().setStudioView("editor");
 }

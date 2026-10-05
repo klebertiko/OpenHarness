@@ -64,6 +64,9 @@ describe("HarnessBar", () => {
 
     expect(useCanvasStore.getState().nodes).toHaveLength(1);
     expect(useCanvasStore.getState().nodes[0].id).toBe("PO");
+    // A bundle id is not a saved harness record: it opens as a new, unsaved harness.
+    expect(useCanvasStore.getState().harnessMeta.id).toBeNull();
+    expect(useCanvasStore.getState().harnessMeta.name).toBe("test.bundle");
   });
 
   it("Providers from the picker opens the Providers section", async () => {
@@ -83,6 +86,7 @@ describe("HarnessBar", () => {
     render(<HarnessBar />);
     await userEvent.setup().click(screen.getByRole("button", { name: "stub studio" }));
     expect(useCanvasStore.getState().nodes).toEqual([node]);
-    expect(useCanvasStore.getState().harnessMeta).toEqual({ id: "authored", name: "Authored", description: "Authoring description" });
+    // The bundle id is not a saved-harness record id (PUT /harnesses/<bundle id> would 404).
+    expect(useCanvasStore.getState().harnessMeta).toEqual({ id: null, name: "Authored", description: "Authoring description" });
   });
 });
