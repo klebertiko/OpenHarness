@@ -1,46 +1,75 @@
 "use client";
-import { HEALTH_INK, type Billing, type Capability, type Health, type Residence } from "./catalog";
+import type { ChatProviderTone } from "@/components/agent/chatProvider";
+import type { Billing, Capability, Residence } from "./catalog";
 import type { Probe } from "./providerStore";
 
 /**
- * The five marks this workstream adds to the shell's vocabulary. Each one
+ * The marks the Providers screen adds to the shell's vocabulary. Each one
  * carries information; none of them is a decoration.
  */
+
+/* ── Tone vocabulary ──────────────────────────────────────────────────────────
+   Every coloured mark on this screen reads its colour from the readiness tone
+   (`providerReadiness(c).tone`), never from raw `health`, so a turned-off
+   connection that once tested live can never wear teal. Classes rather than
+   inline colour, so the palette keeps its single definition site (globals.css). */
+export const TONE_DOT: Record<ChatProviderTone, string> = {
+  verified: "bg-signal",
+  attention: "bg-warn",
+  failing: "bg-fault",
+  checking: "bg-ink-dim animate-pulse",
+  unverified: "bg-ink-faint",
+  unconfigured: "border border-ink-faint bg-transparent",
+};
+
+/** Status-word colour. Teal is reserved for interaction (design.md), so a
+    verified connection reads in plain ink; only trouble takes a hue. */
+export const TONE_TEXT: Record<ChatProviderTone, string> = {
+  verified: "text-ink",
+  attention: "text-warn",
+  failing: "text-fault",
+  checking: "text-ink-dim",
+  unverified: "text-ink-dim",
+  unconfigured: "text-ink-mute",
+};
+
+/** One readiness dot. Hollow when nothing is configured, filled once there is
+    something to report — the same filled/hollow grammar as the residence mark. */
+export function ToneDot({ tone }: { tone: ChatProviderTone }) {
+  return <span aria-hidden className={`h-[7px] w-[7px] flex-none rounded-[2px] ${TONE_DOT[tone]}`} />;
+}
 
 /* ── Monogram ─────────────────────────────────────────────────────────────────
    Vendor identity as a two-letter mono tile, in grey.
 
    Deliberately not a logo and deliberately not a brand colour. Five vendors'
-   brand hues next to each other would turn the wallet into a rainbow and would
-   collide head-on with this app's rule that chroma means *state*. A tile that
-   holds its shape lets the one coloured element in the row — the state rule —
-   stay the thing your eye lands on. */
+   brand hues next to each other would turn the list into a rainbow and would
+   collide head-on with this app's rule that chroma means *state*. `live`
+   (verified, per `providerReadiness`) only deepens the hairline. */
+const MONO_SIZE = {
+  sm: "h-[18px] w-[18px] text-[8px]",
+  lg: "h-8 w-8 text-[13px]",
+} as const;
+
 export function Monogram({
   text,
   live,
-  size = 22,
+  size = "sm",
 }: {
   text: string;
   live?: boolean;
-  size?: number;
+  size?: keyof typeof MONO_SIZE;
 }) {
   return (
     <span
       aria-hidden
-      className="grid flex-none place-items-center rounded-control border bg-sub-200"
-      style={{
-        width: size,
-        height: size,
-        borderColor: live ? "var(--signal-deep)" : "var(--line)",
-        color: live ? "var(--ink-dim)" : "var(--ink-mute)",
-      }}
+      className={[
+        "grid flex-none place-items-center rounded-control border bg-sub-200 font-mono font-medium leading-none tracking-[0.04em]",
+        MONO_SIZE[size],
+        live ? "border-signal-deep text-ink-dim" : "border-line text-ink-mute",
+      ].join(" ")}
     >
-      <span
-        className="font-mono font-medium leading-none"
-        style={{ fontSize: Math.round(size * 0.42), letterSpacing: "0.04em" }}
-      >
-        {text}
-      </span>
+      {text}
     </span>
   );
 }
@@ -49,111 +78,93 @@ export function Monogram({
    Solid square = the tokens are computed on this machine.
    Hollow square = they leave it.
 
-   Filled versus outlined is the fastest binary the eye can resolve, it needs no
-   colour, and it survives being 6px wide next to a 12px label. */
+   Filled versus outlined is the fastest binary the eye can resolve and needs no
+   colour. The mark is visual only; `RESIDENCE_SR` carries the same fact in words. */
+export const RESIDENCE_SR: Record<Residence, string> = {
+  local: "runs on this machine",
+  cloud: "runs in the vendor cloud",
+};
+
 export function ResidenceMark({ residence }: { residence: Residence }) {
-  const local = residence === "local";
   return (
     <span
       aria-hidden
-      className="flex-none rounded-[1px]"
-      style={{
-        width: 6,
-        height: 6,
-        background: local ? "var(--ink-dim)" : "transparent",
-        boxShadow: local ? "none" : "inset 0 0 0 1px var(--ink-mute)",
-      }}
+      className={[
+        "h-[6px] w-[6px] flex-none rounded-[1px]",
+        residence === "local" ? "bg-ink-dim" : "border border-ink-mute",
+      ].join(" ")}
     />
   );
 }
 
-/* ── Stamp ────────────────────────────────────────────────────────────────────
-   A fixed-position fact in the dossier header. Kicker above, value below, ruled
-   on the left. Three of them side by side read as a column each, so comparing
-   two connections is a vertical scan rather than a paragraph. */
-export function Stamp({
-  kicker,
+/* ── Fact ─────────────────────────────────────────────────────────────────────
+   One line of the dossier's spec sheet: a sentence-case term, its value and an
+   optional note, as `dt`/`dd` inside the parent `dl`. Each fact is ruled on top
+   rather than on the left, so the sheet can reflow into as many columns as the
+   dossier is wide — one column on a phone, five on a desktop — instead of
+   squeezing fixed columns until their text overlaps. */
+const FACT_TONE = {
+  ink: "text-ink",
+  warn: "text-warn",
+  fault: "text-fault",
+} as const;
+
+export function Fact({
+  term,
   value,
   mark,
   tone = "ink",
   note,
 }: {
-  kicker: string;
+  term: string;
   value: string;
   mark?: React.ReactNode;
-  tone?: "ink" | "warn" | "fault" | "signal";
+  tone?: keyof typeof FACT_TONE;
   note?: string;
 }) {
-  const color =
-    tone === "warn"
-      ? "var(--warn)"
-      : tone === "fault"
-        ? "var(--fault)"
-        : tone === "signal"
-          ? "var(--signal)"
-          : "var(--ink)";
   return (
-    <div className="min-w-0 flex-1 border-l border-line-soft pl-2.5">
-      <div className="t-label text-ink-faint">{kicker}</div>
-      <div className="mt-1 flex items-center gap-1.5">
+    <div className="min-w-0 border-t border-line-soft pt-2">
+      <dt className="t-body text-ink-mute">{term}</dt>
+      <dd
+        className={`t-title mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 [overflow-wrap:anywhere] ${FACT_TONE[tone]}`}
+      >
         {mark}
-        <span className="t-title truncate" style={{ color }}>
-          {value}
-        </span>
-      </div>
-      {note && <div className="t-body mt-0.5 truncate text-ink-mute">{note}</div>}
+        {value}
+      </dd>
+      {note && <dd className="t-body mt-0.5 text-ink-faint [overflow-wrap:anywhere]">{note}</dd>}
     </div>
   );
 }
 
 /* ── Probe trace ──────────────────────────────────────────────────────────────
-   Twelve reachability checks as 2px bars, oldest to newest, height on a square
-   root scale so a 300ms cloud hop and a 4ms loopback both stay readable in the
-   same 12px band. A gap in the trace is a failed probe drawn as a floor tick in
-   fault — you can see *when* a provider started refusing, not just that it is
-   refusing now. This is the difference between "OpenAI is broken" and "OpenAI
-   has been broken since Tuesday". */
+   Up to twelve reachability checks as 2px bars, oldest to newest, height on a
+   square-root scale so a 300ms cloud hop and a 4ms loopback both stay readable
+   in the same band. A failed probe is a floor tick in fault — you can see
+   *when* a provider started refusing, not just that it is refusing now. Bar
+   height is data, so it is the one inline style left on this screen. */
 export function ProbeTrace({
   probes,
-  health,
-  height = 13,
+  tone,
+  height = 12,
 }: {
   probes: Probe[];
-  health: Health;
+  tone: ChatProviderTone;
   height?: number;
 }) {
   if (!probes.length) {
-    return (
-      <span
-        aria-hidden
-        className="flex-none border-b border-dashed border-ink-faint"
-        style={{ width: 35, height }}
-      />
-    );
+    return <span aria-hidden className="h-3 w-[35px] flex-none border-b border-dashed border-ink-faint" />;
   }
   const max = Math.max(...probes.map((p) => p.ms), 1);
   return (
-    <span
-      aria-hidden
-      className="flex flex-none items-end gap-px"
-      style={{ height }}
-      title={`last ${probes.length} probes`}
-    >
+    <span aria-hidden className="flex h-3 flex-none items-end gap-px" title={`last ${probes.length} probes`}>
       {probes.map((p, i) => {
         const last = i === probes.length - 1;
         const h = p.ok ? Math.max(2, Math.round(Math.sqrt(p.ms / max) * height)) : 2;
         return (
           <span
             key={i}
-            className="w-[2px] rounded-[0.5px]"
-            style={{
-              height: h,
-              background: !p.ok
-                ? "var(--fault)"
-                : last
-                  ? HEALTH_INK[health]
-                  : "var(--ink-faint)",
-            }}
+            className={`w-[2px] rounded-[0.5px] ${!p.ok ? "bg-fault" : last ? TONE_DOT[tone] : "bg-ink-faint"}`}
+            style={{ height: h }}
           />
         );
       })}
@@ -162,21 +173,25 @@ export function ProbeTrace({
 }
 
 /* ── State rule ───────────────────────────────────────────────────────────────
-   The 2px vertical rule that opens every connection row. The only coloured
-   element in the ledger, and the shell's existing `.oh-tick` grammar. */
-export function StateRule({ health, tall }: { health: Health; tall?: boolean }) {
+   The 2px vertical rule that opens a connection row in the run binding. */
+export function StateRule({ tone, tall }: { tone: ChatProviderTone; tall?: boolean }) {
   return (
     <span
       aria-hidden
-      className="flex-none rounded-[1px]"
-      style={{ width: 2, height: tall ? 26 : 18, background: HEALTH_INK[health] }}
+      className={`w-[2px] flex-none rounded-[1px] ${tall ? "h-[26px]" : "h-[18px]"} ${TONE_DOT[tone]}`}
     />
   );
 }
 
 /* ── Chip ─────────────────────────────────────────────────────────────────────
-   Squared, hairline, mono. Not a pill — pills are for consumer web, and this
-   app's radius scale tops out at 5px. */
+   Squared, hairline, mono. Not a pill — design.md caps controls at 7px. */
+const CHIP_TONE = {
+  dim: "text-ink-dim",
+  signal: "text-signal",
+  warn: "text-warn",
+  fault: "text-fault",
+} as const;
+
 export function Chip({
   children,
   tone = "dim",
@@ -185,31 +200,26 @@ export function Chip({
   active,
 }: {
   children: React.ReactNode;
-  tone?: "dim" | "signal" | "warn" | "fault";
+  tone?: keyof typeof CHIP_TONE;
   onClick?: () => void;
   title?: string;
   active?: boolean;
 }) {
-  const color =
-    tone === "signal"
-      ? "var(--signal)"
-      : tone === "warn"
-        ? "var(--warn)"
-        : tone === "fault"
-          ? "var(--fault)"
-          : "var(--ink-dim)";
   const Tag = onClick ? "button" : "span";
   return (
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
       title={title}
+      aria-pressed={onClick && active !== undefined ? active : undefined}
       className={[
-        "t-meta inline-flex h-[19px] items-center gap-1.5 rounded-control border px-1.5 transition-colors",
+        "t-meta inline-flex h-[19px] items-center gap-1.5 whitespace-nowrap rounded-control border px-1.5 transition-colors",
+        CHIP_TONE[tone],
         active ? "border-signal-deep bg-sub-300" : "border-line bg-sub-200",
-        onClick ? "hover:border-ink-faint hover:bg-sub-300" : "",
+        onClick
+          ? "hover:border-ink-faint hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          : "",
       ].join(" ")}
-      style={{ color }}
     >
       {children}
     </Tag>
