@@ -174,6 +174,19 @@ mod tests {
     }
 
     #[test]
+    fn main_window_is_not_auto_created_because_setup_builds_it_with_the_token_script() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let main = config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|w| w["label"] == "main")
+            .expect("main window config");
+        assert_eq!(main["create"], serde_json::Value::Bool(false));
+    }
+
+    #[test]
     fn reserve_port_returns_a_loopback_port_that_can_be_rebound() {
         let port = reserve_port().unwrap();
         TcpListener::bind(("127.0.0.1", port)).unwrap();
