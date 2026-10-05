@@ -188,6 +188,23 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_grant_every_native_dialog_the_frontend_calls() {
+        // lib/nativeDialog.ts pickFolder() -> dialog open; lib/ohmFile.ts -> dialog save + fs write.
+        // A missing grant fails silently at runtime, so pin them here.
+        let caps: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let granted: Vec<&str> = caps["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|p| p.as_str())
+            .collect();
+        for needed in ["dialog:allow-open", "dialog:allow-save", "fs:allow-write-text-file"] {
+            assert!(granted.contains(&needed), "capability {needed} missing");
+        }
+    }
+
+    #[test]
     fn reserve_port_returns_a_loopback_port_that_can_be_rebound() {
         let port = reserve_port().unwrap();
         TcpListener::bind(("127.0.0.1", port)).unwrap();
