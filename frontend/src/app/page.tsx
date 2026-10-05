@@ -20,6 +20,7 @@ import {
 
 import { StudioOverview } from "@/components/studio/StudioOverview";
 import { newStudioHarness, openStudioPreset, useStudioInChat } from "@/lib/studio";
+import { hasStudioDraft, startAutosave } from "@/lib/studioDocuments";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
 import { useShellStore } from "@/components/shell/shellStore";
@@ -80,6 +81,9 @@ export default function Home() {
     setMode(isStudio ? "studio" : "agent");
   }, [isStudio, setMode]);
 
+  // Every edited harness is saved to the local engine as the person works.
+  useEffect(() => startAutosave(), []);
+
   /* Deep link: /?preset=critic-gate opens a named preset on load. Useful for
      docs links and for handing someone a reproducible starting graph. */
   useEffect(() => {
@@ -125,7 +129,7 @@ export default function Home() {
           position: { x: 160 + nodes.length * 28, y: 120 + (nodes.length % 5) * 46 },
           data: { ...t.defaultData } as HarnessNode["data"],
         };
-        if (!useShellStore.getState().studioHasDraft) newStudioHarness();
+        if (!hasStudioDraft(useCanvasStore.getState())) newStudioHarness();
         setSection("studio");
         setStudioView("editor");
         addNode(node);

@@ -5,6 +5,7 @@ import { useActiveRunStore } from "@/store/activeRunStore";
 import { api } from "@/lib/api";
 import { useShellStore } from "@/components/shell/shellStore";
 import { sendControl } from "@/components/agent-run/runClient";
+import { flushAutosave, useStudioDocsStore } from "@/lib/studioDocuments";
 
 /**
  * The harness verbs, in one place.
@@ -15,35 +16,14 @@ import { sendControl } from "@/components/agent-run/runClient";
  * there is no second, button-only copy of the logic.
  */
 export function useHarnessActions() {
-  const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const saveState = useStudioDocsStore((st) => st.saveState);
 
+  // One save path: the same autosave that runs while editing, flushed now.
   const save = useCallback(async () => {
-    const { nodes, edges, harnessMeta, setHarnessMeta } = useCanvasStore.getState();
-    setSaving(true);
-    try {
-      const graph = { nodes, edges };
-      if (harnessMeta.id) {
-        await api.harnesses.update(harnessMeta.id, {
-          graph_json: graph,
-          name: harnessMeta.name,
-        });
-      } else {
-        const res = await api.harnesses.create(
-          harnessMeta.name,
-          harnessMeta.description,
-          graph
-        );
-        setHarnessMeta({ id: res.id });
-      }
-      setSaveMsg("saved");
-    } catch {
-      setSaveMsg("save failed");
-    } finally {
-      setSaving(false);
-      setTimeout(() => setSaveMsg(""), 2400);
-    }
+    await flushAutosave();
   }, []);
+  const statusMsg = saveState === "saving" ? "Saving…" : saveState === "error" ? "Not saved — local engine unreachable" : saveState === "saved" ? "Saved" : "";
 
   const exportJson = useCallback(() => {
     const { nodes, edges, harnessMeta } = useCanvasStore.getState();
@@ -72,6 +52,8 @@ export function useHarnessActions() {
         try {
           const parsed = JSON.parse(ev.target?.result as string);
           useCanvasStore.getState().loadGraph(parsed.nodes ?? [], parsed.edges ?? []);
+          // An import is a new harness, never an overwrite of the open one.
+          useCanvasStore.getState().setHarnessMeta({ id: null, name: file.name.replace(/\.(harness\.)?json$/i, "") || "Imported harness", description: "" });
           useShellStore.getState().setSection("studio");
           useShellStore.getState().setStudioView("editor");
         } catch {
@@ -150,5 +132,5 @@ export function useHarnessActions() {
     void sendControl(runId, { action: "resume", decision, note });
   }, []);
 
-  return { run, stop, resolveHitl, save, exportJson, importJson, saving, saveMsg };
+  return { run, stop, resolveHitl, save, exportJson, importJson, saving: saveState === "saving", saveMsg: saveMsg || statusMsg };
 }

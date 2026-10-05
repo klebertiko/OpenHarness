@@ -63,7 +63,6 @@ function save(state: Persisted) {
 
 interface ShellState extends Persisted {
   studioView: "overview" | "editor";
-  studioHasDraft: boolean;
   setStudioView: (view: "overview" | "editor") => void;
   hydrated: boolean;
   paletteOpen: boolean;
@@ -101,11 +100,7 @@ function persistFrom(s: ShellState) {
 export const useShellStore = create<ShellState>((set, get) => ({
   ...DEFAULTS,
   studioView: "overview",
-  studioHasDraft: false,
-  setStudioView: (studioView) => set({
-    studioView,
-    studioHasDraft: get().studioHasDraft || studioView === "editor",
-  }),
+  setStudioView: (studioView) => set({ studioView }),
   hydrated: false,
   paletteOpen: false,
   keymapOpen: false,
