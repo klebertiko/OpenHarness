@@ -41,7 +41,8 @@ export function ModelPicker({
   describedBy,
   disabled,
 }: {
-  connection: Connection;
+  /** Null when nothing is pinned yet: only the inherit option and typed names. */
+  connection: Connection | null;
   value: string;
   onChange: (model: string) => void;
   label?: string;
@@ -51,7 +52,7 @@ export function ModelPicker({
   describedBy?: string;
   disabled?: boolean;
 }) {
-  const options: ComboOption[] = connection.models.map((m) => ({ id: m.id, label: m.id, detail: modelDetail(m) }));
+  const options: ComboOption[] = (connection?.models ?? []).map((m) => ({ id: m.id, label: m.id, detail: modelDetail(m) }));
   if (inheritLabel !== undefined) options.unshift({ id: "", label: inheritLabel, detail: inheritDetail });
   // A saved value the list no longer contains still shows as the selection.
   if (value && !options.some((o) => o.id === value)) {
@@ -70,10 +71,10 @@ export function ModelPicker({
       searchable
       allowCustom
       searchPlaceholder="Filter or type a model name"
-      status={connection.health === "probing" ? "loading" : "ready"}
+      status={connection?.health === "probing" ? "loading" : "ready"}
       loadingText="Testing the connection…"
       emptyText="No models listed. Test the connection, or type a model name."
-      header={modelSourceNote(connection)}
+      header={connection ? modelSourceNote(connection) : "Pin a connection to list its models. A typed name is sent as is."}
       width={340}
       disabled={disabled}
       triggerClassName={
