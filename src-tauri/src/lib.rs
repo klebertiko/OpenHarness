@@ -120,6 +120,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(SidecarState(Mutex::new(None)))
         .setup(|app| {
             let token = generate_token().map_err(std::io::Error::other)?;
@@ -184,6 +185,34 @@ mod tests {
             .find(|w| w["label"] == "main")
             .expect("main window config");
         assert_eq!(main["create"], serde_json::Value::Bool(false));
+    }
+
+    #[test]
+    fn capabilities_grant_every_native_dialog_the_frontend_calls() {
+        // lib/nativeDialog.ts pickFolder() -> dialog open; lib/ohmFile.ts -> dialog save + fs write.
+        // A missing grant fails silently at runtime, and any extra dialog/fs grant
+        // (or a static fs scope) widens what the webview can touch — pin the exact set.
+        let caps: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
+        let mut granted: Vec<String> = caps["permissions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| match p.as_str() {
+                Some(id) => id.to_string(),
+                None => p["identifier"].as_str().unwrap_or_default().to_string(),
+            })
+            .filter(|id| id.starts_with("dialog:") || id.starts_with("fs:"))
+            .collect();
+        granted.sort();
+        assert_eq!(
+            granted,
+            [
+                "dialog:allow-open",
+                "dialog:allow-save",
+                "fs:allow-write-text-file",
+            ]
+        );
     }
 
     #[test]
