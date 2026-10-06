@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { Activity, ExternalLink, Info } from "lucide-react";
 import { Nilo } from "@/components/brand/Nilo";
-import { rowStatus } from "@/components/agent/chatProvider";
+import { providerReadiness, rowStatus } from "@/components/agent/chatProvider";
 import { type ConnectionUsage } from "@/lib/usageApi";
 import {
   BILLING_LABEL,
@@ -64,7 +64,7 @@ export function Dossier() {
     );
   }
   const spec = specOf(c);
-  const ready = c.enabled && c.health !== "fault";
+  const ready = providerReadiness(c).ready;
   const usage = usageByConnection?.find((u) => u.connectionId === c.id);
   const spend = spendStamp(c, usage);
 

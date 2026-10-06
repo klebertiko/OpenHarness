@@ -21,6 +21,59 @@ export type ChatProvider = {
     the exact bug this type exists to fix. */
 export type ChatProviderTone = "verified" | "unverified" | "checking" | "attention" | "failing" | "unconfigured";
 
+/** The one place that decides whether a connection is connected. Every surface
+    (Providers list + dossier + credential seal, the chat picker, Studio node
+    summaries) reads this instead of mixing `enabled` / `health` / `secret` on
+    its own - two surfaces reading different fields is how a provider could
+    read "connected" in one panel and sit under "Needs setup" in the other.
+
+    `enabled` is the backend's own authority on usable (the gate
+    resolve_node_provider() applies to a run), so it alone decides `ready`;
+    health is evidence layered on top and can only *remove* readiness
+    (`fault`) or add `verified`. A passing probe on a turned-off connection is
+    therefore never "connected". */
+export type ProviderReadiness = {
+  /** ready = can answer a run now · off = has what it needs but is switched
+      off · needs-setup = nothing configured yet · fault = a probe failed. */
+  state: "ready" | "needs-setup" | "off" | "fault";
+  /** Eligible to answer a run (enabled and not faulted). */
+  ready: boolean;
+  /** Ready AND the last probe said live/degraded. */
+  verified: boolean;
+  /** Status word (same strings `rowStatus` always returned). */
+  label: string;
+  tone: ChatProviderTone;
+  /** What the person still has to do, or null when nothing. */
+  missing: "credential" | "turn-on" | "fix-failure" | null;
+};
+
+export function providerReadiness(c: Connection): ProviderReadiness {
+  const label = rowStatus(c);
+  const tone = rowTone(c);
+  if (c.health === "fault") {
+    return { state: "fault", ready: false, verified: false, label, tone, missing: "fix-failure" };
+  }
+  if (!c.enabled) {
+    const needsKey = specOf(c).credential.kind === "api-key" && !c.secret;
+    return {
+      state: needsKey ? "needs-setup" : "off",
+      ready: false,
+      verified: false,
+      label,
+      tone,
+      missing: needsKey ? "credential" : "turn-on",
+    };
+  }
+  return {
+    state: "ready",
+    ready: true,
+    verified: c.health === "live" || c.health === "degraded",
+    label,
+    tone,
+    missing: null,
+  };
+}
+
 const modeOf = (c: Connection): "live" | "local" => (c.residence === "cloud" ? "live" : "local");
 
 /** The first connection ready to answer: a live cloud one wins, else a live
@@ -29,7 +82,7 @@ const modeOf = (c: Connection): "live" | "local" => (c.residence === "cloud" ? "
     ever set by a Test click this browser session happened to make. Requiring
     "live" would force a fresh reload to look disconnected until re-tested. */
 function autoPick(connections: Connection[]): Connection | null {
-  const ready = connections.filter((c) => c.enabled && c.health !== "fault");
+  const ready = connections.filter((c) => providerReadiness(c).ready);
   return ready.find((c) => c.residence === "cloud") ?? ready.find((c) => c.residence === "local") ?? null;
 }
 
@@ -42,7 +95,7 @@ function autoPick(connections: Connection[]): Connection | null {
  */
 export function pickChatProvider(connections: Connection[], chosenId?: string | null): ChatProvider | null {
   if (chosenId) {
-    const c = connections.find((x) => x.id === chosenId && x.enabled && x.health !== "fault");
+    const c = connections.find((x) => x.id === chosenId && providerReadiness(x).ready);
     if (c) return { id: c.id, label: c.label, mode: modeOf(c), chosen: true };
     return null;
   }
@@ -133,7 +186,7 @@ export function chatProviderOptions(connections: Connection[]) {
         c.health === "fault" ? "Test failed" :
         c.residence === "cloud" ? "Cloud" : "On-device"
       ),
-      ready: c.enabled && c.health !== "fault",
+      ready: providerReadiness(c).ready,
       tone: rowTone(c),
     })),
   ];
