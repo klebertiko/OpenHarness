@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "_source": "Mirror of frontend/src/lib/ports.ts (PORTS) + frontend/src/lib/templates.ts (NODE_TEMPLATES). TS is canonical; a vitest parity test fails if this drifts. 'decision' (ADR-0005, experimental) is deliberately absent: the copilot never proposes it.",
+  "limits": {
+    "maxOps": 40,
+    "maxNodes": 60,
+    "maxEdges": 120,
+    "labelMax": 60,
+    "idFieldMax": 40,
+    "systemPromptMax": 4000,
+    "checklistMax": 2000,
+    "approvalLabelMax": 40,
+    "signalListMax": 8,
+    "signalMax": 60
+  },
+  "nodes": [
+    {
+      "type": "agent",
+      "label": "Agent",
+      "description": "Role-bound actor — profile, providers, exit signals",
+      "stage": "flow",
+      "ports": { "in": ["in"], "out": ["out"] },
+      "editable": ["roleId", "systemPrompt", "emits", "consumes"]
+    },
+    {
+      "type": "gate",
+      "label": "Gate",
+      "description": "Blocking checkpoint — checklist, pass / fail routes",
+      "stage": "flow",
+      "ports": { "in": ["in"], "out": ["pass", "fail"] },
+      "editable": ["gateId", "checklist", "emits", "consumes"]
+    },
+    {
+      "type": "hitl",
+      "label": "HITL",
+      "description": "Human authority — merge, Sprint Goal, acceptance",
+      "stage": "flow",
+      "ports": { "in": ["in"], "out": ["approve", "reject"] },
+      "editable": ["approvalLabel"]
+    },
+    {
+      "type": "skill",
+      "label": "Skill",
+      "description": "Named capability — invoke from an Agent or place on the graph",
+      "stage": "flow",
+      "ports": { "in": [], "out": ["out"] },
+      "editable": ["skillId", "systemPrompt"]
+    },
+    {
+      "type": "mcp",
+      "label": "McpServer",
+      "description": "MCP connector — exposes tools to bound Agents",
+      "stage": "connections",
+      "ports": { "in": [], "out": ["tools"] },
+      "editable": []
+    },
+    {
+      "type": "tool",
+      "label": "Tool",
+      "description": "Native tool — HTTP, shell, repo, …",
+      "stage": "connections",
+      "ports": { "in": [], "out": ["call"] },
+      "editable": []
+    }
+  ],
+  "assistableFields": {
+    "agent": ["systemPrompt"],
+    "skill": ["systemPrompt"],
+    "gate": ["checklist"]
+  }
+}
