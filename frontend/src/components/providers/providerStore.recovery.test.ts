@@ -121,3 +121,11 @@ describe("secrets (F10)", () => {
     await expect(saveSecret("openharness/openrouter", "sk-or-test-value-1234")).rejects.toThrow(/couldn't reach/i);
   });
 });
+
+describe("seed endpoints (F12)", () => {
+  it("Ollama local starts on the OpenAI-compatible path the adapter probes (/v1), not the bare daemon root", async () => {
+    const { PROVIDERS } = await import("./catalog");
+    expect(find("ollama-local").endpoint).toBe(PROVIDERS.ollama.endpoint.default);
+    expect(find("ollama-local").endpoint.endsWith("/v1")).toBe(true);
+  });
+});

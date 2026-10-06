@@ -120,3 +120,9 @@ it("Remove key that the sidecar refused keeps the key and says so (F10)", async 
   expect(revokeSecret).toHaveBeenCalledWith("openrouter");
   expect((await screen.findByRole("alert")).textContent).toMatch(/couldn.t remove the key/i);
 });
+
+it("a connection that only lacks a model still offers Test next to Choose a model", () => {
+  show(connection({ health: "setup" }));
+  expect(screen.getByRole("button", { name: "Choose a model" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^test$/i })).toBeTruthy();
+});

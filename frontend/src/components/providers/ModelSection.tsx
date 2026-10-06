@@ -56,7 +56,7 @@ export function ModelSection({ c }: { c: Connection }) {
       <div className="mt-1.5 min-h-4">
         {save.state === "saving" && <p role="status" className="t-meta text-ink-dim">Saving…</p>}
         {save.state === "saved" && (
-          <p role="status" className="t-meta text-signal">
+          <p role="status" className="t-meta text-ink-dim">
             {save.model ? `Saved. Runs use ${save.model}.` : "Saved. Runs use the CLI default."}
           </p>
         )}

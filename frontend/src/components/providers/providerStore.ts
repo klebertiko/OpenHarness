@@ -166,7 +166,7 @@ const seed: Connection[] = [
     provider: "ollama",
     label: "Ollama local",
     residence: "local",
-    endpoint: "http://127.0.0.1:11434",
+    endpoint: "http://127.0.0.1:11434/v1",
     secret: null,
     health: "live",
     detail: "Daemon answering. 5 models pulled, 41.2 GB on disk.",

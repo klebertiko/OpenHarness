@@ -213,6 +213,8 @@ const AUTO_ID = "";
  * its fix-it panel under the list instead of closing (design.md § Provider
  * stance). The panel sits outside the listbox, so the list stays a valid
  * listbox for assistive tech.
+ * Pre-emit critique (providers-recovery audit): P5 H4 E4 S5 R4 V4 — one
+ * picker pattern app-wide; E/R at 4 for the second density tier the panel adds.
  */
 export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
   const connections = useProviderStore((s) => s.connections);
@@ -253,9 +255,12 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
   // Real evidence only: an unprobed connection never grows a timestamp.
   const lastChecked = connection?.lastProbe ? "checked " + formatRelativeTime(connection.lastProbe) : null;
   const model = provider && connection?.defaultModel ? connection.defaultModel : null;
-  const statusLine = label + " · " + status + (model ? " · " + model : "") + (lastChecked ? " · " + lastChecked : "");
   // Auto that resolves to nothing has no status of its own to add.
-  const chipText = !chosenId && !provider ? label : label + " · " + status;
+  const unresolvedAuto = !chosenId && !provider;
+  const statusLine = unresolvedAuto
+    ? label
+    : label + " · " + status + (model ? " · " + model : "") + (lastChecked ? " · " + lastChecked : "");
+  const chipText = unresolvedAuto ? label : label + " · " + status;
 
   const [open, setOpen] = useState(false);
   const [setupId, setSetupId] = useState<string | null>(null);

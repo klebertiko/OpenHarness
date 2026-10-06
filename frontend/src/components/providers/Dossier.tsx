@@ -195,7 +195,7 @@ export function Dossier() {
                 {step.kind === "retest" && probing ? "Testing…" : step.label}
               </Btn>
             )}
-            {!step && (
+            {(!step || step.kind === "model") && (
               <Btn onClick={() => void test()} disabled={probing}>
                 <Activity size={12} strokeWidth={1.7} aria-hidden />
                 {probing ? "Testing…" : "Test"}
