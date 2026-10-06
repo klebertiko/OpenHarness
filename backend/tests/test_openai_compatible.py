@@ -94,7 +94,7 @@ def test_probe_caps_the_model_list_and_drops_hostile_ids() -> None:
     # SEC follow-up: an endpoint is untrusted — never echo an unbounded list,
     # oversize ids or non-string ids back to the UI.
     ids = [f"m{i:04d}" for i in range(600)]
-    data = [{"id": i} for i in ids] + [{"id": "x" * 201}, {"id": 7}, {"id": None}]
+    data = [{"id": i} for i in ids] + [{"id": "0" * 201}, {"id": 7}, {"id": None}]
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"data": data})
