@@ -101,6 +101,11 @@ let doc = 0;
 const docIds = new Map<number, string>();
 const savedKey = new Map<number, string>();
 const failed = new Map<number, Snap>();
+// Newest snapshot requested per session. The queue is FIFO, so the newest
+// is always written last; a retry re-sends a failed snapshot only while it is
+// still the newest, so it can never land after newer content.
+const latest = new Map<number, Snap>();
+const inQueue = new Map<number, number>();
 const deleting = new Set<number>();
 let queue: Promise<void> = Promise.resolve();
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -122,7 +127,9 @@ function needsSave(): boolean {
 /** The canvas as it is now is a fresh, clean document session. */
 export function markClean(): void {
   clearTimer();
+  const previous = doc;
   doc += 1;
+  prune(previous);
   savedKey.set(doc, contentKey(useCanvasStore.getState()));
   useStudioDocsStore.setState({ dirty: false, saveState: "idle" });
 }
@@ -131,9 +138,17 @@ function scheduleRetry(): void {
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = setTimeout(() => {
     retryTimer = null;
-    for (const [d, snap] of failed) if (d !== doc) void enqueue(snap);
+    // Re-send a failed snapshot only if nothing newer was requested since.
+    for (const [d, snap] of failed) if (d !== doc && latest.get(d) === snap) void enqueue(snap);
     if (needsSave()) void enqueue(snapshot());
   }, RETRY_MS);
+}
+
+/** Forget a finished, older session once nothing is queued or failing for it. */
+function prune(d: number): void {
+  if (d === doc || inQueue.get(d) || failed.has(d)) return;
+  for (const m of [savedKey, docIds, latest, inQueue]) m.delete(d);
+  deleting.delete(d);
 }
 
 async function persist(snap: Snap): Promise<void> {
@@ -161,7 +176,12 @@ async function persist(snap: Snap): Promise<void> {
 }
 
 function enqueue(snap: Snap): Promise<void> {
-  queue = queue.then(() => persist(snap));
+  latest.set(snap.doc, snap);
+  inQueue.set(snap.doc, (inQueue.get(snap.doc) ?? 0) + 1);
+  queue = queue.then(() => persist(snap)).finally(() => {
+    inQueue.set(snap.doc, (inQueue.get(snap.doc) ?? 1) - 1);
+    prune(snap.doc);
+  });
   return queue;
 }
 
@@ -177,6 +197,9 @@ export function flushAutosave(): Promise<void> {
  * session. `saveNow` treats the loaded content as an edit (an import).
  */
 export function replaceStudioCanvas(load: () => void, opts: { saveNow?: boolean } = {}): void {
+  // The canvas can't be swapped mid-run (loadGraph refuses); don't start a
+  // new session for content that never changed.
+  if (useCanvasStore.getState().isRunning) return;
   clearTimer();
   if (needsSave()) void enqueue(snapshot());
   load();
@@ -260,6 +283,9 @@ export async function removeSavedHarness(id: string): Promise<void> {
     }
     throw new Error("The local engine couldn't delete this harness. Try again.");
   }
+  // No session may keep retrying (or later writing) a record that is gone.
+  for (const [d, rid] of docIds) if (rid === id) { deleting.add(d); failed.delete(d); }
+  for (const [d, snap] of failed) if (snap.meta.id === id) { deleting.add(d); failed.delete(d); }
   useStudioDocsStore.setState((s) => ({ items: s.items.filter((i) => i.id !== id) }));
   if (openDoc !== null && openDoc === doc) {
     loadIntoCanvas({ nodes: [], edges: [] }, { id: null, name: "Untitled harness", description: "" });
