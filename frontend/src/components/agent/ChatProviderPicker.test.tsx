@@ -509,3 +509,13 @@ it("derives the chip dot from providerReadiness' tone, matching the dropdown row
 
   act(() => useProviderStore.setState({ connections: [] }));
 });
+
+it("shows the hollow unconfigured dot on the chip when there is no connection behind it", () => {
+  useChatProviderStore.setState({ chosenId: null });
+  useProviderStore.setState({ connections: [] });
+  render(<ChatProviderPicker onConnect={vi.fn()} />);
+
+  const chip = screen.getByRole("button", { name: /chat provider: auto · no available provider/i });
+  expect(chip.querySelector(".border-ink-faint")).not.toBeNull();
+  expect(chip.querySelector(".bg-ink-faint, .bg-signal, .bg-warn, .bg-fault")).toBeNull();
+});
