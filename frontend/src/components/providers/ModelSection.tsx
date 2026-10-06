@@ -68,7 +68,7 @@ function AllowList({ c }: { c: Connection }) {
       }
     >
       <div className="rounded-control border border-line-soft">
-        <Head cols={local ? ["model", "context", "on disk"] : ["model", "context", "$ / Mtok in→out"]} />
+        <Head cols={local ? ["Model", "Context", "On disk"] : ["Model", "Context", "$ / Mtok in → out"]} wideOnly={[1]} />
         {c.models.map((m, i) => {
           const on = c.allowed.includes(m.id);
           return (
@@ -76,8 +76,9 @@ function AllowList({ c }: { c: Connection }) {
               key={m.id}
               type="button"
               onClick={() => toggle(c.id, m.id)}
+              aria-pressed={on}
               className={[
-                "oh-focus-inner grid w-full grid-cols-[18px_1fr_58px_120px] items-center gap-2 px-2 py-[5px] text-left transition-colors",
+                "oh-focus-inner grid w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 px-2 py-[5px] text-left transition-colors [@container(min-width:34rem)]:grid-cols-[18px_minmax(0,1fr)_58px_120px]",
                 i ? "border-t border-line-soft" : "",
                 on ? "bg-sub-200" : "",
                 "hover:bg-sub-300",
@@ -85,7 +86,7 @@ function AllowList({ c }: { c: Connection }) {
             >
               <Tick on={on} />
               <span className={`t-meta truncate ${on ? "text-ink" : "text-ink-mute"}`}>{m.id}</span>
-              <span className="t-meta text-right text-ink-faint">{ctx(m.ctx)}</span>
+              <span className="t-meta hidden text-right text-ink-faint [@container(min-width:34rem)]:block">{ctx(m.ctx)}</span>
               <span className="t-meta text-right text-ink-faint">
                 {m.size ?? (m.price ? `${money(m.price[0])} → ${money(m.price[1])}` : "—")}
               </span>
@@ -143,21 +144,20 @@ function Routed({ c }: { c: Connection }) {
               return (
                 <li
                   key={id}
-                  className={`grid grid-cols-[20px_1fr_88px_112px_auto] items-center gap-2 px-2 py-[6px] ${
+                  className={`grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 px-2 py-[6px] [@container(min-width:34rem)]:grid-cols-[20px_minmax(0,1fr)_88px_112px_auto] ${
                     i ? "border-t border-line-soft" : ""
                   }`}
                 >
                   <span
-                    className="t-meta grid h-[16px] w-[16px] place-items-center rounded-[1px] text-signal-ink"
-                    style={{ background: i === 0 ? "var(--signal)" : "var(--sub-400)" }}
+                    className={`t-meta grid h-[16px] w-[16px] place-items-center rounded-[1px] ${
+                      i === 0 ? "bg-signal text-signal-ink" : "bg-sub-400 text-ink-dim"
+                    }`}
                   >
-                    <span style={{ color: i === 0 ? "var(--signal-ink)" : "var(--ink-dim)" }}>
-                      {i + 1}
-                    </span>
+                    {i + 1}
                   </span>
                   <span className="t-meta truncate text-ink">{id}</span>
-                  <span className="t-body truncate text-ink-faint">{m?.via ?? "—"}</span>
-                  <span className="t-meta text-right text-ink-faint">
+                  <span className="t-body hidden truncate text-ink-faint [@container(min-width:34rem)]:block">{m?.via ?? "—"}</span>
+                  <span className="t-meta hidden text-right text-ink-faint [@container(min-width:34rem)]:block">
                     {m?.price ? `${money(m.price[0])} → ${money(m.price[1])}` : "—"}
                   </span>
                   <span className="flex gap-px">
@@ -186,7 +186,7 @@ function Routed({ c }: { c: Connection }) {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="t-label text-ink-faint">tie-break</span>
+          <span className="t-body text-ink-mute">Tie-break</span>
           {SORTS.map((s) => (
             <Chip
               key={s.id}
@@ -228,7 +228,7 @@ function Routed({ c }: { c: Connection }) {
         </div>
 
         <div className="max-h-[220px] overflow-y-auto rounded-control border border-line-soft">
-          <Head cols={["model", "vendor", "context", "$ / Mtok in→out"]} routed />
+          <Head cols={["Model", "Vendor", "Context", "$ / Mtok in → out"]} wideOnly={[1, 2]} routed />
           {catalog.length === 0 && (
             <p className="t-body px-2 py-3 text-ink-faint">Nothing matches “{q}”.</p>
           )}
@@ -237,13 +237,13 @@ function Routed({ c }: { c: Connection }) {
               key={m.id}
               type="button"
               onClick={() => addToRoute(c.id, m.id)}
-              className={`oh-focus-inner grid w-full grid-cols-[1fr_88px_58px_112px_18px] items-center gap-2 px-2 py-[5px] text-left transition-colors hover:bg-sub-300 ${
+              className={`oh-focus-inner grid w-full grid-cols-[minmax(0,1fr)_auto_18px] items-center [@container(min-width:34rem)]:grid-cols-[minmax(0,1fr)_88px_58px_112px_18px] gap-2 px-2 py-[5px] text-left transition-colors hover:bg-sub-300 ${
                 i ? "border-t border-line-soft" : ""
               }`}
             >
               <span className="t-meta truncate text-ink-dim">{m.id}</span>
-              <span className="t-body truncate text-ink-faint">{m.via}</span>
-              <span className="t-meta text-right text-ink-faint">{ctx(m.ctx)}</span>
+              <span className="t-body hidden truncate text-ink-faint [@container(min-width:34rem)]:block">{m.via}</span>
+              <span className="t-meta hidden text-right text-ink-faint [@container(min-width:34rem)]:block">{ctx(m.ctx)}</span>
               <span className="t-meta text-right text-ink-faint">
                 {m.price ? `${money(m.price[0])} → ${money(m.price[1])}` : "—"}
               </span>
@@ -303,8 +303,8 @@ export function Block({
 }) {
   return (
     <section className="border-t border-line-soft py-4">
-      <header className="mb-2.5 flex items-center gap-2">
-        <h3 className="t-label text-ink-dim">{title}</h3>
+      <header className="mb-2.5 flex flex-wrap items-center gap-2">
+        <h3 className="t-title text-ink">{title}</h3>
         {chip}
       </header>
       {lede && <p className="t-body mb-2.5 max-w-[70ch] text-ink-mute">{lede}</p>}
@@ -313,18 +313,22 @@ export function Block({
   );
 }
 
-function Head({ cols, routed }: { cols: string[]; routed?: boolean }) {
+function Head({ cols, routed, wideOnly = [] }: { cols: string[]; routed?: boolean; wideOnly?: number[] }) {
   return (
     <div
       className={`grid items-center gap-2 border-b border-line bg-sub-200 px-2 py-1 ${
-        routed ? "grid-cols-[1fr_88px_58px_112px_18px]" : "grid-cols-[18px_1fr_58px_120px]"
+        routed
+          ? "grid-cols-[minmax(0,1fr)_auto_18px] [@container(min-width:34rem)]:grid-cols-[minmax(0,1fr)_88px_58px_112px_18px]"
+          : "grid-cols-[18px_minmax(0,1fr)_auto] [@container(min-width:34rem)]:grid-cols-[18px_minmax(0,1fr)_58px_120px]"
       }`}
     >
       {!routed && <span />}
       {cols.map((c, i) => (
         <span
           key={c}
-          className={`t-label truncate text-ink-faint ${i === 0 ? "" : "text-right"}`}
+          className={`t-body truncate text-ink-faint ${i === 0 ? "" : "text-right"} ${
+            wideOnly.includes(i) ? "hidden [@container(min-width:34rem)]:block" : ""
+          }`}
         >
           {c}
         </span>
@@ -338,13 +342,11 @@ function Tick({ on }: { on: boolean }) {
   return (
     <span
       aria-hidden
-      className="grid h-[13px] w-[13px] place-items-center rounded-[1px] border"
-      style={{
-        borderColor: on ? "var(--signal)" : "var(--line)",
-        background: on ? "var(--signal)" : "transparent",
-      }}
+      className={`grid h-[13px] w-[13px] place-items-center rounded-[1px] border ${
+        on ? "border-signal bg-signal text-signal-ink" : "border-line bg-transparent"
+      }`}
     >
-      {on && <Check size={9} strokeWidth={3} style={{ color: "var(--signal-ink)" }} />}
+      {on && <Check size={9} strokeWidth={3} />}
     </span>
   );
 }

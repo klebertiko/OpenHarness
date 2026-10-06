@@ -1,7 +1,7 @@
 "use client";
 import { ArrowDown, ArrowUp, Minus, Plus, TriangleAlert } from "lucide-react";
-import { HEALTH_INK, HEALTH_LABEL } from "./catalog";
-import { Monogram, ResidenceMark, StateRule } from "./atoms";
+import { providerReadiness } from "@/components/agent/chatProvider";
+import { Monogram, ResidenceMark, StateRule, TONE_TEXT } from "./atoms";
 import { specOf, useProviderStore } from "./providerStore";
 
 /**
@@ -29,13 +29,13 @@ export function RunBinding() {
   );
 
   const leaves = bound.filter((c) => c.residence === "cloud").length;
-  const broken = bound.filter((c) => c.health === "fault" || !c.enabled);
+  const broken = bound.filter((c) => !providerReadiness(c).ready);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
         <section className="px-2.5 pb-3 pt-3">
-          <h3 className="t-label mb-1.5 text-ink-dim">Order of attempt</h3>
+          <h3 className="t-title mb-1.5 text-ink">Order of attempt</h3>
           <p className="t-body mb-2.5 text-ink-mute">
             Every LLM node starts at step 1 and walks down on refusal.
           </p>
@@ -49,7 +49,7 @@ export function RunBinding() {
           <ol className="flex flex-col gap-px">
             {bound.map((c, i) => {
               const spec = specOf(c);
-              const dead = c.health === "fault" || !c.enabled;
+              const dead = !providerReadiness(c).ready;
               return (
                 <li key={c.id}>
                   <div
@@ -58,16 +58,14 @@ export function RunBinding() {
                     }`}
                   >
                     <span
-                      className="t-meta grid h-[16px] w-[16px] flex-none place-items-center rounded-[1px]"
-                      style={{
-                        background: i === 0 ? "var(--signal)" : "var(--sub-400)",
-                        color: i === 0 ? "var(--signal-ink)" : "var(--ink-dim)",
-                      }}
+                      className={`t-meta grid h-[16px] w-[16px] flex-none place-items-center rounded-[1px] ${
+                        i === 0 ? "bg-signal text-signal-ink" : "bg-sub-400 text-ink-dim"
+                      }`}
                     >
                       {i + 1}
                     </span>
-                    <StateRule health={c.health} />
-                    <Monogram text={spec.monogram} live={c.health === "live"} size={18} />
+                    <StateRule tone={providerReadiness(c).tone} />
+                    <Monogram text={spec.monogram} live={providerReadiness(c).verified} />
                     <button
                       type="button"
                       onClick={() => select(c.id)}
@@ -128,7 +126,7 @@ export function RunBinding() {
             <p className="t-body mt-2.5 flex items-start gap-1.5 text-warn">
               <TriangleAlert size={12} strokeWidth={1.8} className="mt-[2px] flex-none" />
               {broken.length === 1
-                ? `Step ${bound.indexOf(broken[0]) + 1} will be skipped — ${HEALTH_LABEL[broken[0].health]}.`
+                ? `Step ${bound.indexOf(broken[0]) + 1} will be skipped — ${providerReadiness(broken[0]).label.toLowerCase()}.`
                 : `${broken.length} steps will be skipped.`}
             </p>
           )}
@@ -136,7 +134,7 @@ export function RunBinding() {
 
         {rest.length > 0 && (
           <section className="border-t border-line-soft px-2.5 pb-4 pt-3">
-            <h3 className="t-label mb-1.5 text-ink-dim">Available</h3>
+            <h3 className="t-title mb-1.5 text-ink">Available</h3>
             <p className="t-body mb-2 text-ink-mute">
               Connections that can serve a completion but are not in the chain.
             </p>
@@ -151,14 +149,10 @@ export function RunBinding() {
                     className="oh-focus-inner flex items-center gap-2 rounded-control px-1.5 py-1.5 text-left transition-colors hover:bg-sub-200"
                   >
                     <Plus size={11} strokeWidth={1.9} className="flex-none text-ink-faint" />
-                    <Monogram text={spec.monogram} size={18} />
+                    <Monogram text={spec.monogram} />
                     <span className="t-body min-w-0 flex-1 truncate text-ink-mute">{c.label}</span>
-                    <span
-                      className="t-meta flex-none"
-                      style={{ color: HEALTH_INK[c.health] }}
-                      title={HEALTH_LABEL[c.health]}
-                    >
-                      {c.health === "live" ? "" : HEALTH_LABEL[c.health]}
+                    <span className={`t-body flex-none ${TONE_TEXT[providerReadiness(c).tone]}`}>
+                      {providerReadiness(c).verified ? "" : providerReadiness(c).label}
                     </span>
                     <ResidenceMark residence={c.residence} />
                   </button>
@@ -171,7 +165,7 @@ export function RunBinding() {
         {/* Cursor cannot serve completions, so it is stated here rather than
             silently omitted from the list above. */}
         <section className="border-t border-line-soft px-2.5 pb-6 pt-3">
-          <h3 className="t-label mb-1.5 text-ink-faint">Not eligible</h3>
+          <h3 className="t-title mb-1.5 text-ink-mute">Not eligible</h3>
           {connections
             .filter((c) => !specOf(c).capabilities.includes("chat"))
             .map((c) => (

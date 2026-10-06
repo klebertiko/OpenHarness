@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { UsageSummary } from "@/lib/usageApi";
 import { Dossier } from "./Dossier";
@@ -109,7 +109,9 @@ it("labels local usage without claiming free and discloses unavailable measureme
   useProviderStore.setState({ connections: [c], selectedId: c.id });
   useUsageStore.setState({ hydrated: true, summary: summaryFor(c.id, c.provider, { tokensTotal: 42, costUsd: 0, unpricedTokens: 42 }) });
   render(<Dossier />);
-  expect(screen.queryAllByText("free", { selector: "dd" })).toHaveLength(0);
+  // The spend fact must not claim "free" (billing model "free" is a different fact).
+  const spent = screen.getByText("Spent", { selector: "dt" }).parentElement!;
+  expect(within(spent).queryByText(/free/)).toBeNull();
   expect(screen.getAllByText("cost unknown").length).toBeGreaterThan(0);
   expect(screen.getByText(/Measured and estimated tokens are not separated/i)).toBeTruthy();
 });
