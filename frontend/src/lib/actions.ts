@@ -5,7 +5,7 @@ import { useActiveRunStore } from "@/store/activeRunStore";
 import { api } from "@/lib/api";
 import { useShellStore } from "@/components/shell/shellStore";
 import { sendControl } from "@/components/agent-run/runClient";
-import { flushAutosave, useStudioDocsStore } from "@/lib/studioDocuments";
+import { flushAutosave, replaceStudioCanvas, useStudioDocsStore } from "@/lib/studioDocuments";
 
 /**
  * The harness verbs, in one place.
@@ -51,9 +51,12 @@ export function useHarnessActions() {
         if (useCanvasStore.getState().isRunning) return;
         try {
           const parsed = JSON.parse(ev.target?.result as string);
-          useCanvasStore.getState().loadGraph(parsed.nodes ?? [], parsed.edges ?? []);
-          // An import is a new harness, never an overwrite of the open one.
-          useCanvasStore.getState().setHarnessMeta({ id: null, name: file.name.replace(/\.(harness\.)?json$/i, "") || "Imported harness", description: "" });
+          // An import is a new harness, saved right away, never an overwrite
+          // of the open one (whose pending edits are saved first).
+          replaceStudioCanvas(() => {
+            useCanvasStore.getState().loadGraph(parsed.nodes ?? [], parsed.edges ?? []);
+            useCanvasStore.getState().setHarnessMeta({ id: null, name: file.name.replace(/\.(harness\.)?json$/i, "") || "Imported harness", description: "" });
+          }, { saveNow: true });
           useShellStore.getState().setSection("studio");
           useShellStore.getState().setStudioView("editor");
         } catch {

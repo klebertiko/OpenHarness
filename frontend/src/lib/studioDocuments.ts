@@ -19,6 +19,10 @@ import type { HarnessGraph, HarnessMeta, HarnessNode } from "./types";
 const DEFAULT_NAMES = new Set(["untitled harness"]);
 const RUNTIME_NODE_KEYS = ["status", "output", "tokens", "latencyMs", "error"] as const;
 const RUNTIME_EDGE_KEYS = ["live"] as const;
+// React Flow view state: selecting or measuring a node is not an edit.
+const VIEW_NODE_KEYS = ["selected", "dragging", "measured", "width", "height", "resizing"] as const;
+const VIEW_EDGE_KEYS = ["selected"] as const;
+const RETRY_MS = 5000;
 const AUTOSAVE_MS = 500;
 
 type CanvasSnapshot = Pick<ReturnType<typeof useCanvasStore.getState>, "nodes" | "edges" | "harnessMeta">;
@@ -30,19 +34,25 @@ export function hasStudioDraft(s: CanvasSnapshot): boolean {
     || s.harnessMeta.description.trim() !== "";
 }
 
-/** Authored content only — run output never reaches disk. */
+/** Authored content only — run output and view state never reach disk. */
 export function stripRuntime(graph: HarnessGraph): HarnessGraph {
   return {
     nodes: graph.nodes.map((n) => {
+      const node = { ...n } as Record<string, unknown>;
+      for (const k of VIEW_NODE_KEYS) delete node[k];
       const data = { ...n.data } as Record<string, unknown>;
       for (const k of RUNTIME_NODE_KEYS) delete data[k];
-      return { ...n, data: data as HarnessNode["data"] };
+      return { ...node, data } as unknown as HarnessNode;
     }),
     edges: graph.edges.map((e) => {
-      if (!e.data) return { ...e };
-      const data = { ...e.data };
-      for (const k of RUNTIME_EDGE_KEYS) delete data[k];
-      return { ...e, data };
+      const edge = { ...e } as Record<string, unknown>;
+      for (const k of VIEW_EDGE_KEYS) delete edge[k];
+      if (e.data) {
+        const data = { ...e.data };
+        for (const k of RUNTIME_EDGE_KEYS) delete data[k];
+        edge.data = data;
+      }
+      return edge as unknown as typeof e;
     }),
   };
 }
@@ -77,68 +87,107 @@ export const useStudioDocsStore = create<DocsState>((set) => ({
   },
 }));
 
-let lastSaved: string | null = null;
-let epoch = 0;
-let timer: ReturnType<typeof setTimeout> | null = null;
-let inFlight: Promise<void> | null = null;
-let again = false;
+/*
+ * Saving model. Each harness open in the canvas is one "document session"
+ * (`doc`). Saves are snapshots — content captured synchronously when the save
+ * is requested — run one at a time through `queue`, so a save never reads a
+ * canvas that has since been replaced. A create records the id for its
+ * session (`docIds`), later snapshots of that session reuse it, and the id is
+ * stamped onto the canvas only while that session is still the open one.
+ */
+interface Snap { doc: number; key: string; graph: HarnessGraph; meta: { id: string | null; name: string; description: string } }
 
-/** The canvas as it is now counts as saved (after opening something). */
-export function markClean(): void {
-  epoch += 1;
-  if (timer) clearTimeout(timer);
-  timer = null;
-  lastSaved = contentKey(useCanvasStore.getState());
-  useStudioDocsStore.setState({ dirty: false });
+let doc = 0;
+const docIds = new Map<number, string>();
+const savedKey = new Map<number, string>();
+const failed = new Map<number, Snap>();
+const deleting = new Set<number>();
+let queue: Promise<void> = Promise.resolve();
+let timer: ReturnType<typeof setTimeout> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+const clearTimer = () => { if (timer) clearTimeout(timer); timer = null; };
+
+function snapshot(): Snap {
+  const s = useCanvasStore.getState();
+  return { doc, key: contentKey(s), graph: stripRuntime(s), meta: { ...s.harnessMeta } };
 }
 
 function needsSave(): boolean {
   const s = useCanvasStore.getState();
-  if (contentKey(s) === lastSaved) return false;
+  if (deleting.has(doc) || contentKey(s) === savedKey.get(doc)) return false;
   return Boolean(s.harnessMeta.id) || hasStudioDraft(s);
 }
 
-async function save(): Promise<void> {
-  if (!needsSave()) return;
-  const mine = epoch;
-  const s = useCanvasStore.getState();
-  const key = contentKey(s);
-  const graph = stripRuntime(s);
-  const { id, name, description } = s.harnessMeta;
-  useStudioDocsStore.setState({ saveState: "saving" });
+/** The canvas as it is now is a fresh, clean document session. */
+export function markClean(): void {
+  clearTimer();
+  doc += 1;
+  savedKey.set(doc, contentKey(useCanvasStore.getState()));
+  useStudioDocsStore.setState({ dirty: false, saveState: "idle" });
+}
+
+function scheduleRetry(): void {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    for (const [d, snap] of failed) if (d !== doc) void enqueue(snap);
+    if (needsSave()) void enqueue(snapshot());
+  }, RETRY_MS);
+}
+
+async function persist(snap: Snap): Promise<void> {
+  if (deleting.has(snap.doc) || snap.key === savedKey.get(snap.doc)) return;
+  const current = () => snap.doc === doc;
+  const id = snap.meta.id ?? docIds.get(snap.doc) ?? null;
+  if (current()) useStudioDocsStore.setState({ saveState: "saving" });
   try {
     if (id) {
-      await api.harnesses.update(id, { name, description, graph_json: graph });
+      await api.harnesses.update(id, { name: snap.meta.name, description: snap.meta.description, graph_json: snap.graph });
     } else {
-      const res = await api.harnesses.create(name, description, graph);
-      // Another harness was opened meanwhile: the record exists and is listed,
-      // but must not be stamped onto what is open now.
-      if (mine === epoch) useCanvasStore.getState().setHarnessMeta({ id: res.id });
+      const res = await api.harnesses.create(snap.meta.name, snap.meta.description, snap.graph);
+      docIds.set(snap.doc, res.id);
+      if (current()) useCanvasStore.getState().setHarnessMeta({ id: res.id });
     }
-    if (mine === epoch) lastSaved = key;
-    useStudioDocsStore.setState({ saveState: "saved", dirty: needsSave() });
+    savedKey.set(snap.doc, snap.key);
+    failed.delete(snap.doc);
+    if (current()) useStudioDocsStore.setState({ saveState: "saved", dirty: needsSave() });
     void useStudioDocsStore.getState().refresh();
   } catch {
-    useStudioDocsStore.setState({ saveState: "error" });
+    failed.set(snap.doc, snap);
+    if (current()) useStudioDocsStore.setState({ saveState: "error" });
+    scheduleRetry();
   }
 }
 
-/** Save pending edits now (before opening something else, or on demand). */
+function enqueue(snap: Snap): Promise<void> {
+  queue = queue.then(() => persist(snap));
+  return queue;
+}
+
+/** Save pending edits now; resolves once every queued save has finished. */
 export function flushAutosave(): Promise<void> {
-  if (timer) clearTimeout(timer);
-  timer = null;
-  if (inFlight) {
-    again = true;
-    return inFlight;
-  }
-  inFlight = save().finally(() => {
-    inFlight = null;
-    if (again) {
-      again = false;
-      void flushAutosave();
+  clearTimer();
+  return needsSave() ? enqueue(snapshot()) : queue;
+}
+
+/**
+ * The only way to put a different harness on the canvas: pending edits of the
+ * open one are captured and queued first, then `load` runs and starts a new
+ * session. `saveNow` treats the loaded content as an edit (an import).
+ */
+export function replaceStudioCanvas(load: () => void, opts: { saveNow?: boolean } = {}): void {
+  clearTimer();
+  if (needsSave()) void enqueue(snapshot());
+  load();
+  markClean();
+  if (opts.saveNow) {
+    savedKey.delete(doc);
+    if (needsSave()) {
+      useStudioDocsStore.setState({ dirty: true });
+      void enqueue(snapshot());
     }
-  });
-  return inFlight;
+  }
 }
 
 /** Debounced autosave of canvas edits. Returns the unsubscribe. */
@@ -147,7 +196,7 @@ export function startAutosave(): () => void {
     // Run status/output churn is not an edit; re-check once the run ends.
     if (useCanvasStore.getState().isRunning || !needsSave()) return;
     if (!useStudioDocsStore.getState().dirty) useStudioDocsStore.setState({ dirty: true });
-    if (timer) clearTimeout(timer);
+    clearTimer();
     timer = setTimeout(() => void flushAutosave(), AUTOSAVE_MS);
   };
   const unsubscribe = useCanvasStore.subscribe(schedule);
@@ -156,8 +205,7 @@ export function startAutosave(): () => void {
   return () => {
     unsubscribe();
     document.removeEventListener("visibilitychange", onHide);
-    if (timer) clearTimeout(timer);
-    timer = null;
+    clearTimer();
   };
 }
 
@@ -166,13 +214,14 @@ function guardRun(): void {
 }
 
 function loadIntoCanvas(graph: HarnessGraph, meta: { id: string | null; name: string; description: string }): void {
-  const canvas = useCanvasStore.getState();
-  canvas.loadGraph(graph.nodes, graph.edges);
-  canvas.setHarnessMeta(meta);
-  // Chat's "Use in chat" composes from this bundle; keep it about this harness.
-  const bundle = composeBundleFromCanvas(null, { nodes: graph.nodes, edges: graph.edges, harnessMeta: meta });
-  useHarnessSessionStore.getState().replaceBundle(bundle as unknown as HarnessBundle);
-  markClean();
+  replaceStudioCanvas(() => {
+    const canvas = useCanvasStore.getState();
+    canvas.loadGraph(graph.nodes, graph.edges);
+    canvas.setHarnessMeta(meta);
+    // Chat's "Use in chat" composes from this bundle; keep it about this harness.
+    const bundle = composeBundleFromCanvas(null, { nodes: graph.nodes, edges: graph.edges, harnessMeta: meta });
+    useHarnessSessionStore.getState().replaceBundle(bundle as unknown as HarnessBundle);
+  });
 }
 
 export async function openSavedHarness(id: string): Promise<void> {
@@ -188,20 +237,31 @@ export async function openSavedHarness(id: string): Promise<void> {
 }
 
 export async function removeSavedHarness(id: string): Promise<void> {
-  const isOpen = useCanvasStore.getState().harnessMeta.id === id;
-  if (isOpen) {
+  const isOpen = useCanvasStore.getState().harnessMeta.id === id || docIds.get(doc) === id;
+  const openDoc = isOpen ? doc : null;
+  if (openDoc !== null) {
     guardRun();
-    // Don't let a pending autosave recreate what is being deleted.
-    if (timer) clearTimeout(timer);
-    timer = null;
+    // Nothing may recreate what is being deleted: drop the pending save,
+    // let saves already in flight land first, then delete.
+    clearTimer();
+    deleting.add(openDoc);
+    await queue;
   }
-  const res = await api.harnesses.delete(id);
+  let res: Response;
+  try {
+    res = await api.harnesses.delete(id);
+  } catch {
+    res = new Response(null, { status: 503 });
+  }
   if (!res.ok && res.status !== 404) {
-    if (isOpen) void flushAutosave();
-    throw new Error("The local engine refused to delete this harness.");
+    if (openDoc !== null) {
+      deleting.delete(openDoc);
+      void flushAutosave();
+    }
+    throw new Error("The local engine couldn't delete this harness. Try again.");
   }
   useStudioDocsStore.setState((s) => ({ items: s.items.filter((i) => i.id !== id) }));
-  if (isOpen && useCanvasStore.getState().harnessMeta.id === id) {
+  if (openDoc !== null && openDoc === doc) {
     loadIntoCanvas({ nodes: [], edges: [] }, { id: null, name: "Untitled harness", description: "" });
     useShellStore.getState().setStudioView("overview");
   }

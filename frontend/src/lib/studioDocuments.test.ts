@@ -4,7 +4,7 @@ import { useShellStore } from "@/components/shell/shellStore";
 import { api } from "./api";
 import type { HarnessEdge, HarnessNode } from "./types";
 import {
-  flushAutosave, hasStudioDraft, markClean, openSavedHarness, removeSavedHarness, startAutosave,
+  flushAutosave, hasStudioDraft, markClean, openSavedHarness, removeSavedHarness, replaceStudioCanvas, startAutosave,
   stripRuntime, useStudioDocsStore,
 } from "./studioDocuments";
 
@@ -143,4 +143,130 @@ it("tracks whether the open harness has unsaved edits", async () => {
   useCanvasStore.getState().loadGraph([node("s")], []);
   markClean();
   expect(useStudioDocsStore.getState().dirty).toBe(false);
+});
+
+// ── QA bounce (PR #37) — each case reproduces a reported bug ──────────────
+const deferred = <T,>() => { let resolve!: (v: T) => void; const p = new Promise<T>((r) => { resolve = r; }); return { p, resolve }; };
+const openSaved = (id: string, name: string) => {
+  useCanvasStore.setState({ nodes: [node("a")], edges: [], harnessMeta: { id, name, description: "" } });
+  markClean();
+};
+
+it("selecting or measuring nodes is not an edit", async () => {
+  openSaved("h1", "Mine");
+  await edit(() => useCanvasStore.getState().onNodesChange([{ id: "a", type: "select", selected: true }]));
+  await edit(() => useCanvasStore.getState().onNodesChange([{ id: "a", type: "dimensions", dimensions: { width: 200, height: 80 }, setAttributes: true }]));
+  expect(h.update).not.toHaveBeenCalled();
+  expect(h.create).not.toHaveBeenCalled();
+});
+
+it("dragging a node to a new place is an edit", async () => {
+  openSaved("h1", "Mine");
+  await edit(() => useCanvasStore.getState().onNodesChange([{ id: "a", type: "position", position: { x: 99, y: 99 } }]));
+  expect(h.update).toHaveBeenCalledOnce();
+});
+
+it("replacing the canvas saves pending edits of the previous harness first", async () => {
+  openSaved("h1", "Mine");
+  useCanvasStore.getState().addNode(node("b"));
+  replaceStudioCanvas(() => {
+    useCanvasStore.getState().loadGraph([node("s")], []);
+    useCanvasStore.getState().setHarnessMeta({ id: null, name: "Sample", description: "" });
+  });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(h.update).toHaveBeenCalledOnce();
+  expect(h.update.mock.calls[0][0]).toBe("h1");
+  expect(h.update.mock.calls[0][1].graph_json!.nodes.map((n) => n.id)).toEqual(["a", "b"]);
+  expect(h.create).not.toHaveBeenCalled();
+});
+
+it("a create still in flight never stamps its id onto the harness opened meanwhile", async () => {
+  const d = deferred<{ id: string; name: string }>();
+  h.create.mockReturnValueOnce(d.p);
+  useCanvasStore.getState().addNode(node("a"));
+  await vi.advanceTimersByTimeAsync(600);
+  expect(h.create).toHaveBeenCalledOnce();
+  replaceStudioCanvas(() => {
+    useCanvasStore.getState().loadGraph([node("imp")], []);
+    useCanvasStore.getState().setHarnessMeta({ id: null, name: "Imported", description: "" });
+  });
+  d.resolve({ id: "OLD", name: "x" });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(useCanvasStore.getState().harnessMeta.id).not.toBe("OLD");
+  await edit(() => useCanvasStore.getState().addNode(node("more")));
+  expect(h.update.mock.calls.map((c) => c[0])).not.toContain("OLD");
+});
+
+it("edits queued behind an in-flight create update the same record, never a second create", async () => {
+  const d = deferred<{ id: string; name: string }>();
+  h.create.mockReturnValueOnce(d.p);
+  useCanvasStore.getState().addNode(node("a"));
+  await vi.advanceTimersByTimeAsync(600);
+  useCanvasStore.getState().addNode(node("b"));
+  await vi.advanceTimersByTimeAsync(600);
+  d.resolve({ id: "h1", name: "x" });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(h.create).toHaveBeenCalledOnce();
+  expect(h.update).toHaveBeenCalledWith("h1", expect.anything());
+  expect(h.update.mock.calls.at(-1)![1].graph_json!.nodes.map((n) => n.id)).toEqual(["a", "b"]);
+});
+
+it("deleting the open harness drops its pending autosave instead of recreating it", async () => {
+  openSaved("h1", "Mine");
+  useStudioDocsStore.setState({ items: [{ id: "h1", name: "Mine", description: "", created_at: "", updated_at: "" }] });
+  const d = deferred<Response>();
+  h.delete.mockReturnValueOnce(d.p);
+  useCanvasStore.getState().addNode(node("b"));
+  const removing = removeSavedHarness("h1");
+  await vi.advanceTimersByTimeAsync(1500);
+  d.resolve(new Response(null, { status: 204 }));
+  await removing;
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(h.update).not.toHaveBeenCalled();
+  expect(h.create).not.toHaveBeenCalled();
+});
+
+it("a delete that fails on the network keeps and saves the pending edits", async () => {
+  openSaved("h1", "Mine");
+  h.delete.mockRejectedValueOnce(new Error("network"));
+  useCanvasStore.getState().addNode(node("b"));
+  await expect(removeSavedHarness("h1")).rejects.toThrow();
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(h.update).toHaveBeenCalledWith("h1", expect.anything());
+});
+
+it("opening a harness waits for every queued save, not only the first", async () => {
+  const d = deferred<{ id: string; name: string }>();
+  openSaved("h1", "S1");
+  h.update.mockReturnValueOnce(d.p);
+  await edit(() => useCanvasStore.getState().setHarnessMeta({ name: "S2" }));
+  useCanvasStore.getState().setHarnessMeta({ name: "S3" });
+  h.get.mockImplementation(async () => ({ id: "h1", name: h.update.mock.calls.at(-1)![1].name!, description: "", created_at: "", updated_at: "", graph_json: { nodes: [], edges: [] } }));
+  const opening = openSavedHarness("h1");
+  d.resolve({ id: "h1", name: "S2" });
+  await vi.advanceTimersByTimeAsync(1000);
+  await opening;
+  expect(h.update.mock.calls.at(-1)![1].name).toBe("S3");
+  expect(useCanvasStore.getState().harnessMeta.name).toBe("S3");
+});
+
+it("a failed save retries on its own while edits are pending", async () => {
+  h.create.mockRejectedValueOnce(new Error("offline"));
+  await edit(() => useCanvasStore.getState().addNode(node("a")));
+  expect(useStudioDocsStore.getState().saveState).toBe("error");
+  await vi.advanceTimersByTimeAsync(6000);
+  expect(h.create).toHaveBeenCalledTimes(2);
+  expect(useStudioDocsStore.getState().saveState).toBe("saved");
+});
+
+it("an import is saved right away as a new harness, never over the open one", async () => {
+  openSaved("h1", "Mine");
+  replaceStudioCanvas(() => {
+    useCanvasStore.getState().loadGraph([node("imp")], []);
+    useCanvasStore.getState().setHarnessMeta({ id: null, name: "Imported", description: "" });
+  }, { saveNow: true });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(h.update).not.toHaveBeenCalled();
+  expect(h.create).toHaveBeenCalledOnce();
+  expect(h.create.mock.calls[0][0]).toBe("Imported");
 });

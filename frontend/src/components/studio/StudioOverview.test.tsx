@@ -139,6 +139,18 @@ it("an edited, not-yet-saved harness says Saving…", async () => {
   expect(await screen.findByText("Saving…")).toBeTruthy();
 });
 
+it("Escape cancels a delete confirmation and returns focus to the row", async () => {
+  h.list.mockResolvedValue([rec("h1", "Triage loop")]);
+  render(<StudioOverview />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Delete Triage loop" }));
+  expect(screen.getByText(/Delete “Triage loop” from this device/)).toBeTruthy();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByText(/Delete “Triage loop” from this device/)).toBeNull();
+  expect(h.delete).not.toHaveBeenCalled();
+  await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Delete Triage loop"));
+});
+
 it("with Copilot off, the hero offers New harness as the primary start and renders no composer", async () => {
   render(<StudioOverview />);
   expect(screen.queryByRole("textbox", { name: /Describe the harness/ })).toBeNull();
