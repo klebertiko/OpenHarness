@@ -124,6 +124,18 @@ function needsSave(): boolean {
   return Boolean(s.harnessMeta.id) || hasStudioDraft(s);
 }
 
+/**
+ * The open harness is back to what is on disk (an edit was undone): drop its
+ * failed save, so a retry can't write the abandoned edit, and clear "unsaved".
+ */
+function settleIfClean(): void {
+  if (contentKey(useCanvasStore.getState()) !== savedKey.get(doc)) return;
+  clearTimer();
+  failed.delete(doc);
+  latest.delete(doc);
+  if (useStudioDocsStore.getState().dirty) useStudioDocsStore.setState({ dirty: false });
+}
+
 /** The canvas as it is now is a fresh, clean document session. */
 export function markClean(): void {
   clearTimer();
@@ -200,6 +212,7 @@ export function replaceStudioCanvas(load: () => void, opts: { saveNow?: boolean 
   // The canvas can't be swapped mid-run (loadGraph refuses); don't start a
   // new session for content that never changed.
   if (useCanvasStore.getState().isRunning) return;
+  settleIfClean();
   clearTimer();
   if (needsSave()) void enqueue(snapshot());
   load();
@@ -217,7 +230,8 @@ export function replaceStudioCanvas(load: () => void, opts: { saveNow?: boolean 
 export function startAutosave(): () => void {
   const schedule = () => {
     // Run status/output churn is not an edit; re-check once the run ends.
-    if (useCanvasStore.getState().isRunning || !needsSave()) return;
+    if (useCanvasStore.getState().isRunning) return;
+    if (!needsSave()) { settleIfClean(); return; }
     if (!useStudioDocsStore.getState().dirty) useStudioDocsStore.setState({ dirty: true });
     clearTimer();
     timer = setTimeout(() => void flushAutosave(), AUTOSAVE_MS);
