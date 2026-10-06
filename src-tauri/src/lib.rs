@@ -186,6 +186,50 @@ mod tests {
         assert_eq!(main["create"], serde_json::Value::Bool(false));
     }
 
+    fn csp_directive<'a>(csp: &'a str, name: &str) -> Option<&'a str> {
+        csp.split(';')
+            .map(str::trim)
+            .find(|d| d.split_whitespace().next() == Some(name))
+    }
+
+    #[test]
+    fn production_csp_is_strict() {
+        // The webview holds the sidecar token (__OH_TOKEN__) and Tauri IPC, so
+        // an XSS must not be able to run injected script or reach other hosts.
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let security = &config["app"]["security"];
+        let csp = security["csp"]
+            .as_str()
+            .expect("app.security.csp must be set");
+
+        let script = csp_directive(csp, "script-src").expect("script-src");
+        assert_eq!(script, "script-src 'self'", "Tauri appends its own hashes");
+        assert!(!csp.contains("unsafe-eval"));
+
+        let connect = csp_directive(csp, "connect-src").expect("connect-src");
+        for src in connect.split_whitespace().skip(1) {
+            assert!(
+                [
+                    "'self'",
+                    "ipc:",
+                    "http://ipc.localhost",
+                    "http://127.0.0.1:*"
+                ]
+                .contains(&src),
+                "connect-src may only reach IPC and the loopback sidecar, got {src}"
+            );
+        }
+        for locked in ["object-src 'none'", "frame-src 'none'", "base-uri 'self'"] {
+            assert!(csp.contains(locked), "missing {locked}");
+        }
+        // Only style-src may opt out of Tauri's nonce injection (React style attributes).
+        assert_eq!(
+            security["dangerousDisableAssetCspModification"],
+            serde_json::json!(["style-src"])
+        );
+    }
+
     #[test]
     fn reserve_port_returns_a_loopback_port_that_can_be_rebound() {
         let port = reserve_port().unwrap();
