@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from adapters.base import AdapterConfig, AgentAdapter, AdapterResult
 from main import app
 from secret_store.memory import MemorySecrets
+from triage import LayaRouteDecision
 
 
 class _StubAdapter(AgentAdapter):
@@ -138,6 +139,46 @@ def test_run_harness_triages_a_greeting_to_a_single_reply_no_hitl(
 
     harness_done = next(d for n, d in events if n == "harness_done")
     assert harness_done["status"] == "complete"
+
+
+def test_laya_routing_authorship_is_streamed_and_persisted(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient
+) -> None:
+    class _DirectReplyStub(_StubAdapter):
+        async def invoke(self, prompt: str, config: AdapterConfig) -> AdapterResult:
+            assert "<<ENGAGE_HARNESS>>" not in prompt
+            return AdapterResult(content="Sim, 1 + 1 = 2.", tokens_used=6)
+
+    async def laya_decide(_instruction: str) -> LayaRouteDecision:
+        return LayaRouteDecision(engage_harness=False, confidence=0.97, latency_ms=9.5)
+
+    monkeypatch.setattr("providers.resolution.get_adapter", lambda name: _DirectReplyStub())
+    monkeypatch.setattr("routers.execution.decide_with_laya", laya_decide)
+    graph = {
+        "nodes": [
+            {"id": "PO", "type": "agent", "data": {"label": "PO", "providerIds": ["anthropic"]}},
+        ],
+        "edges": [],
+    }
+
+    response = client.post(
+        "/execute/",
+        json={"graph_json": graph, "mode": "live", "instruction": "1+1 é 2?"},
+    )
+    assert response.status_code == 200
+    events = _sse_events(response.text)
+    decision = next(data for name, data in events if name == "route_decision")
+    assert decision == {
+        "source": "laya",
+        "reason": "confident",
+        "engage_harness": False,
+        "confidence": 0.97,
+        "latency_ms": 9.5,
+    }
+
+    run_id = next(data["run_id"] for name, data in events if name == "run_start")
+    persisted = client.get(f"/execute/logs/{run_id}").json()["result"]["events"]
+    assert next(event["data"] for event in persisted if event["event"] == "route_decision") == decision
 
 
 def test_run_harness_persists_real_events_not_just_a_count(client: TestClient) -> None:
