@@ -133,6 +133,14 @@ async def update_connection(
     row = connections.get(connection_id)
     if not row:
         raise HTTPException(404, "Connection not found")
+    # A stored key is attached to probes/runs against row["endpoint"], so a
+    # provider whose catalog endpoint is not editable must never have it
+    # re-pointed to a caller-chosen host. Providers absent from the catalog
+    # never get a key attached (probe checks the spec), so they stay editable.
+    if body.endpoint is not None and body.endpoint != row.get("endpoint"):
+        spec = get_provider(row["provider"])
+        if spec is not None and not spec["endpoint"]["editable"]:
+            raise HTTPException(400, "This provider's endpoint is fixed and cannot be changed.")
     if body.label is not None:
         row["label"] = body.label
     if body.residence is not None:
@@ -243,9 +251,11 @@ async def delete_secret(
     if not row:
         raise HTTPException(404, "Connection not found")
     ref = row.get("secretRef")
+    # Commit the row first, on a copy: if the DB write raises, memory and the
+    # SecretsStore are still untouched and agree with the DB.
+    updated = {**row, "secretRef": None, "enabled": False}
+    await connection_store.upsert(db, updated)
+    connections[connection_id] = updated
     if ref:
         store.delete(ref)
-    row["secretRef"] = None
-    row["enabled"] = False
-    await connection_store.upsert(db, row)
     return None
