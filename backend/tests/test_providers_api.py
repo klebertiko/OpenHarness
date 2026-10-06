@@ -204,7 +204,8 @@ def test_delete_secret_removes_it_from_the_store_and_disables_the_connection(cli
 
 
 def test_delete_secret_unknown_connection_404(client: TestClient) -> None:
-    assert client.delete("/providers/missing/secret").status_code == 404
+    r = client.delete("/providers/missing/secret")
+    assert r.status_code == 404
 
 
 def test_probe_returns_the_model_ids_the_endpoint_serves(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

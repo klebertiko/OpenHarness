@@ -14,7 +14,7 @@ DEFAULT_ENDPOINTS = {
 # An endpoint is untrusted input: bound what a `GET /models` probe will read
 # and what it will hand back to the UI.
 MAX_PROBE_BODY_BYTES = 2 * 1024 * 1024
-MAX_PROBE_MODELS = 500
+MAX_PROBE_MODELS = 2000
 MAX_MODEL_ID_LEN = 200
 
 
@@ -123,20 +123,25 @@ class OpenAICompatibleAdapter(AgentAdapter):
                 detail=f"{endpoint} sent a model list larger than 2 MB.",
             )
 
-        count = None
-        models: list[str] = []
         try:
             data = json.loads(body).get("data", [])
-            count = len(data)
-            # Ids only — never echo the rest of the upstream body.
-            ids = {
-                m["id"] for m in data
-                if isinstance(m, dict) and isinstance(m.get("id"), str) and len(m["id"]) <= MAX_MODEL_ID_LEN
-            }
-            models = sorted(ids)[:MAX_PROBE_MODELS]
-        except (ValueError, AttributeError, TypeError):
-            pass
-        detail = f"{count} models available." if count is not None else "Reachable."
+        except (ValueError, AttributeError):
+            # A 2xx whose body is not the OpenAI list shape: the endpoint is up
+            # but exposes no usable model list — report that, not a fault.
+            data = None
+        if not isinstance(data, list):
+            return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail="Reachable.", models=[])
+
+        # Ids only — never echo the rest of the upstream body.
+        ids = sorted({
+            m["id"] for m in data
+            if isinstance(m, dict) and isinstance(m.get("id"), str) and len(m["id"]) <= MAX_MODEL_ID_LEN
+        })
+        models = ids[:MAX_PROBE_MODELS]
+        if len(ids) > len(models):
+            detail = f"Showing the first {len(models)} of {len(ids)} models."
+        else:
+            detail = f"{len(models)} models available."
         return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail=detail, models=models)
 
 
