@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowUp, Code2, ListChecks, Search, Square } from "lucide-react";
 
 import { HarnessBar } from "@/components/agent/HarnessBar";
@@ -17,6 +17,7 @@ import { Nilo } from "@/components/brand/Nilo";
 import { ThinkingStatus } from "@/components/brand/ThinkingStatus";
 import { Transcript } from "@/components/agent-run/Transcript";
 import { HistoricalRunDetail } from "@/components/agent-run/HistoricalRunDetail";
+import { RunDetailRegion, RunDetailToggle } from "@/components/agent-run/RunDetailToggle";
 import { useRunStream } from "@/components/agent-run/useRunStream";
 import { Gate } from "@/components/agent-run/Gate";
 import { bundleGraphToEngine } from "@/lib/bundleGraph";
@@ -108,6 +109,16 @@ export function AgentStage() {
     graph,
     harnessEnabled: enabled,
   });
+
+  // One "run detail" control per run. A finished run saved on a chat message is
+  // offered by that message (HistoricalRunDetail); the stage only offers it for
+  // a run that has no message to carry it — one still in flight.
+  const stageDetailId = useId();
+  const runSavedOnMessage = Boolean(run.runId) && messages.some((m) => m.runId === run.runId);
+  const showStageDetailControl =
+    live ||
+    ((run.status === "complete" || run.status === "error" || run.status === "stopped") &&
+      !runSavedOnMessage);
 
   const pendingToolApproval = run.plan.some((segment) =>
     segment.blocks.some((block) =>
@@ -303,7 +314,15 @@ export function AgentStage() {
                   {m.content}
                 </div>
                 {m.role === "assistant" && m.runId && (
-                  <HistoricalRunDetail runId={m.runId} />
+                  <HistoricalRunDetail
+                    runId={m.runId}
+                    // The run that just finished is still in memory: hand it
+                    // over (and the detail the person already opened) so this
+                    // is its only control and it needs no round trip.
+                    run={m.runId === run.runId && !live ? run : undefined}
+                    elapsed={m.runId === run.runId && !live ? elapsed : undefined}
+                    defaultOpen={m.runId === run.runId && !live ? showRunDetail : false}
+                  />
                 )}
               </div>
             ))}
@@ -324,23 +343,18 @@ export function AgentStage() {
               </div>
             )}
 
-            {(run.status === "complete" ||
-              run.status === "error" ||
-              run.status === "stopped" ||
-              live) && (
-              <button
-                type="button"
-                onClick={() => setShowRunDetail((v) => !v)}
-                className="self-start text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline"
-              >
-                {showRunDetail ? "Hide run detail" : "Show run detail"}
-              </button>
+            {showStageDetailControl && (
+              <RunDetailToggle
+                open={showRunDetail}
+                onToggle={() => setShowRunDetail((v) => !v)}
+                controlsId={stageDetailId}
+              />
             )}
 
-            {showRunDetail && (
-              <div className="overflow-hidden rounded-panel border border-line bg-sub-100">
-                <Transcript run={run} onResolve={resolveGate} />
-              </div>
+            {showStageDetailControl && showRunDetail && (
+              <RunDetailRegion id={stageDetailId}>
+                <Transcript run={run} onResolve={resolveGate} elapsed={elapsed} />
+              </RunDetailRegion>
             )}
 
             <div ref={bottomRef} />

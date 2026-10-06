@@ -66,6 +66,7 @@ the real gates. Same honest-error principle as `providers/resolution.py`.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -150,6 +151,13 @@ class RouteResult:
     tokens: int = 0
     connection_id: str = ""
     model: str = ""
+    # Wall time of that one adapter call, in ms. 0 only when no call was made
+    # ("not measured") — a call that ran is never reported as 0.
+    latency_ms: int = 0
+    # True only when `tokens` was derived from the reply's length because the
+    # provider reported no usage; False for a provider-reported count (and
+    # for the zero-call defaults, which carry no tokens at all).
+    tokens_estimated: bool = False
 
 
 async def route_message(
@@ -198,6 +206,7 @@ async def route_message(
         residence = (connections or {}).get(resolved.connection_id, {}).get("residence")
         await enforce_budget(resolved.config.model, residence)
 
+    call_started = time.perf_counter()
     try:
         result = await resolved.adapter.invoke(
             _INTAKE_PROMPT.format(instruction=instruction),
@@ -228,6 +237,7 @@ async def route_message(
         )
     except Exception:  # noqa: BLE001 — routing must never crash the real request
         return RouteResult(engage_harness=True)
+    latency_ms = max(1, round((time.perf_counter() - call_started) * 1000))
 
     # Real spend already happened the moment `invoke` above returned
     # normally, regardless of what it decided — an error string on an
@@ -247,6 +257,7 @@ async def route_message(
             tokens=result.tokens_used,
             connection_id=resolved.connection_id,
             model=resolved.config.model,
+            latency_ms=latency_ms,
         )
 
     text = result.content.strip()
@@ -262,6 +273,7 @@ async def route_message(
             tokens=result.tokens_used,
             connection_id=resolved.connection_id,
             model=resolved.config.model,
+            latency_ms=latency_ms,
         )
 
     return RouteResult(
@@ -271,4 +283,6 @@ async def route_message(
         tokens=result.tokens_used or max(1, len(text) // 4),
         connection_id=resolved.connection_id,
         model=resolved.config.model,
+        latency_ms=latency_ms,
+        tokens_estimated=not result.tokens_used,
     )

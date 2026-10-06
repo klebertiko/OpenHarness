@@ -97,6 +97,12 @@ export interface Segment {
   blocks: Block[];
   output?: string;
   tokens?: number;
+  /** Token provenance from `node_done.tokens_estimated`: true = approximated
+      from output length, false = the provider reported it. Absent = the
+      backend (or an older saved log) never said — unknown, not "real". */
+  tokensEstimated?: boolean;
+  /** Wall time of the node, only when the backend captured one. Absent means
+      "not captured" — a 0 from the wire is never stored as a measurement. */
   latencyMs?: number;
   error?: string;
 
@@ -130,7 +136,14 @@ export interface RunState {
   step: boolean;
   plan: Segment[];
   cursor: number;
-  totals: { tokens: number; nodesRun: number; elapsedMs: number };
+  totals: {
+    tokens: number;
+    nodesRun: number;
+    /** `harness_done.elapsed_ms`; 0 means the backend did not capture a duration. */
+    elapsedMs: number;
+    /** Run-wide token provenance (see Segment.tokensEstimated); absent = unknown. */
+    tokensEstimated?: boolean;
+  };
   startedAt: number | null;
   endedAt: number | null;
   /** Node the engine is parked before, in step mode. */
