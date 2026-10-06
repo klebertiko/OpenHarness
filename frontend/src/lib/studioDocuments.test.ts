@@ -320,3 +320,26 @@ it("replacing the canvas during a run is refused and keeps the session", async (
   replaceStudioCanvas(() => useCanvasStore.getState().setHarnessMeta({ id: null, name: "Other", description: "" }));
   expect(useCanvasStore.getState().harnessMeta.name).toBe("Mine");
 });
+
+// ── QA re-gate #2 residuals (PR #37) ───────────────────────────────────────
+it("editing back to the saved content cancels a pending retry of the failed edit", async () => {
+  openSaved("h1", "A");
+  h.update.mockRejectedValueOnce(new Error("offline"));
+  await edit(() => useCanvasStore.getState().setHarnessMeta({ name: "B" }));
+  expect(useStudioDocsStore.getState().saveState).toBe("error");
+  await edit(() => useCanvasStore.getState().setHarnessMeta({ name: "A" }));
+  replaceStudioCanvas(() => useCanvasStore.getState().loadGraph([], []));
+  h.update.mockClear();
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(h.update).not.toHaveBeenCalled();
+});
+
+it("reverting an edit inside the debounce window clears the unsaved flag", async () => {
+  openSaved("h1", "A");
+  useCanvasStore.getState().setHarnessMeta({ name: "B" });
+  expect(useStudioDocsStore.getState().dirty).toBe(true);
+  useCanvasStore.getState().setHarnessMeta({ name: "A" });
+  expect(useStudioDocsStore.getState().dirty).toBe(false);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(h.update).not.toHaveBeenCalled();
+});

@@ -60,3 +60,16 @@ it("a malformed import changes nothing", async () => {
   expect(importGraphFile("{nope", "bad.json")).toBe(false);
   expect(useCanvasStore.getState().harnessMeta.id).toBe("h1");
 });
+
+it("an import with malformed nodes or edges is rejected without touching the canvas", () => {
+  for (const text of [
+    JSON.stringify({ nodes: [null], edges: [] }),
+    JSON.stringify({ nodes: [1, "x"], edges: [] }),
+    JSON.stringify({ nodes: [{ id: "a", type: "agent", position: { x: 0, y: 0 }, data: {} }], edges: [null] }),
+    JSON.stringify({ nodes: [{ type: "agent" }], edges: [] }),
+  ]) {
+    expect(importGraphFile(text, "bad.json")).toBe(false);
+  }
+  expect(useCanvasStore.getState().harnessMeta.id).toBe("h1");
+  expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(["a", "pending"]);
+});

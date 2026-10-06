@@ -29,8 +29,19 @@ export function importGraphFile(text: string, fileName: string): boolean {
   } catch {
     return false;
   }
-  const nodes = Array.isArray(parsed?.nodes) ? (parsed.nodes as HarnessNode[]) : [];
-  const edges = Array.isArray(parsed?.edges) ? (parsed.edges as HarnessEdge[]) : [];
+  const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+  const rawNodes = Array.isArray(parsed?.nodes) ? parsed.nodes : [];
+  const rawEdges = Array.isArray(parsed?.edges) ? parsed.edges : [];
+  // Reject anything the canvas can't render instead of half-loading it.
+  const nodesOk = rawNodes.every((n) => isObj(n) && typeof n.id === "string" && typeof n.type === "string");
+  const edgesOk = rawEdges.every((e) => isObj(e) && typeof e.source === "string" && typeof e.target === "string");
+  if (!nodesOk || !edgesOk) return false;
+  const nodes = rawNodes.map((n: Record<string, unknown>) => ({
+    ...n,
+    position: isObj(n.position) ? n.position : { x: 0, y: 0 },
+    data: isObj(n.data) ? n.data : {},
+  })) as unknown as HarnessNode[];
+  const edges = rawEdges as unknown as HarnessEdge[];
   replaceStudioCanvas(() => {
     useCanvasStore.getState().loadGraph(nodes, edges);
     useCanvasStore.getState().setHarnessMeta({ id: null, name: fileName.replace(/\.(harness\.)?json$/i, "") || "Imported harness", description: "" });
