@@ -79,6 +79,20 @@ def _public_connection(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _ensure_endpoint_allowed(provider: str, endpoint: str | None, *unchanged: str) -> None:
+    """Reject a caller-chosen endpoint for a provider whose catalog endpoint is
+    not editable. A stored key is attached to probes/runs against the row's
+    endpoint, so it must never be pointed at an arbitrary host. ``unchanged``
+    lists the values that are not a change (the current endpoint on update;
+    empty or the catalog default on create). Providers absent from the catalog
+    never get a key attached (probe checks the spec), so they stay editable."""
+    if endpoint is None or endpoint in unchanged:
+        return
+    spec = get_provider(provider)
+    if spec is not None and not spec["endpoint"]["editable"]:
+        raise HTTPException(400, "This provider's endpoint is fixed and cannot be changed.")
+
+
 @router.get("/catalog")
 async def get_catalog():
     return {"providers": list_catalog()}
@@ -97,6 +111,9 @@ async def create_connection(
 ):
     if body.id in connections:
         raise HTTPException(409, f"Connection '{body.id}' already exists")
+    spec = get_provider(body.provider)
+    default_endpoint = spec["endpoint"]["default"] if spec is not None else ""
+    _ensure_endpoint_allowed(body.provider, body.endpoint, "", default_endpoint)
     row = {
         "id": body.id,
         "provider": body.provider,
@@ -107,8 +124,9 @@ async def create_connection(
         "secretRef": None,
         "defaultModel": body.defaultModel,
     }
-    connections[body.id] = row
+    # Commit first so a failing DB write leaves memory without a ghost row.
     await connection_store.upsert(db, row)
+    connections[body.id] = row
     return _public_connection(row)
 
 
@@ -133,26 +151,23 @@ async def update_connection(
     row = connections.get(connection_id)
     if not row:
         raise HTTPException(404, "Connection not found")
-    # A stored key is attached to probes/runs against row["endpoint"], so a
-    # provider whose catalog endpoint is not editable must never have it
-    # re-pointed to a caller-chosen host. Providers absent from the catalog
-    # never get a key attached (probe checks the spec), so they stay editable.
-    if body.endpoint is not None and body.endpoint != row.get("endpoint"):
-        spec = get_provider(row["provider"])
-        if spec is not None and not spec["endpoint"]["editable"]:
-            raise HTTPException(400, "This provider's endpoint is fixed and cannot be changed.")
+    _ensure_endpoint_allowed(row["provider"], body.endpoint, row.get("endpoint", ""))
+    # Commit a copy first; swap it into memory only once the DB accepted it, so
+    # a failing write leaves memory and DB in agreement.
+    updated = dict(row)
     if body.label is not None:
-        row["label"] = body.label
+        updated["label"] = body.label
     if body.residence is not None:
-        row["residence"] = body.residence
+        updated["residence"] = body.residence
     if body.endpoint is not None:
-        row["endpoint"] = body.endpoint
+        updated["endpoint"] = body.endpoint
     if body.enabled is not None:
-        row["enabled"] = body.enabled
+        updated["enabled"] = body.enabled
     if body.defaultModel is not None:
-        row["defaultModel"] = body.defaultModel
-    await connection_store.upsert(db, row)
-    return _public_connection(row)
+        updated["defaultModel"] = body.defaultModel
+    await connection_store.upsert(db, updated)
+    connections[connection_id] = updated
+    return _public_connection(updated)
 
 
 @router.delete("/connections/{connection_id}", status_code=204)
