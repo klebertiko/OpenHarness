@@ -7,6 +7,13 @@ import { useChatProviderStore } from "@/store/chatProviderStore";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import { PropertiesPanel } from "./PropertiesPanel";
 
+/** Pick from the shared Combobox (providers-recovery F9 — no native selects). */
+async function pick(user: ReturnType<typeof userEvent.setup>, trigger: RegExp, option: RegExp) {
+  await user.click(screen.getByRole("button", { name: trigger }));
+  await user.click(screen.getByRole("option", { name: option }));
+}
+const pinLabel = () => screen.getByRole("button", { name: /^Connection pin:/ }).getAttribute("aria-label");
+
 const initialCanvas = useCanvasStore.getState();
 const initialProviders = useProviderStore.getState();
 const initialChat = useChatProviderStore.getState();
@@ -37,20 +44,20 @@ afterEach(() => {
 it("keeps two agents pinned independently when the chat default changes or another pin is cleared", async () => {
   const user = userEvent.setup();
   render(<PropertiesPanel />);
-  await user.selectOptions(screen.getByRole("combobox", { name: "Connection pin" }), "an");
+  await pick(user, /^Connection pin:/, /^Anthropic/);
   act(() => useCanvasStore.getState().setSelectedNode("reviewer"));
-  await user.selectOptions(screen.getByRole("combobox", { name: "Connection pin" }), "ol");
+  await pick(user, /^Connection pin:/, /^Ollama local/);
   act(() => useChatProviderStore.getState().setChosen(null));
 
   act(() => useCanvasStore.getState().setSelectedNode("author"));
-  expect((screen.getByRole("combobox", { name: "Connection pin" }) as HTMLSelectElement).value).toBe("an");
+  expect(pinLabel()).toBe("Connection pin: Anthropic");
   expect(screen.getByText(/in chat, a pinned connection overrides the chat provider/i)).toBeTruthy();
   act(() => useCanvasStore.getState().setSelectedNode("reviewer"));
-  expect((screen.getByRole("combobox", { name: "Connection pin" }) as HTMLSelectElement).value).toBe("ol");
+  expect(pinLabel()).toBe("Connection pin: Ollama local");
   expect(useCanvasStore.getState().nodes.map((n) => n.data.providerIds)).toEqual([["an"], ["ol"]]);
 
-  await user.selectOptions(screen.getByRole("combobox", { name: "Connection pin" }), "");
+  await pick(user, /^Connection pin:/, /^Use chat default/);
   expect(useCanvasStore.getState().nodes.map((n) => n.data.providerIds)).toEqual([["an"], []]);
   act(() => useCanvasStore.getState().setSelectedNode("author"));
-  expect((screen.getByRole("combobox", { name: "Connection pin" }) as HTMLSelectElement).value).toBe("an");
+  expect(pinLabel()).toBe("Connection pin: Anthropic");
 });

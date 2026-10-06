@@ -14,7 +14,7 @@ import { specOf, type Connection } from "./providerStore";
  * word in a narrow list row. Null when nothing is missing.
  */
 export type NextStep = {
-  kind: "paste" | "turnOn" | "retest";
+  kind: "paste" | "turnOn" | "retest" | "model";
   label: string;
   hint: string;
 };
@@ -28,6 +28,8 @@ export function nextStep(c: Connection): NextStep | null {
     }
     case "turn-on":
       return { kind: "turnOn", label: "Turn on", hint: "turn on" };
+    case "model":
+      return { kind: "model", label: "Choose a model", hint: "choose model" };
     case "fix-failure":
       return { kind: "retest", label: "Test again", hint: "retest" };
     default:
