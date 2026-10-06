@@ -16,10 +16,6 @@ export function ohmFileName(bundle: OHarnessBundle): string {
   return `${base || "harness"}.ohm`;
 }
 
-function withOhmExtension(path: string): string {
-  return path.toLowerCase().endsWith(".ohm") ? path : `${path}.ohm`;
-}
-
 function baseName(path: string): string {
   return path.split(/[\x5c/]/).pop() || path;
 }
@@ -53,7 +49,10 @@ export async function saveOhmFile(bundle: OHarnessBundle, suggestedName?: string
   }
   if (!chosen) return { status: "cancelled" };
 
-  const path = withOhmExtension(chosen);
+  // Write exactly where the person chose: the dialog adds only that path to
+  // the fs scope, so a renamed path (e.g. with ".ohm" appended) would be
+  // refused. The `.ohm` filter lets the OS dialog add the extension itself.
+  const path = chosen;
   try {
     await writeTextFile(path, serializeBundle(bundle));
   } catch (error) {

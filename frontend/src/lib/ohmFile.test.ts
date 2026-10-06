@@ -75,11 +75,14 @@ describe("saveOhmFile", () => {
       expect(writeTextFileMock).not.toHaveBeenCalled();
     });
 
-    it("appends .ohm when the chosen path has no .ohm extension", async () => {
+    it("writes exactly the path the dialog returned, never a renamed one", async () => {
+      // Only the picked path is added to the fs scope; renaming it after the
+      // dialog (e.g. appending .ohm) would be refused with PathForbidden. The
+      // .ohm filter makes the OS dialog add the extension itself (Windows).
       saveMock.mockResolvedValue("C:\\out\\harness");
       const result = await saveOhmFile(bundle);
-      expect(writeTextFileMock.mock.calls[0][0]).toBe("C:\\out\\harness.ohm");
-      expect(result).toMatchObject({ status: "saved", path: "C:\\out\\harness.ohm", name: "harness.ohm" });
+      expect(writeTextFileMock.mock.calls[0][0]).toBe("C:\\out\\harness");
+      expect(result).toMatchObject({ status: "saved", path: "C:\\out\\harness", name: "harness" });
     });
 
     it("keeps an existing .ohm extension regardless of case", async () => {
