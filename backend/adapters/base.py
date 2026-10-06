@@ -55,7 +55,6 @@ class ProbeResult:
     # `GET /models`). Empty when the adapter has no such listing (CLI
     # adapters) — the UI then falls back to its catalog, labelled as such.
     models: list[str] = field(default_factory=list)
-    models: list[ModelInfo] = field(default_factory=list)
 
 
 class AgentAdapter(ABC):
