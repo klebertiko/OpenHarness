@@ -14,6 +14,7 @@ export const emptyRun: RunState = {
   awaitingStep: null,
   steers: [],
   notices: [],
+  routeDecision: null,
 };
 
 type Action =
@@ -21,6 +22,31 @@ type Action =
   | { type: "clear" }
   | { type: "sse"; event: string; data: Record<string, never> | Record<string, unknown> }
   | { type: "transport-error"; message: string };
+
+/**
+ * A duration off the wire, or undefined when the backend did not actually
+ * capture one. The sidecar emits a literal 0 for nodes it never timed (an
+ * intrinsic node, an older log), and rendering that as "0ms" would present
+ * an absent measurement as a real one. Tool calls pass `allowZero` because a
+ * `tool_result` that does carry `duration_ms` can honestly be 0.
+ */
+function capturedMs(raw: unknown, allowZero = false): number | undefined {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+  return raw > 0 || (allowZero && raw === 0) ? raw : undefined;
+}
+
+/**
+ * Whether the run's token total was estimated. The backend's own
+ * `harness_done.tokens_estimated` decides; failing that, derive it from the
+ * nodes' own flags (any estimated -> estimated; all stated real -> real).
+ * Nothing stated anywhere stays `undefined` — unknown, not "measured".
+ */
+function runTokensEstimated(state: RunState, stated: unknown): boolean | undefined {
+  if (typeof stated === "boolean") return stated;
+  const flags = state.plan.map((s) => s.tokensEstimated).filter((f): f is boolean => f !== undefined);
+  if (!flags.length) return undefined;
+  return flags.some(Boolean);
+}
 
 function seg(view: Record<string, unknown>): Segment {
   return {
@@ -116,6 +142,23 @@ export function runReducer(state: RunState, action: Action): RunState {
   const d = action.data as Record<string, string & number & boolean>;
 
   switch (action.event) {
+    case "route_decision":
+      return {
+        ...state,
+        routeDecision: {
+          source:
+            action.data.source === "laya" || action.data.source === "model_fallback"
+              ? action.data.source
+              : "model",
+          reason: String(action.data.reason ?? ""),
+          engageHarness: Boolean(action.data.engage_harness),
+          confidence:
+            typeof action.data.confidence === "number" ? action.data.confidence : null,
+          latencyMs:
+            typeof action.data.latency_ms === "number" ? action.data.latency_ms : null,
+        },
+      };
+
     case "run_start": {
       const order = (action.data.order as Record<string, unknown>[]) ?? [];
       const unreachable = (action.data.unreachable as string[]) ?? [];
@@ -208,7 +251,7 @@ export function runReducer(state: RunState, action: Action): RunState {
                   ...b.call,
                   ok: Boolean(action.data.ok),
                   result: String(action.data.result ?? ""),
-                  durationMs: Number(action.data.duration_ms ?? 0),
+                  durationMs: capturedMs(action.data.duration_ms, true),
                   ...("truncated" in action.data ? { truncated: Boolean(action.data.truncated) } : {}),
                   ...("timed_out" in action.data ? { timedOut: Boolean(action.data.timed_out) } : {}),
                   ...("simulated" in action.data ? { simulated: Boolean(action.data.simulated) } : {}),
@@ -292,7 +335,8 @@ export function runReducer(state: RunState, action: Action): RunState {
         phaseDetail: "",
         output: String(action.data.output ?? ""),
         tokens,
-        latencyMs: Number(action.data.latency_ms ?? 0),
+        tokensEstimated: typeof action.data.tokens_estimated === "boolean" ? action.data.tokens_estimated : undefined,
+        latencyMs: capturedMs(action.data.latency_ms),
         endedAt: Date.now(),
       }));
       return {
@@ -400,6 +444,7 @@ export function runReducer(state: RunState, action: Action): RunState {
           tokens: Number(action.data.total_tokens ?? state.totals.tokens),
           nodesRun: Number(action.data.nodes_run ?? state.totals.nodesRun),
           elapsedMs: Number(action.data.elapsed_ms ?? 0),
+          tokensEstimated: runTokensEstimated(state, action.data.tokens_estimated),
         },
         plan: state.plan.map((s) =>
           s.state === "pending" ? { ...s, state: "skipped" } : s

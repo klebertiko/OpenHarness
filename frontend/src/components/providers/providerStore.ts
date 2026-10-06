@@ -261,6 +261,14 @@ function credentialDetail(c: Connection): string {
   return `Not connected. Add a key from ${cred.where}.`;
 }
 
+/** What the dossier header says about a connection right after hydrate. Only
+    the rows the sidecar reports as on get a new sentence; everything else
+    keeps the offline template's own wording. */
+function hydratedDetail(c: Connection, row: BackendConnectionRow): string {
+  if (!row.enabled) return c.detail;
+  return c.health === "live" ? c.detail : "Turned on. Not tested yet — press Test to verify it.";
+}
+
 /** Every status field neutralised to "nothing has happened yet". Vendor facts
     (models, endpoint, residence) survive from the template as-is. */
 function offlineTemplate(c: Connection): Connection {
@@ -450,9 +458,13 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   hydrate: async () => {
     if (get().hydrated) return;
     set({ hydrated: true }); // claim it before the await — one hydrate in flight, not one per mounted consumer
+    // The claim is only kept on success: a sidecar that is still booting (or a
+    // 5xx) must not leave every connection on the offline template for the
+    // whole session - release it so the next mounted consumer retries.
+    const release = () => set({ hydrated: false });
     try {
       const res = await fetch(apiUrl("/providers/connections"));
-      if (!res.ok) return;
+      if (!res.ok) return release();
       const body = (await res.json()) as { connections: BackendConnectionRow[] };
       const byId = new Map(body.connections.map((row) => [row.id, row]));
       set({
@@ -465,6 +477,9 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
             residence: row.residence,
             endpoint: row.endpoint,
             enabled: row.enabled,
+            // The offline template's "Not connected. Add a key..." sentence
+            // would contradict a row the sidecar says is on.
+            detail: hydratedDetail(c, row),
             secret: row.secretRef
               ? {
                   service: row.secretRef,
@@ -481,6 +496,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     } catch {
       // Sidecar unreachable at mount — connections stay in the honest
       // "not connected" state from offlineTemplate() rather than lying live.
+      release();
     }
   },
 
@@ -574,14 +590,20 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     const enabled = !c.enabled;
     set({ connections: patch(get().connections, id, (x) => ({ ...x, enabled })) });
     await ensureBackendRow(c);
+    // Runs are gated by the sidecar's flag, not this optimistic one - if it
+    // refuses (or is unreachable) put the switch back so the list never shows
+    // a connection as on that a run would still treat as off.
+    const rollback = () =>
+      set({ connections: patch(get().connections, id, (x) => (x.enabled === enabled ? { ...x, enabled: c.enabled } : x)) });
     try {
-      await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
+      const res = await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       });
+      if (!res.ok) rollback();
     } catch {
-      // Best effort — a probe or chat send will surface a stale toggle honestly.
+      rollback();
     }
   },
 

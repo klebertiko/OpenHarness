@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { KeyRound, ShieldCheck, Terminal, Trash2, TriangleAlert } from "lucide-react";
 import { VAULT_LABEL, activeVault, prefixMatches } from "./secrets";
+import { providerReadiness } from "@/components/agent/chatProvider";
 import type { Connection } from "./providerStore";
 import type { ProviderSpec } from "./catalog";
 import { Chip } from "./atoms";
@@ -41,13 +42,8 @@ function Redaction({ length }: { length: number | null }) {
   return (
     <span
       aria-label={length === null ? "Credential value withheld; length unavailable" : `${length} characters withheld`}
-      className="inline-block flex-none select-none rounded-[1px]"
-      style={{
-        width,
-        height: 9,
-        background:
-          "repeating-linear-gradient(90deg, var(--sub-400) 0 2px, transparent 2px 4px)",
-      }}
+      className="inline-block h-[9px] flex-none select-none rounded-[1px] bg-[repeating-linear-gradient(90deg,var(--sub-400)_0_2px,transparent_2px_4px)]"
+      style={{ width }}
     />
   );
 }
@@ -92,7 +88,11 @@ export function CredentialSeal({
      paste flow below never applies here — connection health *is* the
      credential state, read straight from the adapter's probe(). */
   if (spec.credential.kind === "cli") {
-    const connected = connection.health === "live" || connection.health === "degraded";
+    // Same gate as the list and the header chip: turned-off never reads
+    // "connected" even when a Test passed, and turned-on-but-untested is not
+    // "not connected".
+    const readiness = providerReadiness(connection);
+    const connected = readiness.verified;
     return (
       <Section
         title="Credential"
@@ -101,6 +101,11 @@ export function CredentialSeal({
             <Chip tone="signal">
               <Terminal size={11} strokeWidth={1.8} />
               connected via CLI
+            </Chip>
+          ) : readiness.ready ? (
+            <Chip>
+              <Terminal size={11} strokeWidth={1.8} />
+              turned on, not tested
             </Chip>
           ) : (
             <Chip tone="warn">
@@ -138,7 +143,7 @@ export function CredentialSeal({
           </Chip>
         }
       >
-        <div className="flex items-center gap-2.5 rounded-control border border-line-soft bg-sub-200 px-2.5 py-2">
+        <div className="flex min-w-0 items-center gap-2.5 overflow-hidden rounded-control border border-line-soft bg-sub-200 px-2.5 py-2">
           <span className="h-[15px] w-[2px] flex-none rounded-[1px] bg-signal-deep" aria-hidden />
           <span className="t-meta flex min-w-0 items-center gap-1.5">
             <span className="text-ink-dim">{s.prefix}</span>
@@ -147,10 +152,10 @@ export function CredentialSeal({
           </span>
         </div>
 
-        <dl className="mt-2.5 grid grid-cols-[86px_1fr] gap-x-3 gap-y-1">
-          <Row k="stored in" v={`${VAULT_LABEL[s.vault]} · ${s.service}`} />
-          <Row k="length" v={s.length > 0 ? `${s.length} characters` : "not reported by the vault"} />
-          <Row k="added" v={fmtDate(s.savedAt)} />
+        <dl className="mt-2.5 grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
+          <Row k="Stored in" v={`${VAULT_LABEL[s.vault]} · ${s.service}`} />
+          <Row k="Length" v={s.length > 0 ? `${s.length} characters` : "not reported by the vault"} />
+          <Row k="Added" v={fmtDate(s.savedAt)} />
         </dl>
 
         <p className="t-body mt-3 max-w-[62ch] text-ink-mute">
@@ -158,7 +163,7 @@ export function CredentialSeal({
           a run log. The runtime asks the vault for it at request time and never hands it across.
         </p>
 
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <Btn onClick={() => setEntering(true)}>
             <KeyRound size={12} strokeWidth={1.7} />
             Replace key
@@ -194,10 +199,10 @@ export function CredentialSeal({
       title="Credential"
       chip={connection.secret ? <Chip tone="warn">replacing</Chip> : <Chip>not set</Chip>}
     >
-      <label className="t-label mb-1.5 block text-ink-faint" htmlFor="oh-cred">
-        paste {spec.vendor} key
+      <label className="t-body mb-1.5 block text-ink-dim" htmlFor="oh-cred">
+        Paste your {spec.vendor} key
       </label>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           id="oh-cred"
           ref={input}
@@ -212,7 +217,7 @@ export function CredentialSeal({
             setPrefixOk(prefixMatches(v, expected));
           }}
           onKeyDown={(e) => e.key === "Enter" && void submit()}
-          className="oh-focus-inner t-meta h-[27px] min-w-0 flex-1 rounded-control border border-line-soft bg-sub-200 px-2 tracking-[0.16em] text-ink outline-none focus:border-signal-deep"
+          className="oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_10rem] rounded-control border border-line-soft bg-sub-200 px-2 tracking-[0.16em] text-ink outline-none focus:border-signal-deep"
         />
         <Btn onClick={() => void submit()} primary disabled={!len || !prefixOk || busy}>
           {busy ? "Storing…" : "Store"}
@@ -260,8 +265,8 @@ function Section({
 }) {
   return (
     <section className="border-t border-line-soft py-4">
-      <header className="mb-2.5 flex items-center gap-2">
-        <h3 className="t-label text-ink-dim">{title}</h3>
+      <header className="mb-2.5 flex flex-wrap items-center gap-2">
+        <h3 className="t-title text-ink">{title}</h3>
         {chip}
       </header>
       {children}
@@ -273,7 +278,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <>
       <dt className="t-body text-ink-faint">{k}</dt>
-      <dd className="t-meta truncate text-ink-dim">{v}</dd>
+      <dd className="t-meta text-ink-dim [overflow-wrap:anywhere]">{v}</dd>
     </>
   );
 }
@@ -297,9 +302,9 @@ export function Btn({
       onClick={onClick}
       disabled={disabled}
       className={[
-        "t-body inline-flex h-[27px] flex-none items-center gap-1.5 rounded-control border px-2.5 transition-colors disabled:opacity-40",
+        "t-body inline-flex h-8 flex-none items-center gap-1.5 whitespace-nowrap rounded-control border px-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40",
         primary
-          ? "border-signal bg-signal text-signal-ink hover:bg-signal-deep disabled:hover:bg-signal"
+          ? "border-signal bg-signal font-medium text-signal-ink hover:bg-signal-deep disabled:hover:bg-signal"
           : tone === "fault"
             ? "border-line bg-sub-200 text-ink-mute hover:border-fault hover:text-fault"
             : "border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink",

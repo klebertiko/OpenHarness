@@ -1,32 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { runsApi } from "@/lib/runsApi";
+import { RunDetailRegion, RunDetailToggle } from "./RunDetailToggle";
 import { Transcript } from "./Transcript";
 import { emptyRun, runReducer } from "./runReducer";
 import type { RunState } from "./types";
 
 /**
- * "Show run detail" for a message from a *previous* session — the live
- * `RunState` in `useRunStream` is in-memory only and is gone the moment the
- * page reloads, even though the chat bubble's own summary text survives
- * (it's saved onto the thread message). This rebuilds an equivalent
- * `RunState` by replaying the real event log the sidecar persisted
+ * "Show run detail" for the run behind a chat message — the single control
+ * for that run.
+ *
+ * Normally the live `RunState` in `useRunStream` is in-memory only and is gone
+ * the moment the page reloads, even though the chat bubble's own summary text
+ * survives (it's saved onto the thread message). So this rebuilds an
+ * equivalent `RunState` by replaying the real event log the sidecar persisted
  * (`GET /execute/logs/{runId}`, `ExecutionLog.result_json`) through the same
  * reducer the live view uses, so the two render identically.
+ *
+ * For the run that *just* finished, that state is still in memory: the caller
+ * hands it in as `run` and this never round-trips to the sidecar. That is what
+ * lets the stage drop its own toggle once the run is saved on a message —
+ * one control per run, not a message toggle plus an orphan below it.
  */
-export function HistoricalRunDetail({ runId }: { runId: string }) {
-  const [open, setOpen] = useState(false);
+export function HistoricalRunDetail({
+  runId,
+  run: memoryRun,
+  elapsed,
+  defaultOpen = false,
+}: {
+  runId: string;
+  /** The finished run still held in memory, when this message is its own. */
+  run?: RunState;
+  /** The client-observed clock for `run`, used only if the backend never timed it. */
+  elapsed?: number;
+  /** Start expanded — carries over a detail the person already opened live. */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
-  const [run, setRun] = useState<RunState | null>(null);
+  const [replayed, setReplayed] = useState<RunState | null>(null);
+  // Remember the in-memory run once seen, so this keeps showing it after the
+  // stage has moved on to the next run instead of falling back to a fetch.
+  const [kept, setKept] = useState<{ run: RunState; elapsed?: number } | null>(
+    memoryRun ? { run: memoryRun, elapsed } : null,
+  );
+  if (memoryRun && kept?.run !== memoryRun) setKept({ run: memoryRun, elapsed });
+  const regionId = useId();
 
-  const toggle = async () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    setOpen(true);
-    if (state !== "idle") return;
+  const run = kept?.run ?? replayed;
+  const ready = Boolean(kept) || state === "ready";
+
+  const load = async () => {
     setState("loading");
     try {
       const detail = await runsApi.get(runId);
@@ -49,34 +74,39 @@ export function HistoricalRunDetail({ runId }: { runId: string }) {
           data: (evt.data as Record<string, unknown>) ?? {},
         });
       }
-      setRun(next);
+      setReplayed(next);
       setState("ready");
     } catch {
       setState("unavailable");
     }
   };
 
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (!kept && state === "idle") void load();
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={() => void toggle()}
-        className="self-start text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline"
-      >
-        {open ? "Hide run detail" : "Show run detail"}
-      </button>
-      {open && state === "loading" && (
-        <p className="text-[12px] text-ink-faint">Loading…</p>
+      <RunDetailToggle open={open} onToggle={toggle} controlsId={regionId} />
+      {open && !ready && state === "loading" && (
+        <p role="status" className="text-[12px] text-ink-faint">
+          Loading…
+        </p>
       )}
-      {open && state === "unavailable" && (
+      {open && !ready && state === "unavailable" && (
         <p className="text-[12px] text-ink-faint">
           This run&apos;s step-by-step detail wasn&apos;t saved.
         </p>
       )}
-      {open && state === "ready" && run && (
-        <div className="overflow-hidden rounded-panel border border-line bg-sub-100">
-          <Transcript run={run} onResolve={() => undefined} />
-        </div>
+      {open && ready && run && (
+        <RunDetailRegion id={regionId}>
+          <Transcript run={run} onResolve={() => undefined} elapsed={kept?.elapsed} />
+        </RunDetailRegion>
       )}
     </div>
   );

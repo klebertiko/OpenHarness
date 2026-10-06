@@ -10,7 +10,7 @@ import { Gate } from "./Gate";
 import { ToolCard } from "./ToolCard";
 import { useActiveRunStore } from "@/store/activeRunStore";
 import { connectionLabel, isPinnedMismatch } from "./pinnedConnection";
-import { rollupTotals } from "./rollup";
+import { rollupTotals, type TokenSource } from "./rollup";
 import type { Block, RunState, Segment, ToolCall } from "./types";
 
 /* ── Marker ────────────────────────────────────────────────────────────────
@@ -146,9 +146,9 @@ function ToolRow({ call, transcriptRunId }: { call: ToolCall; transcriptRunId: s
           >
             {call.result}
           </span>
-          <span className="t-meta flex-none text-ink-faint">
-            {fmtLatency(call.durationMs ?? 0)}
-          </span>
+          {call.durationMs !== undefined && (
+            <span className="t-meta flex-none text-ink-faint">{fmtLatency(call.durationMs)}</span>
+          )}
         </>
       )}
     </div>
@@ -245,7 +245,7 @@ function SegmentView({
           {segment.state === "done" && (
             <span className="t-meta flex-none text-ink-faint">
               {segment.latencyMs ? fmtLatency(segment.latencyMs) : null}
-              {segment.tokens ? ` · ${fmtTokens(segment.tokens)} tok` : null}
+              {segment.tokens ? ` · ${segment.tokensEstimated ? "~" : ""}${fmtTokens(segment.tokens)} tok` : null}
             </span>
           )}
           {running && segment.phase && (
@@ -349,38 +349,89 @@ function FailoverBadge({
   );
 }
 
+const TOKEN_SOURCE_COPY: Record<TokenSource, { label: string; title: string }> = {
+  live: {
+    label: "counting",
+    title: "The run is still running: these figures are still moving and are not final.",
+  },
+  measured: {
+    label: "tokens measured",
+    title: "Token counts were reported by the provider, not guessed.",
+  },
+  estimated: {
+    label: "tokens estimated",
+    title:
+      "At least one token count was estimated from the length of the output because the provider did not report usage.",
+  },
+  unconfirmed: {
+    label: "tokens unconfirmed",
+    title:
+      "This run's record does not say whether its token counts were reported by the provider or estimated.",
+  },
+};
+
 function RunRollup({ run, elapsed }: { run: RunState; elapsed?: number }) {
   if (!run.startedAt) return null; // nothing has run yet — no honest total to show
   const totals = rollupTotals(run, elapsed);
-  const measured = totals.source === "measured";
+  const copy = TOKEN_SOURCE_COPY[totals.tokenSource];
+  const pulsing = totals.tokenSource === "live";
   return (
     <div className="mb-2 flex items-center divide-x divide-line-soft border-b border-line-soft pb-2">
-      <Metric value={totals.elapsedMs != null ? clock(totals.elapsedMs) : "—"} unit="elapsed" />
+      {totals.elapsedState === "unrecorded" ? (
+        <span
+          className="t-meta flex items-baseline gap-1 px-2.5 first:pl-0"
+          title="The run finished, but its duration was not captured."
+        >
+          <span className="text-ink-dim">not recorded</span>
+          <span className="text-ink-faint">duration</span>
+        </span>
+      ) : (
+        <Metric value={clock(totals.elapsedMs ?? 0)} unit="elapsed" />
+      )}
       <Metric value={fmtTokens(totals.tokens)} unit="tok" />
       <Metric
         value={run.plan.length ? `${run.totals.nodesRun}/${run.plan.length}` : "—"}
         unit="nodes"
       />
-      {/* Provenance, always on screen: are these numbers the backend's own
-          harness_done total, or the client still summing node events and
-          ticking its own clock? The rollup used to switch sources silently;
-          now it says which one it is showing. */}
-      <span
-        className="t-meta ml-auto flex items-center gap-1.5 pl-2.5 text-ink-faint"
-        title={
-          measured
-            ? "Confirmed by the backend: harness_done reported this total."
-            : "Still counting locally: the backend has not confirmed this total yet."
-        }
-      >
+      {/* Provenance of the token count, always on screen. "estimated" is
+          reserved for counts that really were estimated; a duration that was
+          never captured is reported in its own cell, not smeared onto this. */}
+      <span className="t-meta ml-auto flex items-center gap-1.5 pl-2.5 text-ink-faint" title={copy.title}>
         <span
           className={`h-[5px] w-[5px] flex-none rounded-full ${
-            measured ? "bg-signal" : `bg-ink-faint${run.status === "running" ? " animate-pulse" : ""}`
+            totals.tokenSource === "measured"
+              ? "bg-signal"
+              : `bg-ink-faint${pulsing ? " animate-pulse" : ""}`
           }`}
           aria-hidden
         />
-        {totals.source}
+        {copy.label}
       </span>
+    </div>
+  );
+}
+
+function RouteDecisionProvenance({ decision }: { decision: NonNullable<RunState["routeDecision"]> }) {
+  const source = decision.source === "laya" ? "Laya" : decision.source === "model_fallback" ? "model fallback" : "model";
+  const reason =
+    decision.reason === "unavailable"
+      ? "Laya unavailable"
+      : decision.reason === "provider_unavailable"
+        ? "Provider unavailable; routed safely to Harness"
+      : decision.reason === "low_confidence"
+        ? "Laya confidence below threshold"
+        : decision.reason;
+  const confidence = decision.confidence == null ? null : `${Math.round(decision.confidence * 100)}% confidence`;
+  const outcome = decision.engageHarness ? "Harness" : "Nilo";
+  return (
+    <div
+      className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line-soft px-2 py-1.5 text-ink-dim"
+      aria-label="Routing decision provenance"
+    >
+      <span className="t-meta">{`decided by ${source}`}</span>
+      <span className="t-meta text-ink-faint">{`selected ${outcome}`}</span>
+      {confidence && <span className="t-meta text-ink-faint">{confidence}</span>}
+      {reason && decision.reason !== "confident" && <span className="t-meta text-ink-faint">{reason}</span>}
     </div>
   );
 }
@@ -441,10 +492,23 @@ function NodeBreakdown({
                 )}
               </td>
               <td className="px-1.5 py-1 text-right">
-                <span className="t-meta text-ink-dim">{s.latencyMs != null ? fmtLatency(s.latencyMs) : "—"}</span>
+                {s.latencyMs != null ? (
+                  <span className="t-meta text-ink-dim">{fmtLatency(s.latencyMs)}</span>
+                ) : (
+                  <span className="t-meta text-ink-dim" title="Latency was not captured for this node.">
+                    <span aria-hidden>—</span>
+                    <span className="sr-only">not captured</span>
+                  </span>
+                )}
               </td>
               <td className="px-1.5 py-1 text-right">
-                <span className="t-meta text-ink-dim">{s.tokens != null ? fmtTokens(s.tokens) : "—"}</span>
+                {s.tokens != null && s.tokensEstimated ? (
+                  <span className="t-meta text-ink-dim" title="Estimated from the length of the output; the provider did not report usage.">
+                    ~{fmtTokens(s.tokens)}
+                  </span>
+                ) : (
+                  <span className="t-meta text-ink-dim">{s.tokens != null ? fmtTokens(s.tokens) : "—"}</span>
+                )}
               </td>
             </tr>
           );
@@ -513,6 +577,7 @@ export function Transcript({
       ))}
 
       <RunRollup run={run} elapsed={elapsed} />
+      {run.routeDecision && <RouteDecisionProvenance decision={run.routeDecision} />}
       <NodeBreakdown segments={attributed} defaultConnectionId={defaultConnectionId} connections={connections} />
 
       {visible.map((s, i) => (

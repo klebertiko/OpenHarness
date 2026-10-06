@@ -36,6 +36,8 @@ const SECTIONS: RailSection[] = ["chats", "studio", "providers"];
 
 export const LEFT_MIN = 188;
 export const LEFT_MAX = 380;
+/** Icon-only rail width, used while the left panel is suppressed (narrow window). */
+export const RAIL_COLLAPSED = 52;
 export const RIGHT_MIN = 240;
 export const RIGHT_MAX = 460;
 

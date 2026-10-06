@@ -252,6 +252,30 @@ it("node_error keeps the segment's previous token figure when the new event omit
   expect(negative.plan[0].tokens).toBe(30);
 });
 
+describe("runReducer · route decision provenance", () => {
+  it("keeps who decided before and after run_start so historical replay is honest", () => {
+    const decided = runReducer(emptyRun, {
+      type: "sse",
+      event: "route_decision",
+      data: { source: "laya", reason: "confident", engage_harness: false, confidence: 0.97, latency_ms: 9.5 },
+    });
+    expect(decided.routeDecision).toEqual({
+      source: "laya",
+      reason: "confident",
+      engageHarness: false,
+      confidence: 0.97,
+      latencyMs: 9.5,
+    });
+
+    const started = runReducer(decided, {
+      type: "sse",
+      event: "run_start",
+      data: { run_id: "routed", mode: "live", step: false, order: [], unreachable: [] },
+    });
+    expect(started.routeDecision).toEqual(decided.routeDecision);
+  });
+});
+
 // ── CHAT-TOOLS-FE AC#3/#4: tool approval gate on the run stream (contract v1.1 §2.5/§2.6) ──
 describe("runReducer · chat tools", () => {
   const seeded = runReducer(emptyRun, {
@@ -365,4 +389,54 @@ describe("runReducer · chat tools", () => {
     }
     expect(runReducer(seeded, { type: "sse", event: "capabilities", data: { reason: "ok" } }).notices).toEqual([]);
   });
+});
+
+/* ── honest metrics: absent/zero is "not captured", never a measurement ───── */
+function started() {
+  return runReducer(
+    runReducer(emptyRun, { type: "sse", event: "run_start", data: { run_id: "m", order: [{ node_id: "n" }] } }),
+    { type: "sse", event: "node_start", data: { node_id: "n" } },
+  );
+}
+
+it("node_done with latency_ms 0 or missing records no latency — 0ms was never measured", () => {
+  const zero = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 3, output: "x", latency_ms: 0 } });
+  expect(zero.plan[0].latencyMs).toBeUndefined();
+  const missing = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 3, output: "x" } });
+  expect(missing.plan[0].latencyMs).toBeUndefined();
+});
+
+it("node_done keeps a real positive latency", () => {
+  const s = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 3, output: "x", latency_ms: 812 } });
+  expect(s.plan[0].latencyMs).toBe(812);
+});
+
+it("node_done carries token provenance only when the backend states it", () => {
+  const est = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 3, output: "x", tokens_estimated: true } });
+  expect(est.plan[0].tokensEstimated).toBe(true);
+  const real = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 19, output: "x", tokens_estimated: false } });
+  expect(real.plan[0].tokensEstimated).toBe(false);
+  const unknown = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 19, output: "x" } });
+  expect(unknown.plan[0].tokensEstimated).toBeUndefined();
+});
+
+it("harness_done records the run's token provenance from its own payload", () => {
+  const done = (data: Record<string, unknown>) =>
+    runReducer(started(), { type: "sse", event: "harness_done", data: { status: "complete", total_tokens: 19, nodes_run: 1, ...data } });
+  expect(done({ tokens_estimated: false, elapsed_ms: 800 }).totals).toMatchObject({ tokensEstimated: false, elapsedMs: 800 });
+  expect(done({ tokens_estimated: true }).totals.tokensEstimated).toBe(true);
+  expect(done({}).totals.tokensEstimated).toBeUndefined();
+});
+
+it("harness_done falls back to the nodes' own provenance when its payload omits it", () => {
+  const afterNode = runReducer(started(), { type: "sse", event: "node_done", data: { node_id: "n", tokens: 3, output: "x", tokens_estimated: true } });
+  const done = runReducer(afterNode, { type: "sse", event: "harness_done", data: { status: "complete", total_tokens: 3, nodes_run: 1 } });
+  expect(done.totals.tokensEstimated).toBe(true);
+});
+
+it("tool_result without a duration records none rather than 0ms", () => {
+  const withTool = runReducer(started(), { type: "sse", event: "tool_call", data: { node_id: "n", call_id: "c1", name: "read", args: "a" } });
+  const missing = runReducer(withTool, { type: "sse", event: "tool_result", data: { node_id: "n", call_id: "c1", ok: true, result: "r" } });
+  const block = missing.plan[0].blocks.find((b) => b.kind === "tool");
+  expect(block && block.kind === "tool" ? block.call.durationMs : "no-block").toBeUndefined();
 });

@@ -1,0 +1,812 @@
+{
+  "version": 1,
+  "_doc": "Shared golden cases for validateOps (backend/studio_copilot/ops.py AND frontend/src/lib/copilot/ops.ts). Ops run sequentially on a working copy of baseGraph; validation stops at the first failing op (index = that op). ok cases assert resulting node/edge counts. See docs/superpowers/specs/2026-10-04-studio-copilot-design.md section 4.",
+  "baseGraph": {
+    "nodes": [
+      {
+        "id": "a1",
+        "type": "agent",
+        "label": "Writer",
+        "config": {
+          "roleId": "writer",
+          "systemPrompt": "You draft the document."
+        }
+      },
+      {
+        "id": "g1",
+        "type": "gate",
+        "label": "Review Gate",
+        "config": {
+          "checklist": "- Facts checked"
+        }
+      },
+      {
+        "id": "h1",
+        "type": "hitl",
+        "label": "Approve",
+        "config": {
+          "approvalLabel": "Approve"
+        }
+      },
+      {
+        "id": "s1",
+        "type": "skill",
+        "label": "tdd",
+        "config": {
+          "skillId": "tdd"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "a1",
+        "sourceHandle": "out",
+        "target": "g1",
+        "targetHandle": "in"
+      },
+      {
+        "source": "g1",
+        "sourceHandle": "pass",
+        "target": "h1",
+        "targetHandle": "in"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "add_and_wire",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "agent",
+          "label": "Reviewer",
+          "config": {
+            "roleId": "reviewer",
+            "systemPrompt": "You review drafts.",
+            "emits": [
+              "Reviewed"
+            ]
+          },
+          "near": "g1"
+        },
+        {
+          "op": "connect",
+          "from": "g1",
+          "fromPort": "fail",
+          "to": "n1"
+        },
+        {
+          "op": "connect",
+          "from": "n1",
+          "to": "g1",
+          "toPort": "in"
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "nodes": 5,
+        "edges": 4
+      }
+    },
+    {
+      "name": "update_existing",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "g1",
+          "config": {
+            "checklist": "- Facts checked\n- Sources cited"
+          }
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "nodes": 4,
+        "edges": 2
+      }
+    },
+    {
+      "name": "update_new_ref",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "hitl",
+          "label": "Sign-off"
+        },
+        {
+          "op": "updateNode",
+          "id": "n1",
+          "config": {
+            "approvalLabel": "Ship it"
+          }
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "nodes": 5,
+        "edges": 2
+      }
+    },
+    {
+      "name": "remove_with_edges",
+      "ops": [
+        {
+          "op": "removeNode",
+          "id": "h1"
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "nodes": 3,
+        "edges": 1
+      }
+    },
+    {
+      "name": "skill_into_agent",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "s1",
+          "to": "a1"
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "nodes": 4,
+        "edges": 3
+      }
+    },
+    {
+      "name": "disconnect_default_ports",
+      "ops": [
+        {
+          "op": "disconnect",
+          "from": "g1",
+          "fromPort": "pass",
+          "to": "h1"
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "nodes": 4,
+        "edges": 1
+      }
+    },
+    {
+      "name": "empty_ops",
+      "ops": [],
+      "expect": {
+        "ok": true,
+        "nodes": 4,
+        "edges": 2
+      }
+    },
+    {
+      "name": "too_many_ops",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        },
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "label": "Writer"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 40,
+        "code": "too_many_ops"
+      }
+    },
+    {
+      "name": "unknown_op",
+      "ops": [
+        {
+          "op": "moveNode",
+          "id": "a1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "unknown_op"
+      }
+    },
+    {
+      "name": "decision_forbidden",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "decision",
+          "label": "Decide"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "unknown_type"
+      }
+    },
+    {
+      "name": "bad_ref_format",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "x",
+          "type": "agent",
+          "label": "X"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "bad_ref"
+      }
+    },
+    {
+      "name": "duplicate_ref",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "agent",
+          "label": "A"
+        },
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "agent",
+          "label": "B"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 1,
+        "code": "bad_ref"
+      }
+    },
+    {
+      "name": "unknown_node",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "nope",
+          "to": "g1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "unknown_node"
+      }
+    },
+    {
+      "name": "ref_before_defined",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "n1",
+          "to": "g1"
+        },
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "agent",
+          "label": "Late"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "unknown_node"
+      }
+    },
+    {
+      "name": "removed_then_used",
+      "ops": [
+        {
+          "op": "removeNode",
+          "id": "a1"
+        },
+        {
+          "op": "connect",
+          "from": "a1",
+          "to": "g1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 1,
+        "code": "unknown_node"
+      }
+    },
+    {
+      "name": "secret_field_rejected",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {
+            "secretRef": "openharness/openai"
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_not_editable"
+      }
+    },
+    {
+      "name": "exec_field_rejected",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "mcp",
+          "label": "Files",
+          "config": {
+            "mcpCommand": "npx evil"
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_not_editable"
+      }
+    },
+    {
+      "name": "provider_field_rejected",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {
+            "providerIds": [
+              "x"
+            ]
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_not_editable"
+      }
+    },
+    {
+      "name": "checklist_not_on_agent",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {
+            "checklist": "- x"
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_not_editable"
+      }
+    },
+    {
+      "name": "bad_role_id",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {
+            "roleId": "bad id!"
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_invalid"
+      }
+    },
+    {
+      "name": "prompt_too_long",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {
+            "systemPrompt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_invalid"
+      }
+    },
+    {
+      "name": "label_too_long",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "agent",
+          "label": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_invalid"
+      }
+    },
+    {
+      "name": "empty_label",
+      "ops": [
+        {
+          "op": "addNode",
+          "ref": "n1",
+          "type": "agent",
+          "label": ""
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_invalid"
+      }
+    },
+    {
+      "name": "too_many_signals",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {
+            "emits": [
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9"
+            ]
+          }
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "field_invalid"
+      }
+    },
+    {
+      "name": "bad_from_port",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "g1",
+          "fromPort": "maybe",
+          "to": "a1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "bad_port"
+      }
+    },
+    {
+      "name": "bad_to_port",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "a1",
+          "to": "g1",
+          "toPort": "side"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "bad_port"
+      }
+    },
+    {
+      "name": "no_input_port",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "a1",
+          "to": "s1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "no_input_port"
+      }
+    },
+    {
+      "name": "self_loop",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "a1",
+          "to": "a1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "self_loop"
+      }
+    },
+    {
+      "name": "duplicate_edge",
+      "ops": [
+        {
+          "op": "connect",
+          "from": "a1",
+          "to": "g1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "duplicate_edge"
+      }
+    },
+    {
+      "name": "edge_not_found",
+      "ops": [
+        {
+          "op": "disconnect",
+          "from": "h1",
+          "fromPort": "approve",
+          "to": "a1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "edge_not_found"
+      }
+    },
+    {
+      "name": "empty_update",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1"
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "empty_update"
+      }
+    },
+    {
+      "name": "empty_update_config",
+      "ops": [
+        {
+          "op": "updateNode",
+          "id": "a1",
+          "config": {}
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "index": 0,
+        "code": "empty_update"
+      }
+    }
+  ]
+}
