@@ -190,18 +190,29 @@ mod tests {
     #[test]
     fn capabilities_grant_every_native_dialog_the_frontend_calls() {
         // lib/nativeDialog.ts pickFolder() -> dialog open; lib/ohmFile.ts -> dialog save + fs write.
-        // A missing grant fails silently at runtime, so pin them here.
+        // A missing grant fails silently at runtime, and any extra dialog/fs grant
+        // (or a static fs scope) widens what the webview can touch — pin the exact set.
         let caps: serde_json::Value =
             serde_json::from_str(include_str!("../capabilities/default.json")).unwrap();
-        let granted: Vec<&str> = caps["permissions"]
+        let mut granted: Vec<String> = caps["permissions"]
             .as_array()
             .unwrap()
             .iter()
-            .filter_map(|p| p.as_str())
+            .map(|p| match p.as_str() {
+                Some(id) => id.to_string(),
+                None => p["identifier"].as_str().unwrap_or_default().to_string(),
+            })
+            .filter(|id| id.starts_with("dialog:") || id.starts_with("fs:"))
             .collect();
-        for needed in ["dialog:allow-open", "dialog:allow-save", "fs:allow-write-text-file"] {
-            assert!(granted.contains(&needed), "capability {needed} missing");
-        }
+        granted.sort();
+        assert_eq!(
+            granted,
+            [
+                "dialog:allow-open",
+                "dialog:allow-save",
+                "fs:allow-write-text-file",
+            ]
+        );
     }
 
     #[test]
