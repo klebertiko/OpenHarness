@@ -388,6 +388,7 @@ mod tests {
             "http://tauri.localhost:8123/",
             "https://tauri.localhost/",
             "tauri://evil/",
+            "tauri://localhost:99/",
         ] {
             assert!(!is_app_navigation(&url(bad), None), "{bad} must be refused");
         }
@@ -442,6 +443,7 @@ mod tests {
         }
         for not_docs in [
             "https://openrouter.ai/docs?t=secret",
+            "https://openrouter.ai/docs#t=secret",
             "https://openrouter.ai/docs/../keys",
             "https://openrouter.ai/",
             "https://evil.example/docs",
