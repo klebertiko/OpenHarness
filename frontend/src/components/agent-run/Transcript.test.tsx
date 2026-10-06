@@ -127,6 +127,20 @@ describe("Transcript — trajectory breakdown", () => {
     expect(screen.queryByText(/not recorded/i)).toBeNull();
   });
 
+  it("shows whether Laya or the model made the routing decision", () => {
+    const { rerender } = render(<Transcript run={makeRun({
+      routeDecision: { source: "laya", reason: "confident", engageHarness: false, confidence: 0.97, latencyMs: 9.5 },
+    })} onResolve={() => {}} />);
+    expect(screen.getByText(/decided by Laya/i)).toBeTruthy();
+    expect(screen.getByText(/97% confidence/i)).toBeTruthy();
+
+    rerender(<Transcript run={makeRun({
+      routeDecision: { source: "model_fallback", reason: "unavailable", engageHarness: true, confidence: null, latencyMs: null },
+    })} onResolve={() => {}} />);
+    expect(screen.getByText(/decided by model fallback/i)).toBeTruthy();
+    expect(screen.getByText(/Laya unavailable/i)).toBeTruthy();
+  });
+
   it("finished with real metrics: real duration, real tokens labelled measured, never 'estimated'", () => {
     const run = makeRun({ totals: { tokens: 19, nodesRun: 1, elapsedMs: 812, tokensEstimated: false } });
     render(<Transcript run={run} onResolve={() => {}} />);

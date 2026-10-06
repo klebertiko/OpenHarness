@@ -252,6 +252,30 @@ it("node_error keeps the segment's previous token figure when the new event omit
   expect(negative.plan[0].tokens).toBe(30);
 });
 
+describe("runReducer · route decision provenance", () => {
+  it("keeps who decided before and after run_start so historical replay is honest", () => {
+    const decided = runReducer(emptyRun, {
+      type: "sse",
+      event: "route_decision",
+      data: { source: "laya", reason: "confident", engage_harness: false, confidence: 0.97, latency_ms: 9.5 },
+    });
+    expect(decided.routeDecision).toEqual({
+      source: "laya",
+      reason: "confident",
+      engageHarness: false,
+      confidence: 0.97,
+      latencyMs: 9.5,
+    });
+
+    const started = runReducer(decided, {
+      type: "sse",
+      event: "run_start",
+      data: { run_id: "routed", mode: "live", step: false, order: [], unreachable: [] },
+    });
+    expect(started.routeDecision).toEqual(decided.routeDecision);
+  });
+});
+
 // ── CHAT-TOOLS-FE AC#3/#4: tool approval gate on the run stream (contract v1.1 §2.5/§2.6) ──
 describe("runReducer · chat tools", () => {
   const seeded = runReducer(emptyRun, {
