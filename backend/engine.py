@@ -373,7 +373,9 @@ async def execute_harness(
       node_stream       {node_id, chunk}             — answer text
       tool_call         {node_id, call_id, name, args}
       tool_result       {node_id, call_id, ok, result, duration_ms}
-      node_done         {node_id, output, tokens, latency_ms}
+      node_done         {node_id, output, tokens, tokens_estimated, latency_ms}
+                                                     — `tokens_estimated`: true when the count was derived from
+                                                       output length because the adapter reported no usage
       node_error        {node_id, error, tokens?}      — `tokens` present only when real spend
                                                           happened before the failure (e.g. an
                                                           over-limit node, see node_token_warning)
@@ -386,7 +388,7 @@ async def execute_harness(
       hitl_resolved     {node_id, decision, note}
       user_message      {text}                       — steering injected mid-run
       run_stopped       {at_node}
-      harness_done      {status, total_tokens, elapsed_ms, nodes_run}
+      harness_done      {status, total_tokens, tokens_estimated, elapsed_ms, nodes_run}
     """
     nodes: list[dict] = harness_json.get("nodes", [])
     edges: list[dict] = harness_json.get("edges", [])
@@ -399,6 +401,7 @@ async def execute_harness(
     outputs: dict[str, str] = {}
     steering: list[str] = []
     total_tokens = 0
+    run_tokens_estimated = False  # any node count derived from output length
     nodes_run = 0
     harness_start = time.time()
     # PASS/FAIL-style conditional routing (`edge.data.condition`) — a branch
@@ -1041,8 +1044,11 @@ async def execute_harness(
             # rather than the old behaviour, which reported 0 tokens for every
             # streamed node because `invoke` was only called when nothing
             # streamed at all.
+            node_tokens_estimated = False
             if not node_tokens:
                 node_tokens = max(1, len(output) // 4)
+                node_tokens_estimated = True
+                run_tokens_estimated = True
             # These tokens are real and already spent regardless of what
             # happens next (the adapter call already completed) — the run's
             # total must reflect that even when the per-node limit below
@@ -1097,6 +1103,7 @@ async def execute_harness(
                     "node_id": node_id,
                     "output": output,
                     "tokens": node_tokens,
+                    "tokens_estimated": node_tokens_estimated,
                     "latency_ms": latency,
                 }
                 if execution_mode != "mock" and not control.stop.is_set():
@@ -1169,6 +1176,7 @@ async def execute_harness(
         {
             "status": status,
             "total_tokens": total_tokens,
+            "tokens_estimated": run_tokens_estimated,
             "elapsed_ms": elapsed,
             "nodes_run": nodes_run,
         },

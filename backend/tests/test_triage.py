@@ -283,3 +283,34 @@ def test_no_workspace_line_is_added_when_no_folder_is_chosen(monkeypatch: pytest
         route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
     )
     assert "This chat's working folder is" not in captured["system_prompt"]
+
+
+def test_the_reply_carries_the_measured_duration_of_the_one_adapter_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Slow(_StubAdapter):
+        async def invoke(self, prompt: str, config: AdapterConfig) -> AdapterResult:
+            await asyncio.sleep(0.03)
+            return await super().invoke(prompt, config)
+
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_Slow(reply="Oi!")))
+    routed = asyncio.run(
+        route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
+    )
+    assert routed.latency_ms >= 25
+
+
+def test_provider_reported_tokens_are_not_marked_estimated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_StubAdapter(reply="Oi!", tokens_used=19)))
+    routed = asyncio.run(
+        route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
+    )
+    assert routed.tokens == 19
+    assert routed.tokens_estimated is False
+
+
+def test_a_token_count_derived_from_the_reply_length_is_marked_estimated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_StubAdapter(reply="Oi! Tudo bem?", tokens_used=0)))
+    routed = asyncio.run(
+        route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
+    )
+    assert routed.tokens == len("Oi! Tudo bem?") // 4
+    assert routed.tokens_estimated is True
