@@ -57,11 +57,13 @@ export function CredentialSeal({
   connection: Connection;
   spec: ProviderSpec;
   onAttach: (plaintext: string) => Promise<void>;
-  onRevoke: () => Promise<void>;
+  /** Resolves false when the sidecar could not delete the key. */
+  onRevoke: () => Promise<boolean>;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [entering, setEntering] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<"store" | "remove" | null>(null);
   /* Two booleans derived from the pasted value. The value itself is never
      lifted out of the DOM node — this is the whole point of the component. */
   const [len, setLen] = useState(0);
@@ -121,7 +123,12 @@ export function CredentialSeal({
           CLI in your own login session — there is nothing to paste here, and nothing this app could
           leak even if it tried.
         </p>
-        <p className="t-body mt-2.5 max-w-[62ch] text-ink-mute">
+        {failure === "store" && (
+        <p role="alert" className="t-body mt-1.5 text-fault">
+          The key was not stored: the OpenHarness sidecar did not accept it. Check the app is running and try again.
+        </p>
+      )}
+      <p className="t-body mt-2.5 max-w-[62ch] text-ink-mute">
           {connected
             ? `Signed in as ${connection.facts.find((f) => f.k === "account")?.v ?? "unknown"}.`
             : spec.credential.where}
@@ -168,11 +175,26 @@ export function CredentialSeal({
             <KeyRound size={12} strokeWidth={1.7} />
             Replace key
           </Btn>
-          <Btn tone="fault" onClick={() => void onRevoke()}>
+          <Btn
+            tone="fault"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setFailure(null);
+              const removed = await onRevoke();
+              setBusy(false);
+              if (!removed) setFailure("remove");
+            }}
+          >
             <Trash2 size={12} strokeWidth={1.7} />
-            Remove
+            {busy ? "Removing…" : "Remove"}
           </Btn>
         </div>
+        {failure === "remove" && (
+          <p role="alert" className="t-body mt-2 text-fault">
+            Couldn&apos;t remove the key: the sidecar did not confirm it. It is still stored; try again.
+          </p>
+        )}
       </Section>
     );
   }
@@ -183,14 +205,19 @@ export function CredentialSeal({
     const el = input.current;
     if (!el || !el.value.trim() || busy) return;
     setBusy(true);
+    setFailure(null);
     try {
       await onAttach(el.value); // value goes straight through; never stored here
+      setEntering(false);
+    } catch {
+      // Generic on purpose: never echo the thrown text, it may carry the value.
+      // Stay on the entry form so the message is seen and a retry is one paste away.
+      setFailure("store");
     } finally {
       el.value = ""; // and is gone from the DOM before the next paint
       setLen(0);
       setPrefixOk(true);
       setBusy(false);
-      setEntering(false);
     }
   };
 

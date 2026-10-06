@@ -11,6 +11,10 @@ import type { NodeData, AdapterType, NodeType } from "@/lib/types";
 import { PROVIDERS_BIND_NONE } from "@/components/providers/copy";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import { providerReadiness } from "@/components/agent/chatProvider";
+import { ModelPicker } from "@/components/providers/ModelPicker";
+import { requiresModel } from "@/components/providers/catalog";
+import { specOf } from "@/components/providers/providerStore";
+import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { connectionLabel } from "@/components/agent-run/pinnedConnection";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -29,6 +33,14 @@ const ADAPTERS: AdapterType[] = ["mock", "claude", "ollama", "openai", "lmstudio
 const inputCls =
   `${styles.fieldControl} w-full rounded-control border border-line-soft bg-sub-200 px-2 py-1 text-title text-ink transition-colors hover:border-line`;
 const textareaCls = `${inputCls} h-[76px] resize-none text-body leading-relaxed`;
+
+/** Picker trigger styled like the inspector's other fields. */
+const pickerCls = `${inputCls} h-8 justify-between text-left`;
+
+/** The shared readiness word, guarded for a row the catalog does not know. */
+function readinessWord(c: Connection): string {
+  return specOf(c) ? providerReadiness(c).label : c.enabled ? "On" : "Not connected";
+}
 
 function SectionHead({ label, note }: { label: string; note?: string }) {
   return (
@@ -188,19 +200,15 @@ function FallbackConnections({
           );
         })}
         {available.length > 0 && (
-          <select
-            className={inputCls}
-            aria-label="Add fallback connection"
-            value=""
-            onChange={(e) => addFallback(e.target.value)}
-          >
-            <option value="">+ Add fallback connection…</option>
-            {available.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+          <Combobox
+            label="Add fallback connection"
+            triggerLabel="Add fallback connection"
+            value={null}
+            options={available.map((c) => ({ id: c.id, label: c.label, detail: readinessWord(c) }))}
+            onChange={addFallback}
+            triggerClassName={pickerCls}
+            trigger={<span className="min-w-0 truncate text-ink-mute">+ Add fallback connection…</span>}
+          />
         )}
       </div>
       <p className="t-meta mt-1 leading-4 text-ink-dim">
@@ -248,6 +256,20 @@ export function PropertiesPanel() {
   const update = (patch: Partial<NodeData>) => updateNodeData(node.id, patch);
   const isModel = ["agent", "skill"].includes(node.type);
   const sealed = connections.filter((c) => c.secret);
+  const pin = d.providerIds?.[0];
+  const pinned = pin ? connections.find((c) => c.id === pin) : undefined;
+  const pinOptions: ComboOption[] = [
+    { id: "", label: "Use chat default (in chat)", detail: "Unpinned agents use the chat provider" },
+    ...(pin && !pinned ? [{ id: pin, label: pin, detail: "Removed under Providers" }] : []),
+    ...connections.map((c) => ({ id: c.id, label: c.label, detail: readinessWord(c) })),
+  ];
+  // What "Connection default" will actually resolve to, said up front.
+  const inheritDetail = !pinned
+    ? "The chat provider's default model"
+    : pinned.defaultModel ||
+      (specOf(pinned) && requiresModel(specOf(pinned))
+        ? "None set: runs on this connection fail until one is chosen"
+        : "The vendor CLI's own default");
 
   return (
     <Panel
@@ -405,29 +427,29 @@ export function PropertiesPanel() {
           <div className="space-y-3.5 p-2.5">
             {node.type === "agent" && (
               <Field label="Connection pin">
-                <select
-                  className={inputCls}
-                  aria-describedby={providerHintId}
-                  value={d.providerIds?.[0] ?? ""}
-                  onChange={(e) => {
-                    const id = e.target.value;
+                <Combobox
+                  label="Connection pin"
+                  triggerLabel={`Connection pin: ${pinned ? pinned.label : pin ? pin + " (removed)" : "Use chat default (in chat)"}`}
+                  describedBy={providerHintId}
+                  value={pin ?? ""}
+                  options={pinOptions}
+                  onChange={(id) =>
                     update({
                       providerIds: id
                         ? [id, ...(d.providerIds ?? []).slice(1).filter((other) => other !== id)]
                         : [],
-                    });
-                  }}
-                >
-                  <option value="">Use chat default (in chat)</option>
-                  {d.providerIds?.[0] && !connections.some((c) => c.id === d.providerIds?.[0]) && (
-                    <option value={d.providerIds[0]}>{d.providerIds[0]} · Unavailable</option>
-                  )}
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}{providerReadiness(c).ready ? "" : " · Unavailable"}
-                    </option>
-                  ))}
-                </select>
+                    })
+                  }
+                  triggerClassName={pickerCls}
+                  trigger={
+                    <>
+                      <span className="min-w-0 truncate">
+                        {pinned ? pinned.label : pin ? pin : "Use chat default (in chat)"}
+                      </span>
+                      <span className="t-meta flex-none text-ink-faint">{pinned ? readinessWord(pinned) : pin ? "Removed" : ""}</span>
+                    </>
+                  }
+                />
                 <p id={providerHintId} className="t-meta mt-1 leading-4 text-ink-dim">
                   Applies to this agent only. In chat, a pinned connection overrides the chat provider;
                   unpinned agents use the chat default. Connected Studio runs require an explicit pin.
@@ -444,11 +466,14 @@ export function PropertiesPanel() {
             )}
 
             <Field label="Model">
-              <input
-                className={inputCls}
+              <ModelPicker
+                connection={pinned ?? null}
                 value={d.model ?? ""}
-                onChange={(e) => update({ model: e.target.value })}
-                placeholder="e.g. gpt-4o, claude-sonnet-4, llama3.2"
+                onChange={(model) => update({ model })}
+                label="Model"
+                inheritLabel="Connection default"
+                inheritDetail={inheritDetail}
+                triggerClassName={pickerCls}
               />
             </Field>
 

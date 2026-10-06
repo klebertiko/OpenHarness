@@ -59,9 +59,6 @@ export interface SecretRef {
   savedAt: string;
 }
 
-/** Process-lifetime fallback. Never serialised, never persisted. */
-const memory = new Map<string, string>();
-
 export function activeVault(): SecretVault {
   return "backend";
 }
@@ -154,19 +151,24 @@ export async function saveSecret(service: string, plaintext: string): Promise<Se
   const value = plaintext.trim();
   if (!value) throw new Error("empty credential");
 
+  // No renderer-side fallback: a key the sidecar did not take is not stored
+  // anywhere, and the caller says so. (It used to be parked in a JS Map here —
+  // outside the SecretsStore boundary, and reported as if it were saved.)
+  let secretRef: string | null;
   try {
-    const secretRef = await saveViaBackend(service, value);
-    if (secretRef) return toRef(secretRef, value, "backend");
+    secretRef = await saveViaBackend(service, value);
   } catch {
-    // Backend unreachable — fall through to process memory.
+    throw new Error("Couldn't reach the OpenHarness sidecar, so the key was not stored.");
   }
-
-  memory.set(service, value);
-  return toRef(service, value, "memory");
+  if (!secretRef) throw new Error("The sidecar refused the key, so it was not stored.");
+  return toRef(secretRef, value, "backend");
 }
 
+/** Nothing renderer-side to forget any more — the sidecar's
+    DELETE /providers/{id}/secret is what removes a key. Kept so callers have
+    one place to hook if a local cache ever returns. */
 export async function forgetSecret(service: string): Promise<void> {
-  memory.delete(service);
+  void service;
 }
 
 /**
