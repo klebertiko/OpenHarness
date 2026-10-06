@@ -182,3 +182,45 @@ def test_probe_returns_honest_not_implemented_for_an_adapter_without_one(client:
     assert body["ok"] is False
     assert body["health"] == "setup"
     assert "mystery-vendor" in body["detail"]
+
+
+def test_delete_secret_removes_it_from_the_store_and_disables_the_connection(client: TestClient) -> None:
+    # "Remove key" must actually remove the key — not just forget the
+    # renderer's reference while the sidecar keeps it (providers-recovery F10).
+    client.post(
+        "/providers/connections",
+        json={"id": "openrouter", "provider": "openrouter", "label": "OpenRouter", "residence": "cloud"},
+    )
+    client.post("/providers/openrouter/secret", json={"key": RAW_KEY})
+    store: MemorySecrets = app.state.secrets_store
+    assert store.exists("openharness/openrouter")
+
+    r = client.delete("/providers/openrouter/secret")
+    assert r.status_code == 204
+    assert not store.exists("openharness/openrouter")
+    row = client.get("/providers/connections/openrouter").json()
+    assert row["secretRef"] is None
+    assert row["enabled"] is False
+
+
+def test_delete_secret_unknown_connection_404(client: TestClient) -> None:
+    assert client.delete("/providers/missing/secret").status_code == 404
+
+
+def test_probe_returns_the_model_ids_the_endpoint_serves(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The dossier must list what the daemon really serves, not a seed list
+    # (providers-recovery F4). Model ids only — never the raw upstream body.
+    from adapters.base import ProbeResult
+    import routers.providers as providers_router
+
+    class FakeAdapter:
+        async def probe(self, config):  # noqa: ANN001
+            return ProbeResult(ok=True, health="live", detail="2 models available.", models=["gemma4:26b", "nomic-embed-text:latest"])
+
+    monkeypatch.setattr(providers_router, "get_adapter", lambda name: FakeAdapter())
+    client.post(
+        "/providers/connections",
+        json={"id": "ollama-local", "provider": "ollama", "label": "Ollama local", "residence": "local"},
+    )
+    body = client.post("/providers/ollama-local/probe").json()
+    assert body["models"] == ["gemma4:26b", "nomic-embed-text:latest"]

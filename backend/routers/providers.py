@@ -202,6 +202,7 @@ async def probe_connection(
         "detail": result.detail,
         "latencyMs": result.latency_ms,
         "facts": [{"k": k, "v": v, "tone": tone} for k, v, tone in result.facts],
+        "models": list(result.models),
     }
 
 
@@ -225,3 +226,26 @@ async def put_secret(
     row["enabled"] = True
     await connection_store.upsert(db, row)
     return {"secretRef": ref}
+
+
+@router.delete("/{connection_id}/secret", status_code=204)
+async def delete_secret(
+    connection_id: str,
+    connections: dict = Depends(get_connections),
+    store: SecretsStore = Depends(get_secrets_store),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove just the credential: the key leaves the SecretsStore and the
+    connection is switched off; its endpoint and default model are kept.
+    Before this route, "Remove key" only forgot the renderer's reference
+    while the sidecar kept the key."""
+    row = connections.get(connection_id)
+    if not row:
+        raise HTTPException(404, "Connection not found")
+    ref = row.get("secretRef")
+    if ref:
+        store.delete(ref)
+    row["secretRef"] = None
+    row["enabled"] = False
+    await connection_store.upsert(db, row)
+    return None

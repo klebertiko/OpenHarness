@@ -100,12 +100,16 @@ class OpenAICompatibleAdapter(AgentAdapter):
             )
 
         count = None
+        models: list[str] = []
         try:
-            count = len(resp.json().get("data", []))
-        except (ValueError, AttributeError):
+            data = resp.json().get("data", [])
+            count = len(data)
+            # Ids only — never echo the rest of the upstream body.
+            models = sorted({m["id"] for m in data if isinstance(m, dict) and isinstance(m.get("id"), str)})
+        except (ValueError, AttributeError, TypeError):
             pass
         detail = f"{count} models available." if count is not None else "Reachable."
-        return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail=detail)
+        return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail=detail, models=models)
 
 
     async def invoke(self, prompt: str, config: AdapterConfig) -> AdapterResult:

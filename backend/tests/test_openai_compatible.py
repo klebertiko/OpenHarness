@@ -78,3 +78,13 @@ def test_probe_reports_fault_on_connect_error() -> None:
 
     assert probe.ok is False
     assert probe.health == "fault"
+
+
+def test_probe_returns_model_ids_sorted_and_deduplicated() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": [{"id": "b"}, {"id": "a"}, {"id": "b"}, {"nope": 1}]})
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config()))
+
+    assert probe.models == ["a", "b"]
