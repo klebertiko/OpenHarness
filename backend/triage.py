@@ -70,6 +70,7 @@ import time
 from dataclasses import dataclass
 from functools import lru_cache
 import os
+import math
 from pathlib import Path
 from time import perf_counter
 from typing import Awaitable, Callable
@@ -85,6 +86,7 @@ _ENGAGE_HARNESS_TOKEN = "<<ENGAGE_HARNESS>>"
 _LAYA_LOOPBACK_DEFAULT_PORT = 8761
 _LAYA_TIMEOUT_S = 0.75
 _LAYA_CONFIDENCE_THRESHOLD = 0.80
+_LAYA_SCHEMA_VERSION = "openharness-decision-node-v1"
 
 _INTAKE_PROMPT = f"""If this message asks the crew to build, plan, investigate, fix, review, or change something, reply with these exact characters and nothing else, no punctuation, no explanation:
 {_ENGAGE_HARNESS_TOKEN}
@@ -110,14 +112,45 @@ class LayaRouteDecision:
 LayaDecideFn = Callable[[str], Awaitable[LayaRouteDecision]]
 
 
+def _laya_loopback_url() -> str:
+    """Build a loopback-only URL without letting an env var change the host."""
+    raw_port = os.environ.get("LAYA_LOOPBACK_PORT", str(_LAYA_LOOPBACK_DEFAULT_PORT))
+    try:
+        port = int(raw_port, 10)
+    except ValueError as exc:
+        raise ValueError("LAYA_LOOPBACK_PORT must be an integer") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError("LAYA_LOOPBACK_PORT must be between 1 and 65535")
+    return f"http://127.0.0.1:{port}/predict"
+
+
+def _parse_laya_decision(payload: object, observed_latency_ms: float) -> LayaRouteDecision:
+    """Validate the versioned local protocol before trusting its decision."""
+    if not isinstance(payload, dict) or payload.get("schema_version") != _LAYA_SCHEMA_VERSION:
+        raise ValueError("unsupported Laya routing schema")
+    try:
+        probability = float(payload["model_result"]["answers"]["engage_harness"]["noul"])
+        latency_ms = float(payload.get("latency_ms", observed_latency_ms))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("invalid Laya routing response") from exc
+    if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+        raise ValueError("Laya routing probability must be between 0 and 1")
+    if not math.isfinite(latency_ms) or latency_ms < 0:
+        raise ValueError("Laya routing latency must be finite and non-negative")
+    return LayaRouteDecision(
+        engage_harness=probability >= 0.5,
+        confidence=max(probability, 1.0 - probability),
+        latency_ms=latency_ms,
+    )
+
+
 async def decide_with_laya(instruction: str) -> LayaRouteDecision:
     """Ask the local Laya loopback for an advisory routing prediction.
 
     The caller owns fallback policy. This function only validates the stable
     ``noul`` response contract already used by ADR-0005's loopback.
     """
-    port = os.environ.get("LAYA_LOOPBACK_PORT", str(_LAYA_LOOPBACK_DEFAULT_PORT))
-    url = f"http://127.0.0.1:{port}/predict"
+    url = _laya_loopback_url()
     questions = {
         "engage_harness": {
             "type": "noul",
@@ -134,22 +167,7 @@ async def decide_with_laya(instruction: str) -> LayaRouteDecision:
             json={"state": {"instruction": instruction}, "questions": questions},
         )
     response.raise_for_status()
-    payload = response.json()
-    try:
-        probability = float(
-            payload["model_result"]["answers"]["engage_harness"]["noul"]
-        )
-    except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError("invalid Laya routing response") from exc
-    if not 0.0 <= probability <= 1.0:
-        raise ValueError("Laya routing probability must be between 0 and 1")
-    confidence = max(probability, 1.0 - probability)
-    latency_ms = float(payload.get("latency_ms", (perf_counter() - started) * 1000))
-    return LayaRouteDecision(
-        engage_harness=probability >= 0.5,
-        confidence=confidence,
-        latency_ms=latency_ms,
-    )
+    return _parse_laya_decision(response.json(), (perf_counter() - started) * 1000)
 
 
 @lru_cache(maxsize=1)

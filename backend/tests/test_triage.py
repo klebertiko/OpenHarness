@@ -11,7 +11,23 @@ import pytest
 
 from adapters.base import AdapterConfig, AdapterResult, AgentAdapter
 from secret_store.memory import MemorySecrets
-from triage import LayaRouteDecision, route_message
+from triage import LayaRouteDecision, _laya_loopback_url, _parse_laya_decision, route_message
+
+
+@pytest.mark.parametrize("value", ["80@evil.example", "0", "65536", "-1", "https://evil.example"])
+def test_laya_port_cannot_change_the_loopback_origin(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    monkeypatch.setenv("LAYA_LOOPBACK_PORT", value)
+    with pytest.raises(ValueError):
+        _laya_loopback_url()
+
+
+def test_laya_response_requires_the_versioned_schema() -> None:
+    payload = {
+        "schema_version": "unexpected-v2",
+        "model_result": {"answers": {"engage_harness": {"noul": 0.9}}},
+    }
+    with pytest.raises(ValueError, match="schema"):
+        _parse_laya_decision(payload, 1.0)
 
 
 class _StubAdapter(AgentAdapter):
