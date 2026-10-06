@@ -244,14 +244,11 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
   const label = chosenId
     ? connection?.label ?? "Unavailable provider"
     : provider ? "Auto · " + provider.label : "Auto · No available provider";
-  const verified = Boolean(provider && connection?.health === "live");
-  const dotClass = verified
-    ? "bg-signal"
-    : status === "Unavailable" || status === "Needs attention" || status === "No model chosen"
-      ? "bg-warn"
-      : "bg-ink-faint";
-  // A probe in flight must not look identical to "never verified".
-  const probing = status === "Checking connection";
+  // One readiness rule app-wide: the chip's dot reads the same tone the
+  // dropdown rows do, instead of re-deriving it from status text.
+  const readiness = connection ? providerReadiness(connection) : null;
+  const dotClass = toneDotClass(readiness?.tone ?? "unconfigured");
+  // (A probe in flight pulses via the "checking" tone — toneDotClass.)
   // Real evidence only: an unprobed connection never grows a timestamp.
   const lastChecked = connection?.lastProbe ? "checked " + formatRelativeTime(connection.lastProbe) : null;
   const model = provider && connection?.defaultModel ? connection.defaultModel : null;
@@ -331,7 +328,7 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
       triggerClassName="h-8 max-w-[260px] px-2 text-[11px] font-[550] text-ink-dim"
       trigger={
         <>
-          <span className={"h-1.5 w-1.5 flex-none rounded-full " + dotClass + (probing ? " animate-pulse" : "")} aria-hidden />
+          <span className={"h-1.5 w-1.5 flex-none rounded-full " + dotClass} aria-hidden />
           <span className="min-w-0 truncate">{chipText}</span>
         </>
       }

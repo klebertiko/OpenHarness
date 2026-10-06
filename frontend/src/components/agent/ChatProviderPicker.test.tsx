@@ -487,3 +487,25 @@ it("a connected HTTP provider with no model asks for one in place and saves it a
   expect(setDefaultModel).toHaveBeenCalledWith("ol", "gemma4:26b");
   expect(screen.getByRole("listbox", { name: "Chat provider" })).toBeTruthy();
 });
+
+it("derives the chip dot from providerReadiness' tone, matching the dropdown rows", () => {
+  render(<ChatProviderPicker onConnect={vi.fn()} />);
+
+  // A failing connection wears the same red dot on the chip as in its row,
+  // not the amber one the old status-text matching gave every non-ready word.
+  act(() => {
+    useChatProviderStore.getState().setChosen("an");
+    useProviderStore.setState({ connections: [connection({ health: "fault", enabled: true })] });
+  });
+  const failing = screen.getByRole("button", { name: /chat provider: anthropic.*unavailable/i });
+  expect(failing.querySelector(".bg-fault")).not.toBeNull();
+  expect(failing.querySelector(".bg-warn")).toBeNull();
+
+  // A turned-off connection wears the hollow "unconfigured" ring.
+  act(() => useProviderStore.setState({ connections: [connection({ health: "setup", enabled: false })] }));
+  const off = screen.getByRole("button", { name: /chat provider: anthropic.*not connected/i });
+  expect(off.querySelector(".border-ink-faint")).not.toBeNull();
+  expect(off.querySelector(".bg-ink-faint")).toBeNull();
+
+  act(() => useProviderStore.setState({ connections: [] }));
+});
