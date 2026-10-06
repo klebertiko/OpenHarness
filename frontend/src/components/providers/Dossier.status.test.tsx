@@ -10,7 +10,7 @@ function connection(overrides: Partial<Connection>): Connection {
   return {
     id: "an", provider: "anthropic", label: "Anthropic", residence: "cloud",
     endpoint: "", secret: null, health: "live", detail: "", probes: [], facts: [],
-    models: [], route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "",
+    models: [], defaultModel: "", enabled: true, lastProbe: "",
     ...overrides,
   };
 }

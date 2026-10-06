@@ -15,7 +15,7 @@ function connection(overrides: Partial<Connection>): Connection {
   return {
     id: "a", provider: "anthropic", label: "A", residence: "cloud", endpoint: "",
     secret: null, health: "live", detail: "", probes: [], facts: [], models: [],
-    route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "",
+    defaultModel: "", enabled: true, lastProbe: "",
     ...overrides,
   };
 }

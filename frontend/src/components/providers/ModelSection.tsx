@@ -1,287 +1,115 @@
 "use client";
-import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Check, Minus, Plus, Search, Terminal } from "lucide-react";
+import { useState } from "react";
 import { Chip } from "./atoms";
-import { Btn } from "./CredentialSeal";
+import { requiresModel } from "./catalog";
+import { ModelPicker, modelDetail, modelSourceNote } from "./ModelPicker";
 import { specOf, useProviderStore, type Connection } from "./providerStore";
 
 /**
- * How a connection's models are chosen.
+ * The one model setting a run reads: the connection's `defaultModel`
+ * (backend/providers/resolution.py — a node's own model wins, otherwise this).
  *
- * Four providers, four genuinely different answers, so this is a switch and not
- * a shared dropdown:
- *
- *   fixed      Anthropic / OpenAI — a short published list. You allow-list.
- *   installed  Ollama local — whatever you have pulled. Sizes matter, price does not.
- *   hosted     Ollama Cloud — whatever ollama.com runs today.
- *   routed     OpenRouter — a market. You do not pick a model, you declare a
- *              preference order and a tie-break, and the first available wins.
- *   agent-only Cursor — there is nothing to pick. See the note in the dossier.
+ * This replaced an allow-list of ticks and an OpenRouter "route" with a
+ * tie-break and a rendered request preview. None of those were ever saved or
+ * sent — the sidecar runs exactly one model — so the screen showed settings
+ * that did nothing and a request the app never made. One honest control
+ * instead, saved to the sidecar, with the list it picks from labelled by where
+ * it came from (the endpoint's own answer, or the static catalog).
  */
-
-const money = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(3)}`);
-const ctx = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
-
 export function ModelSection({ c }: { c: Connection }) {
   const spec = specOf(c);
-  switch (spec.catalogue) {
-    case "routed":
-      return <Routed c={c} />;
-    case "agent-only":
-      return null;
-    default:
-      return <AllowList c={c} />;
-  }
-}
+  const setDefaultModel = useProviderStore((s) => s.setDefaultModel);
+  const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "failed"; model?: string }>({ state: "idle" });
+  if (spec.catalogue === "agent-only") return null;
+  const required = requiresModel(spec);
 
-/* ── Allow-list: fixed / installed / hosted ───────────────────────────────── */
-
-function AllowList({ c }: { c: Connection }) {
-  const spec = specOf(c);
-  const toggle = useProviderStore((s) => s.toggleAllowed);
-  const local = spec.catalogue === "installed";
-
-  if (!c.models.length) {
-    return (
-      <Block
-        title="Models"
-        lede="Nothing to list until this connection answers a probe."
-        chip={<Chip>0</Chip>}
-      >
-        <span />
-      </Block>
-    );
-  }
+  const choose = async (model: string) => {
+    setSave({ state: "saving", model });
+    setSave({ state: (await setDefaultModel(c.id, model)) ? "saved" : "failed", model });
+  };
 
   return (
     <Block
       title="Models"
       chip={
-        <Chip tone={c.allowed.length ? "signal" : "dim"}>
-          {c.allowed.length} of {c.models.length} allowed
-        </Chip>
+        required && !c.defaultModel ? <Chip tone="warn">no model chosen</Chip> : <Chip>{c.models.length} listed</Chip>
       }
       lede={
-        local
-          ? "Pulled to this machine. Untick a model to keep nodes from selecting it."
-          : "Published by the vendor for this key. Untick a model to keep nodes from selecting it."
+        required
+          ? "Runs on this connection use the default model unless an agent pins its own. Required: this connection refuses a run without one."
+          : "Runs use the default model unless an agent pins its own. Leave it on the CLI default to let the CLI decide."
       }
     >
-      <div className="rounded-control border border-line-soft">
-        <Head cols={local ? ["Model", "Context", "On disk"] : ["Model", "Context", "$ / Mtok in → out"]} wideOnly={[1]} />
-        {c.models.map((m, i) => {
-          const on = c.allowed.includes(m.id);
-          return (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => toggle(c.id, m.id)}
-              aria-pressed={on}
-              className={[
-                "oh-focus-inner grid w-full grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 px-2 py-[5px] text-left transition-colors [@container(min-width:34rem)]:grid-cols-[18px_minmax(0,1fr)_58px_120px]",
-                i ? "border-t border-line-soft" : "",
-                on ? "bg-sub-200" : "",
-                "hover:bg-sub-300",
-              ].join(" ")}
-            >
-              <Tick on={on} />
-              <span className={`t-meta truncate ${on ? "text-ink" : "text-ink-mute"}`}>{m.id}</span>
-              <span className="t-meta hidden text-right text-ink-faint [@container(min-width:34rem)]:block">{ctx(m.ctx)}</span>
-              <span className="t-meta text-right text-ink-faint">
-                {m.size ?? (m.price ? `${money(m.price[0])} → ${money(m.price[1])}` : "—")}
-              </span>
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="t-body flex-none text-ink-mute">Default model</span>
+        <div className="min-w-0 max-w-[420px] flex-[1_1_16rem]">
+          <ModelPicker
+            connection={c}
+            value={c.defaultModel}
+            onChange={(m) => void choose(m)}
+            label="Default model"
+            inheritLabel={required ? undefined : "CLI default"}
+            inheritDetail={required ? undefined : "The vendor CLI picks its own model"}
+          />
+        </div>
       </div>
+      <div className="mt-1.5 min-h-4">
+        {save.state === "saving" && <p role="status" className="t-meta text-ink-dim">Saving…</p>}
+        {save.state === "saved" && (
+          <p role="status" className="t-meta text-signal">
+            {save.model ? `Saved. Runs use ${save.model}.` : "Saved. Runs use the CLI default."}
+          </p>
+        )}
+        {save.state === "failed" && (
+          <p role="alert" className="t-meta text-fault">
+            Couldn&apos;t save the default model. Check the app is running and try again.
+          </p>
+        )}
+      </div>
+
+      <p className="t-meta mb-1.5 mt-2 text-ink-faint">{modelSourceNote(c)}</p>
+      {c.models.length === 0 ? (
+        <p className="t-body text-ink-faint">Nothing listed yet. Test the connection to load what it serves.</p>
+      ) : (
+        <ul className="max-h-[260px] overflow-y-auto rounded-control border border-line-soft" aria-label={`${c.label} models`}>
+          {c.models.map((m, i) => (
+            <li
+              key={m.id}
+              className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-2 py-[5px] ${i ? "border-t border-line-soft" : ""} ${
+                m.id === c.defaultModel ? "bg-sub-200" : ""
+              }`}
+            >
+              <span className="t-meta truncate text-ink">{m.id}</span>
+              <span className="t-meta truncate text-right text-ink-faint">
+                {m.id === c.defaultModel ? "default" : modelDetail(m) || "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </Block>
   );
 }
 
-/* ── Routed: OpenRouter ───────────────────────────────────────────────────────
-   The whole reason this branch exists. A single-model dropdown would be a lie
-   about what OpenRouter is — you are buying availability across vendors, so the
-   unit of configuration is an ordered route with a tie-break, and the panel ends
-   by showing the exact payload that route compiles to. */
-
-const SORTS: { id: Connection["routeSort"]; label: string; why: string }[] = [
-  { id: "price", label: "cheapest", why: "lowest $/Mtok among providers serving it" },
-  { id: "throughput", label: "fastest", why: "highest measured tokens/sec" },
-  { id: "latency", label: "first token", why: "lowest time to first token" },
-];
-
-function Routed({ c }: { c: Connection }) {
-  const { addToRoute, removeFromRoute, moveInRoute, setRouteSort } = useProviderStore();
-  const [q, setQ] = useState("");
-
-  const byId = useMemo(() => new Map(c.models.map((m) => [m.id, m])), [c.models]);
-  const catalog = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return c.models.filter(
-      (m) =>
-        !c.route.includes(m.id) &&
-        (!needle || m.id.includes(needle) || (m.via ?? "").toLowerCase().includes(needle))
-    );
-  }, [c.models, c.route, q]);
-
-  return (
-    <>
-      <Block
-        title="Route"
-        chip={<Chip tone={c.route.length ? "signal" : "warn"}>{c.route.length} deep</Chip>}
-        lede="OpenRouter is a market, not a model. A node targeting this connection sends the whole
-        list; the first choice that is up and in budget answers."
-      >
-        {c.route.length === 0 ? (
-          <p className="t-body text-warn">
-            An empty route falls back to OpenRouter&rsquo;s default, which can change without
-            notice. Add at least one model.
-          </p>
-        ) : (
-          <ol className="rounded-control border border-line-soft">
-            {c.route.map((id, i) => {
-              const m = byId.get(id);
-              return (
-                <li
-                  key={id}
-                  className={`grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 px-2 py-[6px] [@container(min-width:34rem)]:grid-cols-[20px_minmax(0,1fr)_88px_112px_auto] ${
-                    i ? "border-t border-line-soft" : ""
-                  }`}
-                >
-                  <span
-                    className={`t-meta grid h-[16px] w-[16px] place-items-center rounded-[1px] ${
-                      i === 0 ? "bg-signal text-signal-ink" : "bg-sub-400 text-ink-dim"
-                    }`}
-                  >
-                    {i + 1}
-                  </span>
-                  <span className="t-meta truncate text-ink">{id}</span>
-                  <span className="t-body hidden truncate text-ink-faint [@container(min-width:34rem)]:block">{m?.via ?? "—"}</span>
-                  <span className="t-meta hidden text-right text-ink-faint [@container(min-width:34rem)]:block">
-                    {m?.price ? `${money(m.price[0])} → ${money(m.price[1])}` : "—"}
-                  </span>
-                  <span className="flex gap-px">
-                    <Icon
-                      label="Move up"
-                      disabled={i === 0}
-                      onClick={() => moveInRoute(c.id, id, -1)}
-                    >
-                      <ArrowUp size={11} strokeWidth={1.9} />
-                    </Icon>
-                    <Icon
-                      label="Move down"
-                      disabled={i === c.route.length - 1}
-                      onClick={() => moveInRoute(c.id, id, 1)}
-                    >
-                      <ArrowDown size={11} strokeWidth={1.9} />
-                    </Icon>
-                    <Icon label="Remove" onClick={() => removeFromRoute(c.id, id)}>
-                      <Minus size={11} strokeWidth={1.9} />
-                    </Icon>
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="t-body text-ink-mute">Tie-break</span>
-          {SORTS.map((s) => (
-            <Chip
-              key={s.id}
-              active={c.routeSort === s.id}
-              tone={c.routeSort === s.id ? "signal" : "dim"}
-              title={s.why}
-              onClick={() => setRouteSort(c.id, s.id)}
-            >
-              {s.label}
-            </Chip>
-          ))}
-          <span className="t-body text-ink-faint">
-            {SORTS.find((s) => s.id === c.routeSort)?.why}
-          </span>
-        </div>
-
-        {/* What the route actually compiles to. An instrument shows its output. */}
-        <pre className="t-meta mt-3 overflow-x-auto rounded-control border border-line-soft bg-sub-000 px-2.5 py-2 text-ink-mute">
-          {`POST ${c.endpoint}/chat/completions
-{ "models": [${c.route.map((m) => `"${m}"`).join(", ") || ""}],
-  "provider": { "sort": "${c.routeSort}", "allow_fallbacks": true } }`}
-        </pre>
-      </Block>
-
-      <Block
-        title="Catalog"
-        chip={<Chip>{c.models.length} models</Chip>}
-        lede="Prices and availability are set upstream and move without notice."
-      >
-        <div className="mb-2 flex h-[27px] items-center gap-2 rounded-control border border-line-soft bg-sub-200 px-2 focus-within:border-signal-deep">
-          <Search size={12} strokeWidth={1.8} className="flex-none text-ink-faint" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="filter by model id or vendor"
-            className="t-body min-w-0 flex-1 bg-transparent text-ink outline-none"
-          />
-          {q && <span className="t-meta text-ink-faint">{catalog.length}</span>}
-        </div>
-
-        <div className="max-h-[220px] overflow-y-auto rounded-control border border-line-soft">
-          <Head cols={["Model", "Vendor", "Context", "$ / Mtok in → out"]} wideOnly={[1, 2]} routed />
-          {catalog.length === 0 && (
-            <p className="t-body px-2 py-3 text-ink-faint">Nothing matches “{q}”.</p>
-          )}
-          {catalog.map((m, i) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => addToRoute(c.id, m.id)}
-              className={`oh-focus-inner grid w-full grid-cols-[minmax(0,1fr)_auto_18px] items-center [@container(min-width:34rem)]:grid-cols-[minmax(0,1fr)_88px_58px_112px_18px] gap-2 px-2 py-[5px] text-left transition-colors hover:bg-sub-300 ${
-                i ? "border-t border-line-soft" : ""
-              }`}
-            >
-              <span className="t-meta truncate text-ink-dim">{m.id}</span>
-              <span className="t-body hidden truncate text-ink-faint [@container(min-width:34rem)]:block">{m.via}</span>
-              <span className="t-meta hidden text-right text-ink-faint [@container(min-width:34rem)]:block">{ctx(m.ctx)}</span>
-              <span className="t-meta text-right text-ink-faint">
-                {m.price ? `${money(m.price[0])} → ${money(m.price[1])}` : "—"}
-              </span>
-              <Plus size={11} strokeWidth={1.9} className="text-ink-faint" />
-            </button>
-          ))}
-        </div>
-      </Block>
-    </>
-  );
-}
-
-/* ── Cursor: the handoff, since there is nothing to configure ─────────────── */
+/* ── Cursor: what the handoff is, since there is nothing to configure ────── */
 
 export function CursorHandoff({ c }: { c: Connection }) {
   void c;
   return (
     <Block
       title="Handoff"
-      lede="Cursor runs the agent; OpenHarness hands it the task and reads the result back."
+      lede="Cursor runs the agent; OpenHarness hands it the task and reads the result back. Chat cannot use it — it answers agent tasks only."
     >
       <div className="grid gap-2 sm:grid-cols-2">
         <Card
           k="Cloud agent"
           v="POST /v1/agents"
           body="Runs on Cursor's infrastructure against a connected repository. Returns an id you can poll or stream."
-          action={<Btn>Delegate a task</Btn>}
         />
         <Card
           k="Local CLI"
           v="cursor-agent -p --output-format stream-json"
-          body="Runs on this machine under your Cursor seat, with your working tree. OpenHarness pipes stdout back into the graph."
-          action={
-            <Btn>
-              <Terminal size={12} strokeWidth={1.7} />
-              Launch in terminal
-            </Btn>
-          }
+          body="Runs on this machine under your Cursor seat, with your working tree."
         />
       </div>
     </Block>
@@ -313,86 +141,12 @@ export function Block({
   );
 }
 
-function Head({ cols, routed, wideOnly = [] }: { cols: string[]; routed?: boolean; wideOnly?: number[] }) {
-  return (
-    <div
-      className={`grid items-center gap-2 border-b border-line bg-sub-200 px-2 py-1 ${
-        routed
-          ? "grid-cols-[minmax(0,1fr)_auto_18px] [@container(min-width:34rem)]:grid-cols-[minmax(0,1fr)_88px_58px_112px_18px]"
-          : "grid-cols-[18px_minmax(0,1fr)_auto] [@container(min-width:34rem)]:grid-cols-[18px_minmax(0,1fr)_58px_120px]"
-      }`}
-    >
-      {!routed && <span />}
-      {cols.map((c, i) => (
-        <span
-          key={c}
-          className={`t-body truncate text-ink-faint ${i === 0 ? "" : "text-right"} ${
-            wideOnly.includes(i) ? "hidden [@container(min-width:34rem)]:block" : ""
-          }`}
-        >
-          {c}
-        </span>
-      ))}
-      {routed && <span />}
-    </div>
-  );
-}
-
-function Tick({ on }: { on: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={`grid h-[13px] w-[13px] place-items-center rounded-[1px] border ${
-        on ? "border-signal bg-signal text-signal-ink" : "border-line bg-transparent"
-      }`}
-    >
-      {on && <Check size={9} strokeWidth={3} />}
-    </span>
-  );
-}
-
-function Icon({
-  children,
-  onClick,
-  label,
-  disabled,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      className="grid h-[18px] w-[18px] place-items-center rounded-[1px] text-ink-faint transition-colors hover:bg-sub-300 hover:text-ink-dim disabled:opacity-30 disabled:hover:bg-transparent"
-    >
-      {children}
-    </button>
-  );
-}
-
-function Card({
-  k,
-  v,
-  body,
-  action,
-}: {
-  k: string;
-  v: string;
-  body: string;
-  action: React.ReactNode;
-}) {
+function Card({ k, v, body }: { k: string; v: string; body: string }) {
   return (
     <div className="flex flex-col gap-2 rounded-control border border-line-soft bg-sub-200 p-2.5">
       <div className="t-title text-ink">{k}</div>
       <div className="t-meta break-all text-ink-faint">{v}</div>
       <p className="t-body flex-1 text-ink-mute">{body}</p>
-      <div>{action}</div>
     </div>
   );
 }

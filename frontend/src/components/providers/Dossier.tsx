@@ -1,6 +1,7 @@
 "use client";
-import { useEffect } from "react";
-import { Activity, ExternalLink, Info } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Activity, ChevronDown, ExternalLink, Info } from "lucide-react";
+import { Combobox } from "@/components/ui/Combobox";
 import { providerReadiness } from "@/components/agent/chatProvider";
 import { type ConnectionUsage } from "@/lib/usageApi";
 import { BILLING_LABEL, CAPABILITY_LABEL, RESIDENCE_LABEL } from "./catalog";
@@ -25,8 +26,8 @@ import { usageCostLabel, useUsageStore } from "./usageStore";
  *
  * Width is never assumed: the header wraps its actions under the name, the
  * facts reflow from one to five columns, and below the shell's 640px
- * breakpoint — where the list on the left is suppressed — a native provider
- * switcher takes its place so the screen is never a dead end.
+ * breakpoint — where the list on the left is suppressed — a provider
+ * switcher (the shared Combobox) takes its place so the screen is never a dead end.
  */
 
 /** This connection's spend, read honestly: "free" only for a genuinely
@@ -47,35 +48,41 @@ function spendFact(usage: ConnectionUsage | undefined) {
 function ProviderSwitcher() {
   const { connections, selectedId, select } = useProviderStore();
   if (!connections.length) return null;
-  const known = connections.some((c) => c.id === selectedId);
+  const current = connections.find((c) => c.id === selectedId);
   return (
-    <label className="mb-3 flex items-center gap-2 sm:hidden">
-      <span className="t-body flex-none text-ink-mute">Provider</span>
-      <select
-        value={known ? selectedId : ""}
-        onChange={(e) => select(e.target.value)}
-        className="t-body h-8 min-w-0 flex-1 rounded-control border border-line bg-sub-200 px-2 text-ink outline-none focus-visible:border-signal-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
-      >
-        {!known && (
-          <option value="" disabled>
-            Choose a provider
-          </option>
-        )}
-        {connections.map((c) => (
-          <option key={c.id} value={c.id}>
-            {`${c.label} — ${providerReadiness(c).label}`}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="mb-3 flex items-center gap-2 sm:hidden">
+      <span className="t-body flex-none text-ink-mute" aria-hidden>
+        Provider
+      </span>
+      <div className="min-w-0 flex-1">
+        <Combobox
+          label="Provider"
+          triggerLabel={`Provider: ${current ? current.label : "Choose a provider"}`}
+          value={current ? current.id : null}
+          options={connections.map((c) => ({ id: c.id, label: c.label, detail: providerReadiness(c).label }))}
+          onChange={select}
+          triggerClassName="t-body h-8 w-full justify-between border border-line bg-sub-200 px-2 text-ink"
+          trigger={
+            <>
+              <span className="min-w-0 truncate">{current ? `${current.label} — ${providerReadiness(current).label}` : "Choose a provider"}</span>
+              <ChevronDown size={13} strokeWidth={1.8} className="flex-none text-ink-faint" aria-hidden />
+            </>
+          }
+        />
+      </div>
+    </div>
   );
 }
 
 const CRED_INPUT_ID = "oh-cred";
 
 export function Dossier() {
-  const { connections, selectedId, probe, attachSecret, revokeSecret, setEndpoint, toggleEnabled } =
+  const { connections, selectedId, probe, attachSecret, revokeSecret, saveEndpoint, toggleEnabled } =
     useProviderStore();
+  // The endpoint field edits a draft; the sidecar row (what probes and runs
+  // read) changes only on a confirmed save — blur, Enter, or before a Test.
+  const [draft, setDraft] = useState<{ id: string; value: string } | null>(null);
+  const [endpointSave, setEndpointSave] = useState<{ id: string; state: "saving" | "saved" | "failed" } | null>(null);
   const hydrateUsage = useUsageStore((s) => s.hydrate);
   const usageByConnection = useUsageStore((s) => s.summary?.byConnection);
   useEffect(() => {
@@ -115,10 +122,26 @@ export function Dossier() {
     ? [...okProbes].sort((a, b) => a.ms - b.ms)[Math.floor(okProbes.length / 2)].ms
     : null;
 
+  const endpointValue = draft?.id === c.id ? draft.value : c.endpoint;
+  const endpointStatus = endpointSave?.id === c.id ? endpointSave.state : null;
+  /** Save a pending endpoint edit; true when nothing is pending or it saved. */
+  const commitEndpoint = async (): Promise<boolean> => {
+    if (!spec.endpoint.editable || endpointValue.trim() === c.endpoint) return true;
+    setEndpointSave({ id: c.id, state: "saving" });
+    const saved = await saveEndpoint(c.id, endpointValue);
+    setEndpointSave({ id: c.id, state: saved ? "saved" : "failed" });
+    if (saved) setDraft(null);
+    return saved;
+  };
+  /** Every test runs against the endpoint on screen, never a stale one. */
+  const test = async () => {
+    if (await commitEndpoint()) await probe(c.id);
+  };
+
   const turnOnThenTest = () => {
     // Turn on, then test — one flow, the same promise the chat combo's inline
     // setup makes (design.md § Provider stance).
-    void toggleEnabled(c.id).then(() => probe(c.id));
+    void commitEndpoint().then((saved) => (saved ? toggleEnabled(c.id).then(() => probe(c.id)) : undefined));
   };
 
   const runStep = () => {
@@ -129,8 +152,12 @@ export function Dossier() {
       field?.focus({ preventScroll: true });
     } else if (step.kind === "turnOn") {
       turnOnThenTest();
+    } else if (step.kind === "model") {
+      const picker = document.querySelector<HTMLElement>('[aria-label^="Default model:"]');
+      picker?.scrollIntoView({ block: "center", behavior: "smooth" });
+      picker?.focus({ preventScroll: true });
     } else {
-      void probe(c.id);
+      void test();
     }
   };
 
@@ -169,7 +196,7 @@ export function Dossier() {
               </Btn>
             )}
             {!step && (
-              <Btn onClick={() => void probe(c.id)} disabled={probing}>
+              <Btn onClick={() => void test()} disabled={probing}>
                 <Activity size={12} strokeWidth={1.7} aria-hidden />
                 {probing ? "Testing…" : "Test"}
               </Btn>
@@ -244,9 +271,19 @@ export function Dossier() {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 aria-label={`${c.label} endpoint`}
-                value={c.endpoint}
+                value={endpointValue}
                 readOnly={!spec.endpoint.editable}
-                onChange={(e) => setEndpoint(c.id, e.target.value)}
+                onChange={(e) => {
+                  setDraft({ id: c.id, value: e.target.value });
+                  setEndpointSave(null);
+                }}
+                onBlur={() => void commitEndpoint()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void commitEndpoint();
+                  }
+                }}
                 spellCheck={false}
                 className={[
                   "oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_12rem] rounded-control border border-line-soft bg-sub-200 px-2 outline-none",
@@ -263,6 +300,13 @@ export function Dossier() {
                 <ExternalLink size={11} strokeWidth={1.7} aria-hidden />
               </a>
             </div>
+            {endpointStatus === "saving" && <p role="status" className="t-meta mt-1.5 text-ink-dim">Saving endpoint…</p>}
+            {endpointStatus === "saved" && <p role="status" className="t-meta mt-1.5 text-signal">Endpoint saved.</p>}
+            {endpointStatus === "failed" && (
+              <p role="alert" className="t-meta mt-1.5 text-fault">
+                Couldn&apos;t save the endpoint, so tests and runs still use {c.endpoint || "the previous one"}. Check the app is running and try again.
+              </p>
+            )}
           </Block>
 
           <Block

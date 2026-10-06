@@ -17,7 +17,7 @@ function connection(overrides: Partial<Connection>): Connection {
   return {
     id: "or", provider: "openrouter", label: "OpenRouter", residence: "cloud",
     endpoint: "https://openrouter.ai/api/v1", secret: null, health: "setup", detail: "",
-    probes: [], facts: [], models: [], route: [], routeSort: "price", allowed: [],
+    probes: [], facts: [], models: [], defaultModel: "",
     enabled: false, lastProbe: "",
     ...overrides,
   };
@@ -57,7 +57,7 @@ it("a keyless local connection that is off offers Turn on, which enables then te
 });
 
 it("a ready connection has no setup action, only Test and Turn off", () => {
-  mount([connection({ enabled: true, health: "live", secret: { prefix: "sk-or-", tail: "abcd", length: 40, vault: "memory", service: "openharness/or", savedAt: "" } as Connection["secret"] })]);
+  mount([connection({ enabled: true, health: "live", defaultModel: "deepseek/deepseek-v4", secret: { prefix: "sk-or-", tail: "abcd", length: 40, vault: "memory", service: "openharness/or", savedAt: "" } as Connection["secret"] })]);
   expect(within(header()).queryByRole("button", { name: /paste|turn on/i })).toBeNull();
   expect(within(header()).getByRole("button", { name: "Test" })).toBeTruthy();
   expect(within(header()).getByRole("button", { name: "Turn off" })).toBeTruthy();
@@ -72,8 +72,9 @@ it("states the connection facts as a sentence-case definition list", () => {
 
 it("offers a labelled provider switcher, so a narrow window without the list can still change provider", () => {
   mount([connection({}), connection({ id: "an", provider: "anthropic", label: "Anthropic" })]);
-  const select = screen.getByRole("combobox", { name: "Provider" });
-  fireEvent.change(select, { target: { value: "an" } });
+  // The shared Combobox (providers-recovery F9), not a native select.
+  fireEvent.click(screen.getByRole("button", { name: /^Provider:/ }));
+  fireEvent.click(screen.getByRole("option", { name: /^Anthropic/ }));
   expect(useProviderStore.getState().selectedId).toBe("an");
 });
 

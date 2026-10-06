@@ -31,9 +31,7 @@ function connection(overrides: Partial<Connection>): Connection {
     probes: [],
     facts: [],
     models: [],
-    route: [],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: true,
     lastProbe: "",
     ...overrides,
@@ -138,7 +136,7 @@ it("leads a not-ready connection with the credential block, above the summary pr
 });
 
 it("moves the credential block below the summary once the connection is ready", () => {
-  const c = connection({ provider: "openrouter", enabled: true, health: "live", secret: null });
+  const c = connection({ provider: "openrouter", enabled: true, health: "live", secret: null, defaultModel: "deepseek/deepseek-v4" });
   useProviderStore.setState({ connections: [c], selectedId: c.id });
   useUsageStore.setState({ hydrated: true });
   render(<Dossier />);

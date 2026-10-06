@@ -102,14 +102,19 @@ describe("secrets.saveSecret", () => {
     expect(JSON.stringify(ref)).not.toContain("cloudkey");
   });
 
-  it("falls back to memory vault when backend is unreachable", async () => {
+  it("refuses (never parks the key in renderer memory) when the backend is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
 
-    const ref = await saveSecret("openharness/openai", RAW);
+    const err = await saveSecret("openharness/openai", RAW).catch((e: Error) => e);
 
-    expect(ref.vault).toBe("memory");
-    expect(ref.service).toBe("openharness/openai");
-    expect(JSON.stringify(ref)).not.toContain("SUPERSECRET");
+    expect(err).toBeInstanceOf(Error);
+    expect(String((err as Error).message)).not.toContain("SUPERSECRET");
+  });
+
+  it("refuses when the sidecar rejects the key", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }));
+
+    await expect(saveSecret("openharness/openai", RAW)).rejects.toThrow(/not stored/);
   });
 
   it("activeVault prefers backend outside Tauri", () => {

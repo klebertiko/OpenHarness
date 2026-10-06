@@ -11,7 +11,7 @@ function connection(overrides: Partial<Connection>): Connection {
   return {
     id: "an", provider: "anthropic", label: "Anthropic", residence: "cloud",
     endpoint: "", secret: null, health: "setup", detail: "", probes: [], facts: [],
-    models: [], route: [], routeSort: "price", allowed: [], enabled: true,
+    models: [], defaultModel: "", enabled: true,
     lastProbe: "", ...overrides,
   };
 }
@@ -25,7 +25,7 @@ beforeEach(() => {
     connections: [
       connection({}),
       connection({ id: "oa", provider: "openai", label: "OpenAI", enabled: false }),
-      connection({ id: "ol", provider: "ollama", label: "Ollama local", residence: "local", health: "live" }),
+      connection({ id: "ol", provider: "ollama", label: "Ollama local", residence: "local", health: "live", defaultModel: "llama3" }),
     ],
     selectedId: "an",
   });
@@ -455,4 +455,35 @@ it("shows a failed credential and a never-configured one with different dots sid
   expect(failing.querySelector(".border-ink-faint")).toBeNull();
   expect(unconfigured.querySelector(".bg-fault")).toBeNull();
   expect(unconfigured.querySelector(".border-ink-faint")).not.toBeNull();
+});
+
+
+it("a connected HTTP provider with no model asks for one in place and saves it as the connection default (F5/F7)", async () => {
+  const user = userEvent.setup();
+  const setDefaultModel = vi.fn().mockResolvedValue(true);
+  useProviderStore.setState({
+    connections: [
+      connection({
+        id: "ol", provider: "ollama", label: "Ollama local", residence: "local", health: "live",
+        models: [{ id: "gemma4:26b", ctx: 0 }], modelsFromEndpoint: true,
+      }),
+    ],
+    setDefaultModel: setDefaultModel as never,
+  });
+  useChatProviderStore.setState({ chosenId: "ol" });
+  render(<ChatProviderPicker onConnect={vi.fn()} />);
+
+  const trigger = screen.getByRole("button", { name: /chat provider: ollama local.*no model chosen/i });
+  await user.click(trigger);
+  await user.click(screen.getByRole("option", { name: /ollama local/i }));
+  expect(screen.getByText("Choose a model for Ollama local")).toBeTruthy();
+
+  const modelTrigger = screen.getByRole("button", { name: /ollama local model: none chosen/i });
+  expect(document.activeElement).toBe(modelTrigger);
+  await user.click(modelTrigger);
+  // The nested model list opens without collapsing the provider combo.
+  expect(screen.getByRole("listbox", { name: "Chat provider" })).toBeTruthy();
+  await user.click(screen.getByRole("option", { name: /gemma4:26b/ }));
+  expect(setDefaultModel).toHaveBeenCalledWith("ol", "gemma4:26b");
+  expect(screen.getByRole("listbox", { name: "Chat provider" })).toBeTruthy();
 });
