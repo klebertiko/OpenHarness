@@ -88,3 +88,36 @@ def test_probe_returns_model_ids_sorted_and_deduplicated() -> None:
     probe = asyncio.run(adapter.probe(_config()))
 
     assert probe.models == ["a", "b"]
+
+
+def test_probe_caps_the_model_list_and_drops_hostile_ids() -> None:
+    # SEC follow-up: an endpoint is untrusted — never echo an unbounded list,
+    # oversize ids or non-string ids back to the UI.
+    ids = [f"m{i:04d}" for i in range(600)]
+    data = [{"id": i} for i in ids] + [{"id": "x" * 201}, {"id": 7}, {"id": None}]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": data})
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config()))
+
+    assert probe.ok is True
+    assert len(probe.models) == 500
+    assert probe.models == ids[:500]
+    assert all(isinstance(m, str) and len(m) <= 200 for m in probe.models)
+
+
+def test_probe_faults_on_an_oversized_body_instead_of_reading_it() -> None:
+    big = b'{"data": [' + b'{"id": "a"},' * 300_000 + b'{"id": "z"}]}'
+    assert len(big) > 2 * 1024 * 1024
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=big)
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config()))
+
+    assert probe.ok is False
+    assert probe.health == "fault"
+    assert probe.models == []
