@@ -22,7 +22,7 @@ beforeEach(() => {
   vi.mocked(usageApi.summary).mockResolvedValue(SUMMARY);
 });
 afterEach(() => {
-  vi.restoreAllMocks();
+  vi.resetAllMocks();
 });
 
 it("hydrate() fetches once even when called repeatedly", async () => {
