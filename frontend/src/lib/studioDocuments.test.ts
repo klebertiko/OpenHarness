@@ -270,3 +270,53 @@ it("an import is saved right away as a new harness, never over the open one", as
   expect(h.create).toHaveBeenCalledOnce();
   expect(h.create.mock.calls[0][0]).toBe("Imported");
 });
+
+// ── QA re-gate (PR #37) ────────────────────────────────────────────────────
+it("deleting the open harness waits for an in-flight save before deleting", async () => {
+  const d = deferred<{ id: string; name: string }>();
+  openSaved("h1", "Mine");
+  h.update.mockReturnValueOnce(d.p);
+  await edit(() => useCanvasStore.getState().setHarnessMeta({ name: "Mine 2" }));
+  expect(h.update).toHaveBeenCalledOnce();
+  const removing = removeSavedHarness("h1");
+  await vi.advanceTimersByTimeAsync(10);
+  expect(h.delete).not.toHaveBeenCalled();
+  d.resolve({ id: "h1", name: "Mine 2" });
+  await removing;
+  expect(h.delete).toHaveBeenCalledWith("h1");
+});
+
+it("a stale retry never overwrites a newer save of the same harness", async () => {
+  // S1 fails; S2 (newer) is queued by a canvas swap and still in flight when
+  // the retry fires — the retry must not re-send S1 after S2.
+  openSaved("h1", "S0");
+  h.update.mockRejectedValueOnce(new Error("offline"));
+  await edit(() => useCanvasStore.getState().setHarnessMeta({ name: "S1" }));
+  expect(useStudioDocsStore.getState().saveState).toBe("error");
+  const d = deferred<{ id: string; name: string }>();
+  h.update.mockReturnValueOnce(d.p);
+  useCanvasStore.getState().setHarnessMeta({ name: "S2" });
+  replaceStudioCanvas(() => useCanvasStore.getState().loadGraph([], []));
+  await vi.advanceTimersByTimeAsync(6000);
+  d.resolve({ id: "h1", name: "S2" });
+  await vi.advanceTimersByTimeAsync(6000);
+  expect(h.update.mock.calls.at(-1)![1].name).toBe("S2");
+});
+
+it("deleting a record stops retries of its failed saves", async () => {
+  openSaved("h1", "Mine");
+  h.update.mockRejectedValue(new Error("offline"));
+  await edit(() => useCanvasStore.getState().setHarnessMeta({ name: "Mine 2" }));
+  replaceStudioCanvas(() => useCanvasStore.getState().loadGraph([], []));
+  await removeSavedHarness("h1");
+  h.update.mockClear();
+  await vi.advanceTimersByTimeAsync(20000);
+  expect(h.update).not.toHaveBeenCalled();
+});
+
+it("replacing the canvas during a run is refused and keeps the session", async () => {
+  openSaved("h1", "Mine");
+  useCanvasStore.setState({ isRunning: true });
+  replaceStudioCanvas(() => useCanvasStore.getState().setHarnessMeta({ id: null, name: "Other", description: "" }));
+  expect(useCanvasStore.getState().harnessMeta.name).toBe("Mine");
+});

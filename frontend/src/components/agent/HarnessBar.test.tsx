@@ -90,3 +90,23 @@ describe("HarnessBar", () => {
     expect(useCanvasStore.getState().harnessMeta).toEqual({ id: null, name: "Authored", description: "Authoring description" });
   });
 });
+
+describe("HarnessBar autosave", () => {
+  it("Edit in Studio saves the open harness's pending edits before loading the bundle", async () => {
+    const { api } = await import("@/lib/api");
+    const { markClean, flushAutosave, startAutosave } = await import("@/lib/studioDocuments");
+    const update = vi.spyOn(api.harnesses, "update").mockResolvedValue({ id: "h1", name: "x" });
+    vi.spyOn(api.harnesses, "list").mockResolvedValue([]);
+    useCanvasStore.setState({ isRunning: false, nodes: [{ id: "a", type: "agent", position: { x: 0, y: 0 }, data: { label: "a" } } as never], edges: [], harnessMeta: { id: "h1", name: "Mine", description: "" } });
+    markClean();
+    const stop = startAutosave();
+    useCanvasStore.getState().setHarnessMeta({ name: "Mine, edited" });
+    useHarnessSessionStore.setState({ activeBundle: { manifest: { id: "b" }, graph: { nodes: [{ id: "PO", role: "PO", label: "PO" }], edges: [] } } } as never);
+    render(<HarnessBar />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "stub studio" }));
+    await flushAutosave();
+    stop();
+    expect(update).toHaveBeenCalledWith("h1", expect.objectContaining({ name: "Mine, edited" }));
+    expect(useCanvasStore.getState().nodes[0].id).toBe("PO");
+  });
+});
