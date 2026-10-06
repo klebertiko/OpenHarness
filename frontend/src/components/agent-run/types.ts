@@ -121,6 +121,14 @@ export type RunStatus =
   | "complete"
   | "error";
 
+export interface RouteDecision {
+  source: "laya" | "model_fallback" | "model";
+  reason: string;
+  engageHarness: boolean;
+  confidence: number | null;
+  latencyMs: number | null;
+}
+
 export interface RunState {
   runId: string | null;
   status: RunStatus;
@@ -138,6 +146,8 @@ export interface RunState {
   /** Operator instructions injected while the run was already moving. */
   steers: { text: string; atNode: string }[];
   notices: string[];
+  /** Who made the Nilo-vs-Harness choice. Persisted as `route_decision`. */
+  routeDecision: RouteDecision | null;
 }
 
 export interface RunEvent {

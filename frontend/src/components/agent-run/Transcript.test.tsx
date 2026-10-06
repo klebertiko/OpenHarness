@@ -123,6 +123,20 @@ describe("Transcript — trajectory breakdown", () => {
     expect(screen.queryByText("estimated")).toBeNull();
   });
 
+  it("shows whether Laya or the model made the routing decision", () => {
+    const { rerender } = render(<Transcript run={makeRun({
+      routeDecision: { source: "laya", reason: "confident", engageHarness: false, confidence: 0.97, latencyMs: 9.5 },
+    })} onResolve={() => {}} />);
+    expect(screen.getByText(/decided by Laya/i)).toBeTruthy();
+    expect(screen.getByText(/97% confidence/i)).toBeTruthy();
+
+    rerender(<Transcript run={makeRun({
+      routeDecision: { source: "model_fallback", reason: "unavailable", engageHarness: true, confidence: null, latencyMs: null },
+    })} onResolve={() => {}} />);
+    expect(screen.getByText(/decided by model fallback/i)).toBeTruthy();
+    expect(screen.getByText(/Laya unavailable/i)).toBeTruthy();
+  });
+
   it("labels the rollup as estimated while the client is still the only one counting", () => {
     const run = makeRun({ status: "running", totals: { tokens: 900, nodesRun: 1, elapsedMs: 0 } });
     render(<Transcript run={run} onResolve={() => {}} elapsed={1_500} />);

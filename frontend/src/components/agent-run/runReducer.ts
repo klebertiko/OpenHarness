@@ -14,6 +14,7 @@ export const emptyRun: RunState = {
   awaitingStep: null,
   steers: [],
   notices: [],
+  routeDecision: null,
 };
 
 type Action =
@@ -116,6 +117,23 @@ export function runReducer(state: RunState, action: Action): RunState {
   const d = action.data as Record<string, string & number & boolean>;
 
   switch (action.event) {
+    case "route_decision":
+      return {
+        ...state,
+        routeDecision: {
+          source:
+            action.data.source === "laya" || action.data.source === "model_fallback"
+              ? action.data.source
+              : "model",
+          reason: String(action.data.reason ?? ""),
+          engageHarness: Boolean(action.data.engage_harness),
+          confidence:
+            typeof action.data.confidence === "number" ? action.data.confidence : null,
+          latencyMs:
+            typeof action.data.latency_ms === "number" ? action.data.latency_ms : null,
+        },
+      };
+
     case "run_start": {
       const order = (action.data.order as Record<string, unknown>[]) ?? [];
       const unreachable = (action.data.unreachable as string[]) ?? [];

@@ -385,6 +385,31 @@ function RunRollup({ run, elapsed }: { run: RunState; elapsed?: number }) {
   );
 }
 
+function RouteDecisionProvenance({ decision }: { decision: NonNullable<RunState["routeDecision"]> }) {
+  const source = decision.source === "laya" ? "Laya" : decision.source === "model_fallback" ? "model fallback" : "model";
+  const reason =
+    decision.reason === "unavailable"
+      ? "Laya unavailable"
+      : decision.reason === "provider_unavailable"
+        ? "Provider unavailable; routed safely to Harness"
+      : decision.reason === "low_confidence"
+        ? "Laya confidence below threshold"
+        : decision.reason;
+  const confidence = decision.confidence == null ? null : `${Math.round(decision.confidence * 100)}% confidence`;
+  const outcome = decision.engageHarness ? "Harness" : "Nilo";
+  return (
+    <div
+      className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line-soft px-2 py-1.5 text-ink-dim"
+      aria-label="Routing decision provenance"
+    >
+      <span className="t-meta">{`decided by ${source}`}</span>
+      <span className="t-meta text-ink-faint">{`selected ${outcome}`}</span>
+      {confidence && <span className="t-meta text-ink-faint">{confidence}</span>}
+      {reason && decision.reason !== "confident" && <span className="t-meta text-ink-faint">{reason}</span>}
+    </div>
+  );
+}
+
 /** Per-node latency + tokens as a real table, not another scroll of
     one-liners — same numbers the chronological view already shows inline
     per segment, laid out so they can be scanned and compared instead of
@@ -513,6 +538,7 @@ export function Transcript({
       ))}
 
       <RunRollup run={run} elapsed={elapsed} />
+      {run.routeDecision && <RouteDecisionProvenance decision={run.routeDecision} />}
       <NodeBreakdown segments={attributed} defaultConnectionId={defaultConnectionId} connections={connections} />
 
       {visible.map((s, i) => (

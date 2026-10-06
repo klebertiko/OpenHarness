@@ -19,7 +19,7 @@ from database import SessionLocal, get_db
 from models import Harness, ExecutionLog, CoworkProject
 from adapters import get_adapter, AdapterConfig
 from engine import RUNS, RunControl, STATUS_COMPLETE, STATUS_ERROR, STATUS_STOPPED, _sse, execute_harness
-from triage import route_message
+from triage import decide_with_laya, route_message
 from usage_tracking import BudgetExceededError
 from providers.resolution import ProviderResolutionError, resolve_node_provider
 from providers.outcomes import failure_details
@@ -180,6 +180,20 @@ def _reply_only_events(run_id: str, mode: str, routed) -> list[dict]:
     ]
 
 
+def _route_decision_event(routed) -> dict:
+    """Observable provenance for the front-door cascade (ADR-0006)."""
+    return {
+        "event": "route_decision",
+        "data": {
+            "source": routed.decision_source,
+            "reason": routed.decision_reason,
+            "engage_harness": routed.engage_harness,
+            "confidence": routed.decision_confidence,
+            "latency_ms": routed.decision_latency_ms,
+        },
+    }
+
+
 def _usage_rows_from_events(
     events: list[dict], *, run_id: str, source: str, connections: dict[str, dict] | None
 ) -> list[dict]:
@@ -328,6 +342,7 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
                 # single intake call is refused", never "fall back to the
                 # harness" (see route_message's own docstring for why).
                 enforce_budget=_enforce_node_budget,
+                laya_decide=decide_with_laya,
             )
         except BudgetExceededError as exc:
             raise HTTPException(402, str(exc)) from exc
@@ -361,6 +376,10 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
                 warn_evt = _budget_warning_event(budget_status)
                 events.append(warn_evt)
                 yield _sse(warn_evt["event"], warn_evt["data"])
+            if routed is not None:
+                route_evt = _route_decision_event(routed)
+                events.append(route_evt)
+                yield _sse(route_evt["event"], route_evt["data"])
             if routed is not None and not routed.engage_harness:
                 for evt in _reply_only_events(run_id, body.mode, routed):
                     events.append(evt)
