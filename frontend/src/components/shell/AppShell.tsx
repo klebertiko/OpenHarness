@@ -257,8 +257,10 @@ export function AppShell({
       {toolbar}
 
       <div className="flex min-h-0 flex-1">
-        <ActivityRail>{leftOpen && !immersive ? left : null}</ActivityRail>
-        <Resizer side="left" value={leftWidth} min={LEFT_MIN} max={LEFT_MAX} onChange={setLeftWidth} />
+        <ActivityRail collapsed={narrow.left}>{leftOpen && !immersive ? left : null}</ActivityRail>
+        {!narrow.left && (
+          <Resizer side="left" value={leftWidth} min={LEFT_MIN} max={LEFT_MAX} onChange={setLeftWidth} />
+        )}
 
         <main className="relative min-w-0 flex-1 bg-sub-000">{stage}</main>
 
