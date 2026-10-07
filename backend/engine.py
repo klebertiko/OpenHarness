@@ -31,7 +31,6 @@ from adapters.base import ProbeResult
 from providers.resolution import (
     FailoverAttempt,
     ProviderResolutionError,
-    resolve_node_provider,
     resolve_node_provider_with_failover,
 )
 from providers.outcomes import failure_details

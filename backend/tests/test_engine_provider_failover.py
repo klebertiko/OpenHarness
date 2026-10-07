@@ -34,7 +34,6 @@ import asyncio
 import json
 from typing import AsyncIterator
 
-import pytest
 
 from adapters.base import AdapterConfig, AgentAdapter, AdapterResult, ProbeResult
 from engine import RunControl, execute_harness
