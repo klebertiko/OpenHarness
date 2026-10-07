@@ -12,6 +12,7 @@ from routers.providers import router as providers_router
 from routers.cowork import router as cowork_router
 from routers.usage import router as usage_router
 from routers.chat_tools import router as chat_tools_router
+from routers.studio_copilot import router as studio_copilot_router
 from secret_store.factory import build_secrets_store
 from providers.store import load_all as load_provider_connections
 import models  # noqa: F401 — register ORM tables for create_all
@@ -104,6 +105,7 @@ app.include_router(providers_router)
 app.include_router(cowork_router)
 app.include_router(usage_router)
 app.include_router(chat_tools_router)
+app.include_router(studio_copilot_router)
 
 
 @app.get("/health")
