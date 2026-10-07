@@ -94,7 +94,7 @@ def test_huge_body_is_payload_too_large(client):
 
 
 @pytest.mark.parametrize("mode", ["live", "local"])
-def test_non_mock_modes_are_not_ready_yet(client, mode):
-    res = client.post("/studio/assist/field", json=_body(mode=mode, connection_id="c1"))
-    assert res.status_code == 501
-    assert res.json() == {"error": "live_not_ready"}
+def test_live_modes_need_a_known_connection_and_never_fall_back_to_offline(client, mode):
+    res = client.post("/studio/assist/field", json=_body(mode=mode, connection_id="no-such-connection"))
+    assert res.status_code == 400
+    assert res.json()["error"] == "provider_unavailable"
