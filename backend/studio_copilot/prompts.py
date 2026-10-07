@@ -12,9 +12,8 @@ import json
 import re
 from typing import Any
 
-from sandbox.secrets import redact
-
 from . import catalog
+from .redaction import redact
 from .field_assist import AssistRequest
 
 TEXT_MAX = 1500
@@ -39,6 +38,13 @@ def _clean(text: str) -> str:
 
 def _clip(text: str, limit: int = TEXT_MAX) -> str:
     return text if len(text) <= limit else text[:limit]
+
+
+def _scrub_node(node: dict[str, Any]) -> dict[str, Any]:
+    """A node as the model may see it: only editable config keys survive, whatever the client sent."""
+    editable = catalog.editable_fields(node.get("type", ""))
+    kept = {k: v for k, v in (node.get("config") or {}).items() if k in editable}
+    return _scrub({**node, "config": kept})
 
 
 def _scrub(value: Any) -> Any:
@@ -132,7 +138,7 @@ def _named_in(message: str, node: dict[str, Any]) -> bool:
 
 
 def plan_user_message(message: str, history: list[dict[str, str]], graph: dict[str, Any]) -> str:
-    cleaned = {"nodes": [_scrub(n) for n in graph.get("nodes", [])], "edges": [_scrub(e) for e in graph.get("edges", [])]}
+    cleaned = {"nodes": [_scrub_node(n) for n in graph.get("nodes", [])], "edges": [_scrub(e) for e in graph.get("edges", [])]}
     dumped = _dump(cleaned)
     if len(dumped) > GRAPH_BUDGET:
         for node in cleaned["nodes"]:

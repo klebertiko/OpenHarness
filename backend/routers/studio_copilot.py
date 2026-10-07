@@ -6,7 +6,6 @@ never returns ops that fail `validate_ops`.
 """
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -16,24 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from studio_copilot import mock_planner, ops, prompts
-from studio_copilot.api_models import MAX_BODY_BYTES, PlanRequest
+from studio_copilot.api_models import PlanRequest
+from studio_copilot.http import error, read_json_object
 from studio_copilot.llm import StudioLlmError, complete_json
 
 router = APIRouter(prefix="/studio/copilot", tags=["studio-copilot"])
 
 PLAN_TIMEOUT_S = 90
 SUMMARY_MAX = 600
-
-
-def _too_large() -> JSONResponse:
-    return JSONResponse({"error": "payload_too_large"}, status_code=413)
-
-
-def _invalid(detail: str | None = None) -> JSONResponse:
-    body = {"error": "invalid_argument"}
-    if detail:
-        body["detail"] = detail
-    return JSONResponse(body, status_code=400)
 
 
 def _is_graph_cap(err: ValidationError) -> bool:
@@ -63,25 +52,13 @@ def _plan_validator(graph: dict[str, Any]):
 
 @router.post("/plan")
 async def plan(request: Request, db: AsyncSession = Depends(get_db)):
-    try:
-        declared = int(request.headers.get("content-length", 0))
-    except ValueError:
-        declared = 0
-    if declared > MAX_BODY_BYTES:
-        return _too_large()
-    raw = await request.body()
-    if len(raw) > MAX_BODY_BYTES:
-        return _too_large()
-    try:
-        payload = json.loads(raw)
-    except ValueError:
-        return _invalid("Body must be JSON.")
-    if not isinstance(payload, dict):
-        return _invalid("Body must be a JSON object.")
+    payload, failure = await read_json_object(request)
+    if failure is not None:
+        return failure
     try:
         req = PlanRequest.model_validate(payload)
     except ValidationError as err:
-        return _too_large() if _is_graph_cap(err) else _invalid()
+        return error(413, "payload_too_large") if _is_graph_cap(err) else error(400, "invalid_argument")
 
     graph = req.graph.model_dump()
     if req.mode != "mock":

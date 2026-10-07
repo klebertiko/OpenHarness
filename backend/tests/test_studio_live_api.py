@@ -267,6 +267,59 @@ def test_assist_usage_is_recorded_under_the_studio_assist_source(live):
     assert [s["source"] for s in client.get("/usage/summary").json()["bySource"]] == ["studio_assist"]
 
 
+# ── request hardening (QA wave 1: L3, L4, L6) ──────────────────────────────
+
+ENDPOINTS = [("/studio/copilot/plan", _plan), ("/studio/assist/field", _assist)]
+
+
+@pytest.mark.parametrize("path, body", ENDPOINTS)
+def test_a_deeply_nested_body_is_a_400_not_a_500(live, path, body):
+    client, _ = live
+    nested = "[" * 90_000 + "]" * 90_000
+    res = client.post(path, content=nested, headers={"content-type": "application/json"})
+    assert res.status_code == 400
+    assert res.json()["error"] == "invalid_argument"
+
+
+@pytest.mark.parametrize("path, body", ENDPOINTS)
+def test_an_oversized_chunked_body_is_413_without_a_content_length(live, path, body):
+    client, _ = live
+
+    def chunks():
+        for _ in range(12):
+            yield b"x" * 32_768
+
+    res = client.post(path, content=chunks(), headers={"content-type": "application/json"})
+    assert res.status_code == 413
+    assert res.json() == {"error": "payload_too_large"}
+
+
+def test_a_nested_or_non_text_config_value_is_a_400(live):
+    client, install = live
+    install()
+    for bad in ({"systemPrompt": {"a": {"b": 1}}}, {"roleId": 5}, {"emits": [["x"]]}):
+        graph = {"nodes": [{"id": "a1", "type": "agent", "label": "A", "config": bad}], "edges": []}
+        assert client.post("/studio/copilot/plan", json=_plan(graph=graph)).status_code == 400
+
+
+def test_non_editable_config_never_reaches_the_provider(live):
+    client, install = live
+    adapter = install(json.dumps({"summary": "ok", "ops": []}))
+    graph = {
+        "nodes": [{"id": "a1", "type": "agent", "label": "A", "config": {
+            "roleId": "writer", "apiKey": "hunter2-super-secret", "secretRef": "openharness/anthropic",
+            "endpoint": "https://evil.test", "systemPrompt": "You draft.",
+        }}],
+        "edges": [],
+    }
+    res = client.post("/studio/copilot/plan", json=_plan(graph=graph))
+    assert res.status_code == 200
+    sent = adapter.calls[0][0]
+    for leaked in ("hunter2", "openharness/anthropic", "evil.test", "apiKey", "secretRef", "endpoint"):
+        assert leaked not in sent
+    assert "You draft." in sent and "writer" in sent
+
+
 def test_budget_exceeded_is_402_on_both_endpoints(live):
     client, install = live
     adapter = install()

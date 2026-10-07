@@ -20,7 +20,9 @@ class GraphNode(_Strict):
     id: str = Field(min_length=1, max_length=100)
     type: str = Field(min_length=1, max_length=40)
     label: str = Field(max_length=60)
-    config: dict[str, Any] = Field(default_factory=dict)
+    # Descriptive text only: strings and lists of strings. Nested values are never legitimate
+    # and a deeply nested one is a recursion hazard for everything downstream.
+    config: dict[str, str | list[str]] = Field(default_factory=dict, max_length=16)
 
 
 class GraphEdge(_Strict):
