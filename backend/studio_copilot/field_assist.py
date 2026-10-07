@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from sandbox import secrets
+from . import catalog, redaction
 
 # Copied from mock_planner.OFFLINE_AGENT_PROMPT: S1 and S4 ran in parallel.
 AGENT_PROMPT = (
@@ -103,6 +103,10 @@ def _improve(req: AssistRequest) -> dict[str, Any]:
         if converted != text:
             text = converted
             notes.append("Turned lines into checklist items.")
+    limit = catalog.limits()["systemPromptMax" if req.field == "systemPrompt" else "checklistMax"]
+    if len(text) > limit:
+        # Never hand back text the Inspector could not store: leave the field as it is.
+        return {"text": original, "notes": [f"Too long to improve within the {limit}-character limit — shorten it first."]}
     return {"text": text, "notes": notes or ["Already tidy."]}
 
 
@@ -121,7 +125,7 @@ def _review(req: AssistRequest) -> dict[str, Any]:
         notes.append("Doesn't state the role.")
     if req.field == "checklist" and sum(1 for ln in current.splitlines() if ln.strip()) < 2:
         notes.append("A gate checklist needs at least two checkable items.")
-    if secrets.redact(current)[1] > 0:
+    if redaction.redact(current)[1] > 0:
         notes.append("Contains something that looks like a secret — remove it.")
     return {"text": None, "notes": notes[:5] or ["Looks complete."]}
 

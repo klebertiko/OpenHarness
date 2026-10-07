@@ -82,6 +82,27 @@ def test_improve_turns_checklist_lines_into_bullets():
     assert out["notes"] == ["Turned lines into checklist items."]
 
 
+def test_improve_never_returns_text_over_the_field_limit():
+    long = "x" * 3999
+    out = fa.assist_offline(_req(action="improve", current=long, focus="y" * 900))
+    assert out["text"] == long
+    assert len(out["text"]) <= 4000
+    assert out["notes"] == ["Too long to improve within the 4000-character limit — shorten it first."]
+
+
+def test_improve_over_the_checklist_limit_is_left_alone():
+    long = "\n".join(f"- item {i}" for i in range(400))
+    out = fa.assist_offline(_req(field="checklist", node={"type": "gate", "label": "G"}, action="improve", current=long))
+    assert out["text"] == long
+    assert out["notes"][0].startswith("Too long to improve within the 2000-character limit")
+
+
+def test_improve_that_only_grows_past_the_limit_by_its_goal_line_is_left_alone():
+    near = "You are QA. " + "z" * (4000 - len("You are QA. ") - 5)
+    out = fa.assist_offline(_req(action="improve", current=near, focus="f" * 300))
+    assert len(out["text"]) <= 4000
+
+
 def test_improve_reports_already_tidy():
     out = fa.assist_offline(_req(field="checklist", node={"type": "gate", "label": "G"}, action="improve",
                                  current="- a\n- b"))
