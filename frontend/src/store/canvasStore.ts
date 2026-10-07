@@ -6,10 +6,9 @@ import {
   type NodeChange,
   type EdgeChange,
   type Connection,
-  addEdge,
 } from "@xyflow/react";
-import type { HarnessNode, HarnessEdge, NodeData, ExecutionMode, EdgeKind } from "@/lib/types";
-import { PORTS, findPort } from "@/lib/ports";
+import type { HarnessNode, HarnessEdge, NodeData, ExecutionMode } from "@/lib/types";
+import { edgeForConnection } from "@/lib/edges";
 
 /*
  * NOTE (shell workstream): this file arrived syntactically broken — the
@@ -22,6 +21,10 @@ import { PORTS, findPort } from "@/lib/ports";
 interface HistoryEntry {
   nodes: HarnessNode[];
   edges: HarnessEdge[];
+  /** Monotonic id. Indices shift once the 50-entry trim kicks in, so anything
+   *  that needs to recognise "the entry I just pushed" (a Copilot proposal's
+   *  Undo) keys on this instead. */
+  seq: number;
 }
 
 const MAX_HISTORY = 50;
@@ -46,6 +49,7 @@ export interface CanvasState {
 
   _history: HistoryEntry[];
   _historyIndex: number;
+  _seq: number;
 
   setNodes: (nodes: HarnessNode[]) => void;
   setEdges: (edges: HarnessEdge[]) => void;
@@ -62,6 +66,15 @@ export interface CanvasState {
   detachNode: (nodeId: string) => void;
 
   pushHistory: () => void;
+  /** Push a snapshot only if the live graph differs from the history head, so
+   *  unrecorded edits (Inspector typing, drags) survive a later undo. */
+  checkpoint: () => void;
+  /** Apply a whole graph as exactly one undo step. Returns the new head `seq`,
+   *  or `null` while a run owns the graph. */
+  applyGraphPatch: (nodes: HarnessNode[], edges: HarnessEdge[]) => number | null;
+  /** `updateNodeData` as one undo step. No-op while running. */
+  commitNodeData: (nodeId: string, patch: Partial<NodeData>) => void;
+  headSeq: () => number;
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
@@ -84,9 +97,10 @@ export interface CanvasState {
   loadGraph: (nodes: HarnessNode[], edges: HarnessEdge[]) => void;
 }
 
-const snapshot = (s: Pick<CanvasState, "nodes" | "edges">): HistoryEntry => ({
+const snapshot = (s: Pick<CanvasState, "nodes" | "edges">, seq: number): HistoryEntry => ({
   nodes: s.nodes.map((n) => ({ ...n, data: { ...n.data } })),
   edges: s.edges.map((e) => ({ ...e })),
+  seq,
 });
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -100,12 +114,38 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   _history: [],
   _historyIndex: -1,
+  _seq: 0,
 
   pushHistory: () => {
-    const { _history, _historyIndex } = get();
-    const next = [..._history.slice(0, _historyIndex + 1), snapshot(get())];
+    const { _history, _historyIndex, _seq } = get();
+    const seq = _seq + 1;
+    const next = [..._history.slice(0, _historyIndex + 1), snapshot(get(), seq)];
     const trimmed = next.length > MAX_HISTORY ? next.slice(next.length - MAX_HISTORY) : next;
-    set({ _history: trimmed, _historyIndex: trimmed.length - 1 });
+    set({ _history: trimmed, _historyIndex: trimmed.length - 1, _seq: seq });
+  },
+
+  headSeq: () => get()._history[get()._historyIndex]?.seq ?? -1,
+
+  checkpoint: () => {
+    const { _history, _historyIndex, nodes, edges } = get();
+    const head = _history[_historyIndex];
+    if (head && JSON.stringify({ nodes, edges }) === JSON.stringify({ nodes: head.nodes, edges: head.edges })) return;
+    get().pushHistory();
+  },
+
+  applyGraphPatch: (nodes, edges) => {
+    if (get().isRunning) return null;
+    get().checkpoint();
+    set({ nodes, edges: edges.map((e) => ({ ...e, type: "harness" })) });
+    get().pushHistory();
+    return get().headSeq();
+  },
+
+  commitNodeData: (nodeId, patch) => {
+    if (get().isRunning) return;
+    get().checkpoint();
+    get().updateNodeData(nodeId, patch);
+    get().pushHistory();
   },
 
   undo: () => {
@@ -143,22 +183,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   onEdgesChange: (changes) =>
     set({ edges: applyEdgeChanges(changes, get().edges as never) as unknown as HarnessEdge[] }),
 
-  /* A new wire inherits its meaning from the port it leaves. This is the whole
-     reason ports are named: the reader never has to be told what a branch
-     means, and the author never has to remember to style one. */
+  /* A new wire inherits its meaning from the port it leaves (see
+     lib/edges.ts, shared with Copilot ops). */
   onConnect: (connection) => {
     const source = get().nodes.find((n) => n.id === connection.source);
-    const port = source
-      ? findPort(source.type, "out", connection.sourceHandle)
-      : undefined;
-    const kind: EdgeKind =
-      port?.tone === "accept" ? "accept" : port?.tone === "reject" ? "reject" : "flow";
-    const decorated = {
-      ...connection,
-      type: "harness",
-      data: { kind, label: port && PORTS[source!.type].out.length > 1 ? port.label : undefined },
-    };
-    set({ edges: addEdge(decorated, get().edges as never) as unknown as HarnessEdge[] });
+    const edge = edgeForConnection(source, connection);
+    if (get().edges.some((e) => e.id === edge.id)) return;
+    set({ edges: [...get().edges, edge] });
     get().pushHistory();
   },
 

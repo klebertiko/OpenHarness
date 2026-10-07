@@ -201,3 +201,12 @@ def test_label_trimming_matches_javascript_trim(label, ok):
     if ok:
         node = next(n for n in result["graph"]["nodes"] if n["id"] == "s1")
         assert node["label"] == label.strip("\t\n\x0b\x0c\r                  　﻿")
+
+
+def test_trailing_newline_does_not_slip_past_id_and_ref_patterns():
+    # Python's `$` accepts a trailing newline; the TypeScript twin does not.
+    nl = chr(10)
+    bad_ref = ops.validate_ops(BASE, [{"op": "addNode", "ref": "n1" + nl, "type": "agent", "label": "X"}])
+    assert bad_ref["errors"][0]["code"] == "bad_ref"
+    bad_id = ops.validate_ops(BASE, [{"op": "updateNode", "id": "a1", "config": {"roleId": "writer" + nl}}])
+    assert bad_id["errors"][0]["code"] == "field_invalid"
