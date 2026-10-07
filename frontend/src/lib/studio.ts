@@ -1,5 +1,6 @@
 import { useShellStore } from "@/components/shell/shellStore";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useCopilotStore } from "@/store/copilotStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
 import { bundleGraphToCanvas } from "./bundleGraph";
 import { composeBundleFromCanvas, fetchDefault, isOHarnessBundle } from "./bundlesApi";
@@ -16,6 +17,8 @@ export function openStudioBundle(bundle: HarnessBundle): void {
   useHarnessSessionStore.getState().replaceBundle(copy);
   const canvas = useCanvasStore.getState();
   canvas.loadGraph(nodes, edges);
+  // A transcript and its badges belong to the harness they were asked about.
+  useCopilotStore.getState().reset();
   // A bundle identifier is not a saved harness record in the local database.
   canvas.setHarnessMeta({ id: null, name: copy.manifest.name || copy.manifest.id, description: copy.manifest.description || "" });
   useShellStore.getState().setSection("studio");

@@ -1,0 +1,192 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { Panel } from "@/components/shell/Panel";
+import { useShellStore } from "@/components/shell/shellStore";
+import { useCanvasStore } from "@/store/canvasStore";
+import { useCopilotStore, type Turn } from "@/store/copilotStore";
+import { ProposalCard } from "./ProposalCard";
+
+const MAX_PROMPT = 2000;
+const COUNTER_FROM = 1800;
+const STARTERS = ["Add a review step before approval", "Research → write → review flow", "Add a security gate after QA"];
+
+function useElapsed(active: boolean) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    setSeconds(0);
+    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return seconds;
+}
+
+function TurnView({ turn }: { turn: Turn }) {
+  const send = useCopilotStore((s) => s.send);
+  const setSection = useShellStore((s) => s.setSection);
+
+  if (turn.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <p className="t-body max-w-[88%] whitespace-pre-wrap break-words rounded-[10px] bg-sub-300 px-3 py-2 text-ink">{turn.text}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {turn.text && <p className="t-body whitespace-pre-wrap break-words text-ink-dim">{turn.text}</p>}
+      {turn.source === "offline" && <span className="t-meta text-ink-faint">Offline draft</span>}
+      {turn.error && (
+        <div role="alert" className="space-y-1.5">
+          <p className="t-body text-fault">{turn.error.text}</p>
+          <div className="flex items-center gap-2">
+            {turn.error.retry && (
+              <button
+                type="button"
+                onClick={() => void send(turn.error!.retry!, { mode: "mock" })}
+                className="h-7 rounded-control border border-line px-2.5 text-[12px] font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+              >
+                Try again
+              </button>
+            )}
+            {turn.error.link === "providers" && (
+              <button type="button" onClick={() => setSection("providers")} className="t-body text-signal underline-offset-2 hover:underline">
+                Open Providers
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {turn.proposal && <ProposalCard turnId={turn.id} proposal={turn.proposal} />}
+    </div>
+  );
+}
+
+export function CopilotPanel() {
+  const turns = useCopilotStore((s) => s.turns);
+  const status = useCopilotStore((s) => s.status);
+  const send = useCopilotStore((s) => s.send);
+  const cancel = useCopilotStore((s) => s.cancel);
+  const close = useCopilotStore((s) => s.close);
+  const isRunning = useCanvasStore((s) => s.isRunning);
+  const [draft, setDraft] = useState("");
+  const working = status === "working";
+  const seconds = useElapsed(working);
+  const scroller = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [turns.length, working]);
+
+  // Grow from one row to six as the prompt does.
+  useEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 6 * 20 + 12)}px`;
+  }, [draft]);
+
+  const blocked = working || isRunning;
+  const submit = (text: string) => {
+    const message = text.trim();
+    if (!message || blocked) return;
+    setDraft("");
+    void send(message, { mode: "mock" });
+  };
+
+  return (
+    <Panel
+      title="Copilot"
+      className="h-full"
+      actions={
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close Copilot"
+          className="grid h-6 w-6 place-items-center rounded-control text-ink-mute hover:bg-sub-300 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+        >
+          <X size={13} aria-hidden />
+        </button>
+      }
+    >
+      <div className="flex h-full min-h-0 flex-col">
+        <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+          {turns.length === 0 && (
+            <div className="space-y-3">
+              <p className="t-body text-ink-mute">Describe the flow you want. Copilot proposes changes you can keep or undo.</p>
+              <div className="flex flex-col items-start gap-1.5">
+                {STARTERS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={blocked}
+                    onClick={() => submit(s)}
+                    className="rounded-control border border-line px-2.5 py-1.5 text-left text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {turns.map((t) => (
+            <TurnView key={t.id} turn={t} />
+          ))}
+          {working && (
+            <div role="status" className="flex items-center gap-2">
+              <span className="t-meta text-ink-mute">Working · {seconds}s</span>
+              <button
+                type="button"
+                onClick={cancel}
+                className="h-6 rounded-control border border-line px-2 text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-none border-t border-line p-2.5">
+          {isRunning && (
+            <p role="status" className="mb-1.5 text-[12px] text-warn">
+              Stop the run to ask Copilot.
+            </p>
+          )}
+          <textarea
+            ref={field}
+            rows={1}
+            value={draft}
+            disabled={blocked}
+            aria-label="Ask Copilot"
+            placeholder="Describe the change…"
+            onChange={(e) => setDraft(e.target.value.slice(0, MAX_PROMPT))}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && working) {
+                e.preventDefault();
+                cancel();
+              } else if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit(draft);
+              }
+            }}
+            className="w-full resize-none rounded-control border border-line-soft bg-sub-200 px-2 py-1.5 text-[13px] leading-5 text-ink placeholder:text-ink-faint hover:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-50"
+          />
+          <div className="mt-1.5 flex items-center justify-between">
+            <span className="t-meta text-ink-faint">{draft.length > COUNTER_FROM ? `${draft.length} / ${MAX_PROMPT}` : "Enter to send · Shift+Enter for a new line"}</span>
+            <button
+              type="button"
+              disabled={blocked || draft.trim() === ""}
+              onClick={() => submit(draft)}
+              className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
