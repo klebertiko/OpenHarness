@@ -1,7 +1,8 @@
 "use client";
 import { create } from "zustand";
 import { useShellStore } from "@/components/shell/shellStore";
-import { CopilotApiError, planGraphEdit } from "@/lib/copilot/api";
+import { planGraphEdit } from "@/lib/copilot/api";
+import { describeFailure } from "@/lib/copilot/errors";
 import type { RequestMode } from "@/lib/copilot/contract";
 import { describeOps, diffMarks, materializeOps, validateOps, type OpLine } from "@/lib/copilot/ops";
 import { toCopilotGraph } from "@/lib/copilot/serialize";
@@ -56,21 +57,6 @@ const HISTORY_TURNS = 6;
 const newId = () => crypto.randomUUID();
 
 const isAbort = (err: unknown) => err instanceof DOMException && err.name === "AbortError";
-
-/** Error text for a person, always with a next action (spec §3.2). */
-export function describeFailure(err: unknown): { text: string; link?: "providers" } {
-  if (err instanceof CopilotApiError) {
-    const { error, detail } = err.body;
-    if (err.status === 402) return { text: detail ?? "The monthly budget is used up.", link: "providers" };
-    if (error === "plan_invalid") return { text: "Copilot's proposal didn't fit the graph rules" };
-    if (error === "payload_too_large") return { text: "This graph is too large for Copilot (60 blocks and 120 wires at most)." };
-    if (error === "provider_timeout") return { text: detail ?? "The provider took too long to answer." };
-    if (error === "provider_unavailable") return { text: detail ?? "No provider is ready. Connect one in Providers." };
-    if (error === "provider_error") return { text: detail ?? "The provider returned an error." };
-    return { text: detail ?? `Copilot couldn't answer (${error}).` };
-  }
-  return { text: "Couldn't reach the app backend. Check that it is running." };
-}
 
 function settle(turns: Turn[], pick: (p: Proposal) => Proposal["state"] | null): Turn[] {
   return turns.map((t) => {
