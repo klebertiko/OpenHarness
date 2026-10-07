@@ -156,3 +156,48 @@ def test_a_failed_op_applies_nothing():
     )
     assert result["ok"] is False
     assert "graph" not in result
+
+
+# ── QA wave 1 regressions ──────────────────────────────────────────────────
+
+def test_synthetic_ref_ids_are_internal_and_cannot_be_used_as_targets():
+    base = [{"op": "addNode", "ref": "n2", "type": "gate", "label": "G"}]
+    for follow in (
+        {"op": "removeNode", "id": "ref:n2"},
+        {"op": "updateNode", "id": "ref:n2", "label": "X"},
+        {"op": "connect", "from": "ref:n2", "to": "g1"},
+        {"op": "addNode", "ref": "n3", "type": "agent", "label": "A", "near": "ref:n2"},
+    ):
+        result = ops.validate_ops(BASE, base + [follow])
+        assert result["errors"][0] == {"index": 1, "code": "unknown_node", "message": result["errors"][0]["message"]}, follow
+
+
+def test_a_base_node_named_like_a_synthetic_ref_blocks_that_ref():
+    graph = {"nodes": [{"id": "ref:n1", "type": "agent", "label": "Odd", "config": {}}], "edges": []}
+    result = ops.validate_ops(graph, [{"op": "addNode", "ref": "n1", "type": "agent", "label": "X"}])
+    assert result["errors"][0]["code"] == "bad_ref"
+
+
+@pytest.mark.parametrize("op_value", [["addNode"], {}, {"a": 1}, 7, None, True])
+def test_a_non_string_op_field_is_unknown_op_and_never_crashes(op_value):
+    result = ops.validate_ops(BASE, [{"op": op_value}])
+    assert result["ok"] is False
+    assert result["errors"][0]["code"] == "unknown_op"
+
+
+@pytest.mark.parametrize(
+    "label, ok",
+    [
+        ("\x1c", True),  # not whitespace to JavaScript's trim, so the twin accepts it
+        ("\x85", True),
+        ("﻿", False),  # JavaScript trims the BOM; Python's strip() does not
+        (" ", False),
+        ("　x　", True),
+    ],
+)
+def test_label_trimming_matches_javascript_trim(label, ok):
+    result = ops.validate_ops(BASE, [{"op": "updateNode", "id": "s1", "label": label}])
+    assert result["ok"] is ok
+    if ok:
+        node = next(n for n in result["graph"]["nodes"] if n["id"] == "s1")
+        assert node["label"] == label.strip("\t\n\x0b\x0c\r                  　﻿")

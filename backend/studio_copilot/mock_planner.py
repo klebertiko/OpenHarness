@@ -52,7 +52,11 @@ def _empty(summary: str) -> dict[str, Any]:
 
 def _terminals(graph: dict[str, Any]) -> list[dict[str, Any]]:
     sources = {e["source"] for e in graph.get("edges", [])}
-    return [n for n in graph.get("nodes", []) if n.get("type") in _FLOW and n["id"] not in sources]
+    # `ref:` ids are the validator's private spelling, so ops cannot address such a node.
+    return [
+        n for n in graph.get("nodes", [])
+        if n.get("type") in _FLOW and n["id"] not in sources and not n["id"].startswith("ref:")
+    ]
 
 
 def _plan_items(message: str) -> tuple[list[tuple[str, str, str]], bool]:
@@ -94,10 +98,14 @@ def plan_offline(message: str, graph: dict[str, Any]) -> dict[str, Any]:
     if len(nodes) + len(items) > limits["maxNodes"]:
         return _empty(f"The graph is full ({limits['maxNodes']} node limit), so I can't add more steps.")
 
+    # A ref must not collide with an existing id, nor with the validator's private `ref:` spelling.
+    taken = {n["id"] for n in nodes} | {n["id"][4:] for n in nodes if n["id"].startswith("ref:")}
+    refs = (f"n{i}" for i in range(1, 1000) if f"n{i}" not in taken)
+
     chain: list[dict[str, Any]] = []
     out: list[dict[str, Any]] = []
     for position, (kind, label, agent_label) in enumerate(items):
-        ref = f"n{position + 1}"
+        ref = next(refs)
         following = items[position + 1][1] if position + 1 < len(items) else None
         if kind == "agent":
             config: dict[str, Any] = {
@@ -146,6 +154,10 @@ def plan_offline(message: str, graph: dict[str, Any]) -> dict[str, Any]:
         out.append(connect(last, chain[-2]["ref"], "fail"))
     if insert_before is not None:
         out.append(connect(last, insert_before["id"], "pass" if chain[-1]["kind"] == "gate" else None))
+
+    wires = sum(1 for o in out if o["op"] == "connect") - sum(1 for o in out if o["op"] == "disconnect")
+    if len(edges) + wires > limits["maxEdges"]:
+        return _empty(f"The graph is full ({limits['maxEdges']} wire limit), so I can't add more steps.")
 
     added = ", ".join(c["label"] for c in chain)
     summary = f"{PREFIX} added {added}."

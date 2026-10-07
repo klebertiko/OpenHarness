@@ -79,6 +79,10 @@ class _Working:
         self.limits = catalog.limits()
 
     def find(self, node_id: str) -> dict[str, Any] | None:
+        # `ref:<ref>` is the validator's private spelling of a new node; an op
+        # may only reach it through its ref, or validate and apply would disagree.
+        if node_id.startswith("ref:"):
+            return None
         by_id = next((n for n in self.nodes if n["id"] == node_id), None)
         if by_id is not None:
             return by_id
@@ -92,8 +96,16 @@ class _Working:
         return node
 
 
+# JavaScript's String.prototype.trim() set. Python's str.strip() also strips
+# \x1c-\x1f and \x85 but not ﻿, which would make the two validators disagree.
+_JS_WHITESPACE = (
+    "\t\n\x0b\x0c\r              "
+    "    　﻿"
+)
+
+
 def _check_label(label: str, limit: int) -> str:
-    label = label.strip()
+    label = label.strip(_JS_WHITESPACE)
     if not 1 <= len(label) <= limit:
         raise _fail("field_invalid", f"label must be 1–{limit} characters")
     return label
@@ -106,7 +118,7 @@ def _check_config(node_type: str, config: dict[str, Any], limits: dict[str, int]
             raise _fail("field_not_editable", f"\"{key}\" cannot be set on a {node_type}")
     for key, value in config.items():
         if key in ("roleId", "skillId", "gateId"):
-            if not isinstance(value, str) or not _ID_FIELD_RE.match(value) or len(value) > limits["idFieldMax"]:
+            if not isinstance(value, str) or not _ID_FIELD_RE.fullmatch(value) or len(value) > limits["idFieldMax"]:
                 raise _fail("field_invalid", f"{key} must be up to {limits['idFieldMax']} letters, digits, _ . or -")
         elif key in ("systemPrompt", "checklist", "approvalLabel"):
             limit = limits[{"systemPrompt": "systemPromptMax", "checklist": "checklistMax", "approvalLabel": "approvalLabelMax"}[key]]
@@ -151,7 +163,11 @@ def _edge_key(src: str, sp: str, dst: str, dp: str) -> tuple[str, str, str, str]
 
 def _add_node(w: _Working, op: dict[str, Any]) -> None:
     ref = op["ref"]
-    if not _REF_RE.match(ref) or ref in w.used_refs or any(n["id"] == ref for n in w.nodes):
+    if (
+        not _REF_RE.fullmatch(ref)
+        or ref in w.used_refs
+        or any(n["id"] in (ref, f"ref:{ref}") for n in w.nodes)
+    ):
         raise _fail("bad_ref", f"ref \"{ref}\" must look like n1, n2, … and be unused")
     if op["type"] not in catalog.node_types():
         raise _fail("unknown_type", f"Unknown node type \"{op['type']}\"")
@@ -227,7 +243,7 @@ def validate_ops(graph: dict[str, Any], ops: list[Any]) -> dict[str, Any]:
     for index, op in enumerate(ops):
         try:
             name = op.get("op") if isinstance(op, dict) else None
-            if name not in _OPS:
+            if not isinstance(name, str) or name not in _OPS:
                 raise _fail("unknown_op", f"Unknown change \"{name}\"" if isinstance(name, str) else "Each change must be an object with an op")
             _shape(op, name)
             _HANDLERS[name](work, op)

@@ -105,6 +105,34 @@ def test_attaches_after_the_current_terminal_and_inserts_before_a_terminal_hitl(
     assert len(hitl_nodes) == 1, "an existing approval is reused, not duplicated"
 
 
+def test_refs_never_collide_with_existing_node_ids():
+    graph = {
+        "nodes": [
+            {"id": "n1", "type": "agent", "label": "Writer", "config": {}},
+            {"id": "ref:n2", "type": "agent", "label": "Odd", "config": {}},
+        ],
+        "edges": [],
+    }
+    plan = mock_planner.plan_offline("plan research", graph)
+    refs = [o["ref"] for o in plan["ops"] if o["op"] == "addNode"]
+    assert refs and "n1" not in refs and "n2" not in refs
+    assert ops.validate_ops(graph, plan["ops"])["ok"] is True
+
+
+def test_a_graph_with_no_room_for_more_wires_returns_no_ops():
+    nodes = [{"id": f"a{i}", "type": "agent", "label": f"A{i}", "config": {}} for i in range(16)]
+    edges = [
+        {"source": nodes[i]["id"], "sourceHandle": "out", "target": nodes[j]["id"], "targetHandle": "in"}
+        for i in range(16)
+        for j in range(16)
+        if i != j
+    ][:120]
+    nodes.append({"id": "tail", "type": "agent", "label": "Tail", "config": {}})
+    plan = mock_planner.plan_offline("research write review", {"nodes": nodes, "edges": edges})
+    assert plan["ops"] == []
+    assert "full" in plan["summary"].lower()
+
+
 def test_full_graph_returns_no_ops_instead_of_an_invalid_plan():
     graph = {
         "nodes": [{"id": f"a{i}", "type": "agent", "label": f"A{i}", "config": {}} for i in range(60)],
