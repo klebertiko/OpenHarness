@@ -74,6 +74,24 @@ describe("canvasStore — copilot patch API", () => {
   });
 });
 
+describe("canvasStore — wires are deduplicated by what they connect, not by id (QA M3)", () => {
+  it("dragging an existing wire again does nothing, even when it was saved under a legacy id", () => {
+    S().loadGraph([node("a"), node("b", 280)], [{ id: "e-po-stl", source: "a", target: "b", type: "harness", data: { kind: "flow" } }]);
+    S().onConnect({ source: "a", target: "b", sourceHandle: "out", targetHandle: "in" });
+    S().onConnect({ source: "a", target: "b", sourceHandle: null, targetHandle: null });
+    expect(S().edges).toHaveLength(1);
+  });
+
+  it("still adds a different port between the same two nodes", () => {
+    S().loadGraph(
+      [{ id: "g", type: "gate", position: { x: 0, y: 0 }, data: { label: "G" } }, node("b", 280)],
+      [{ id: "legacy", source: "g", target: "b", sourceHandle: "pass", targetHandle: "in", type: "harness", data: { kind: "accept" } }],
+    );
+    S().onConnect({ source: "g", target: "b", sourceHandle: "fail", targetHandle: "in" });
+    expect(S().edges).toHaveLength(2);
+  });
+});
+
 describe("canvasStore — onConnect uses edgeForConnection", () => {
   it("decorates a gate fail wire and ignores a duplicate", () => {
     S().loadGraph([{ id: "g", type: "gate", position: { x: 0, y: 0 }, data: { label: "G" } }, node("b")], []);

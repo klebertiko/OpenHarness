@@ -1,6 +1,24 @@
 import { PORTS, findPort } from "./ports";
 import type { EdgeKind, HarnessEdge, HarnessNode } from "./types";
 
+/** Handles with their port-schema defaults applied, so `null`/missing and explicit agree. */
+function resolvedHandles(e: HarnessEdge, nodes: HarnessNode[]) {
+  const source = nodes.find((n) => n.id === e.source);
+  const target = nodes.find((n) => n.id === e.target);
+  return {
+    out: e.sourceHandle ?? (source ? findPort(source.type, "out")?.id : undefined) ?? "out",
+    in: e.targetHandle ?? (target ? findPort(target.type, "in")?.id : undefined) ?? "in",
+  };
+}
+
+/** Two edges are the same wire when they join the same ports, whatever their ids say. */
+export function sameWire(a: HarnessEdge, b: HarnessEdge, nodes: HarnessNode[]): boolean {
+  if (a.source !== b.source || a.target !== b.target) return false;
+  const ha = resolvedHandles(a, nodes);
+  const hb = resolvedHandles(b, nodes);
+  return ha.out === hb.out && ha.in === hb.in;
+}
+
 export interface Connectionish {
   source: string;
   target: string;

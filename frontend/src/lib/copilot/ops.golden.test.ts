@@ -92,6 +92,35 @@ describe("validateOps — golden parity with backend/studio_copilot/ops.py", () 
     }
   });
 
+  it("keeps ref:<n> private to the validator (QA M2)", () => {
+    const add = { op: "addNode", ref: "n2", type: "gate", label: "G" };
+    for (const follow of [
+      { op: "removeNode", id: "ref:n2" },
+      { op: "updateNode", id: "ref:n2", label: "X" },
+      { op: "connect", from: "ref:n2", to: "g1" },
+      { op: "addNode", ref: "n3", type: "agent", label: "A", near: "ref:n2" },
+    ]) {
+      expect(validateOps(examples.baseGraph, [add, follow])).toMatchObject({ errors: [{ index: 1, code: "unknown_node" }] });
+    }
+    const odd: CopilotGraph = { nodes: [{ id: "ref:n1", type: "agent", label: "Odd", config: {} }], edges: [] };
+    expect(validateOps(odd, [{ op: "addNode", ref: "n1", type: "agent", label: "X" }])).toMatchObject({ errors: [{ code: "bad_ref" }] });
+  });
+
+  it("treats a non-string op field as unknown_op", () => {
+    for (const op of [["addNode"], {}, { a: 1 }, 7, null, true]) {
+      expect(validateOps(examples.baseGraph, [{ op }])).toMatchObject({ errors: [{ code: "unknown_op" }] });
+    }
+  });
+
+  it("trims labels exactly like the Python validator", () => {
+    const run = (label: string) => validateOps(examples.baseGraph, [{ op: "updateNode", id: "s1", label }]).ok;
+    expect(run("\x1c")).toBe(true);
+    expect(run("\x85")).toBe(true);
+    expect(run("﻿")).toBe(false);
+    expect(run(" ")).toBe(false);
+    expect(run("　x　")).toBe(true);
+  });
+
   it("flags non-object ops as unknown_op and wrong shapes as field_invalid", () => {
     expect(validateOps(examples.baseGraph, ["addNode"])).toMatchObject({ errors: [{ code: "unknown_op" }] });
     for (const bad of [

@@ -8,7 +8,7 @@ import {
   type Connection,
 } from "@xyflow/react";
 import type { HarnessNode, HarnessEdge, NodeData, ExecutionMode } from "@/lib/types";
-import { edgeForConnection } from "@/lib/edges";
+import { edgeForConnection, sameWire } from "@/lib/edges";
 
 /*
  * NOTE (shell workstream): this file arrived syntactically broken — the
@@ -188,7 +188,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   onConnect: (connection) => {
     const source = get().nodes.find((n) => n.id === connection.source);
     const edge = edgeForConnection(source, connection);
-    if (get().edges.some((e) => e.id === edge.id)) return;
+    if (get().edges.some((e) => sameWire(e, edge, get().nodes))) return;
     set({ edges: [...get().edges, edge] });
     get().pushHistory();
   },

@@ -5,7 +5,7 @@
  * The client re-validates against the *live* canvas because it can change
  * while a request is in flight; a failing list is never partly applied.
  */
-import { edgeForConnection } from "../edges";
+import { edgeForConnection, sameWire } from "../edges";
 import { PORTS, findPort } from "../ports";
 import { NODE_TEMPLATES } from "../templates";
 import type { HarnessEdge, HarnessNode, NodeData, NodeType } from "../types";
@@ -64,6 +64,9 @@ class Working {
   }
 
   find(id: string): CopilotNode | undefined {
+    // `ref:<ref>` is the validator's private spelling of a new node; an op may
+    // only reach it through its ref, or validating and applying would disagree.
+    if (id.startsWith("ref:")) return undefined;
     const direct = this.nodes.find((n) => n.id === id);
     if (direct) return direct;
     const synthetic = this.refs.get(id);
@@ -121,7 +124,7 @@ const edgeKey = (e: { source: string; sourceHandle: string; target: string; targ
 
 function addNodeOp(w: Working, op: Record<string, unknown>) {
   const ref = op.ref as string;
-  if (!REF_RE.test(ref) || w.usedRefs.has(ref) || w.nodes.some((n) => n.id === ref)) {
+  if (!REF_RE.test(ref) || w.usedRefs.has(ref) || w.nodes.some((n) => n.id === ref || n.id === `ref:${ref}`)) {
     throw new Fail("bad_ref", `ref "${ref}" must look like n1, n2, … and be unused`);
   }
   const type = op.type as string;
@@ -299,7 +302,7 @@ export function materializeOps(
       const targetHandle = findPort(target.type, "in", op.toPort)?.id ?? "in";
       if (op.op === "connect") {
         const edge = edgeForConnection(source, { source: source.id, target: target.id, sourceHandle, targetHandle });
-        if (!outEdges.some((e) => e.id === edge.id)) outEdges.push(edge);
+        if (!outEdges.some((e) => sameWire(e, edge, outNodes))) outEdges.push(edge);
       } else {
         outEdges = outEdges.filter(
           (e) =>

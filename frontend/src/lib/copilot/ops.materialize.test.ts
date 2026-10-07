@@ -75,6 +75,13 @@ describe("materializeOps", () => {
     expect(byId(out.nodes, "agent-u").position).toEqual({ x: 840, y: 0 });
   });
 
+  it("does not duplicate a wire that already exists under a legacy id", () => {
+    const { nodes, edges } = goldenBaseCanvas();
+    const legacy = edges.map((e) => ({ ...e, id: `legacy-${e.id}` }));
+    const out = materializeOps(nodes, legacy, [{ op: "connect", from: "a1", to: "g1" }]);
+    expect(out.edges).toHaveLength(legacy.length);
+  });
+
   it("applies update, remove and disconnect", () => {
     const { nodes, edges } = goldenBaseCanvas();
     const out = materializeOps(nodes, edges, [
