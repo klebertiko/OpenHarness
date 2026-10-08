@@ -201,13 +201,11 @@ export function AppShell({
         toggleRight();
         return;
       }
-      // Alt+1..6 — the destinations, same order as the rail, everywhere.
+      // Alt+1..3 — the destinations, same order as the rail, everywhere.
       const NAV_CHORDS: [string, RailSection][] = [
         ["Alt+1", "chats"],
         ["Alt+2", "studio"],
-        ["Alt+3", "automations"],
-        ["Alt+4", "git"],
-        ["Alt+5", "providers"],
+        ["Alt+3", "providers"],
       ];
       for (const [chord, target] of NAV_CHORDS) {
         if (matchesChord(e, chord, mac)) {
@@ -259,8 +257,10 @@ export function AppShell({
       {toolbar}
 
       <div className="flex min-h-0 flex-1">
-        <ActivityRail>{leftOpen && !immersive ? left : null}</ActivityRail>
-        <Resizer side="left" value={leftWidth} min={LEFT_MIN} max={LEFT_MAX} onChange={setLeftWidth} />
+        <ActivityRail collapsed={narrow.left}>{leftOpen && !immersive ? left : null}</ActivityRail>
+        {!narrow.left && (
+          <Resizer side="left" value={leftWidth} min={LEFT_MIN} max={LEFT_MAX} onChange={setLeftWidth} />
+        )}
 
         <main className="relative min-w-0 flex-1 bg-sub-000">{stage}</main>
 

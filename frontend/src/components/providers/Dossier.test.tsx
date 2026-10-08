@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { UsageSummary } from "@/lib/usageApi";
 import { Dossier } from "./Dossier";
@@ -31,9 +31,7 @@ function connection(overrides: Partial<Connection>): Connection {
     probes: [],
     facts: [],
     models: [],
-    route: [],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: true,
     lastProbe: "",
     ...overrides,
@@ -109,7 +107,9 @@ it("labels local usage without claiming free and discloses unavailable measureme
   useProviderStore.setState({ connections: [c], selectedId: c.id });
   useUsageStore.setState({ hydrated: true, summary: summaryFor(c.id, c.provider, { tokensTotal: 42, costUsd: 0, unpricedTokens: 42 }) });
   render(<Dossier />);
-  expect(screen.queryAllByText("free", { selector: "dd" })).toHaveLength(0);
+  // The spend fact must not claim "free" (billing model "free" is a different fact).
+  const spent = screen.getByText("Spent", { selector: "dt" }).parentElement!;
+  expect(within(spent).queryByText(/free/)).toBeNull();
   expect(screen.getAllByText("cost unknown").length).toBeGreaterThan(0);
   expect(screen.getByText(/Measured and estimated tokens are not separated/i)).toBeTruthy();
 });
@@ -122,6 +122,35 @@ it("does not show a partial priced subtotal as the known total", () => {
   useUsageStore.setState({ hydrated: true, summary });
   render(<Dossier />);
   expect(screen.getByText("cost unknown", { selector: "dd" })).toBeTruthy();
+});
+
+it("leads a not-ready connection with the credential block, above the summary prose", () => {
+  const c = connection({ provider: "openrouter", enabled: false, health: "setup", secret: null });
+  useProviderStore.setState({ connections: [c], selectedId: c.id });
+  useUsageStore.setState({ hydrated: true });
+  render(<Dossier />);
+  const credentialHeading = screen.getByRole("heading", { name: "Credential" });
+  const summary = screen.getByText(/One key, many vendors/i);
+  // DOM order: the fix-it action comes first when the connection isn't ready.
+  expect(credentialHeading.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("moves the credential block below the summary once the connection is ready", () => {
+  const c = connection({ provider: "openrouter", enabled: true, health: "live", secret: null, defaultModel: "deepseek/deepseek-v4" });
+  useProviderStore.setState({ connections: [c], selectedId: c.id });
+  useUsageStore.setState({ hydrated: true });
+  render(<Dossier />);
+  const credentialHeading = screen.getByRole("heading", { name: "Credential" });
+  const summary = screen.getByText(/One key, many vendors/i);
+  expect(summary.compareDocumentPosition(credentialHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("uses the same status word the chat combo uses for the header badge", () => {
+  const c = connection({ enabled: false, health: "setup" });
+  useProviderStore.setState({ connections: [c], selectedId: c.id });
+  useUsageStore.setState({ hydrated: true });
+  render(<Dossier />);
+  expect(screen.getByText("Not connected")).toBeTruthy();
 });
 
 it("does not invent a key length for a credential reference restored from backend", () => {

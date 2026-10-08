@@ -9,7 +9,7 @@ import { create } from "zustand";
  * whole point of a desktop layout: the app comes back as the user left it.
  */
 
-export type RailSection = "chats" | "studio" | "automations" | "git" | "providers";
+export type RailSection = "chats" | "studio" | "providers";
 
 /** Studio is the only destination with its own right-hand inspector. */
 export const STUDIO_SECTION: RailSection = "studio";
@@ -32,10 +32,12 @@ const DEFAULTS: Persisted = {
   section: "chats",
 };
 
-const SECTIONS: RailSection[] = ["chats", "studio", "automations", "git", "providers"];
+const SECTIONS: RailSection[] = ["chats", "studio", "providers"];
 
 export const LEFT_MIN = 188;
 export const LEFT_MAX = 380;
+/** Icon-only rail width, used while the left panel is suppressed (narrow window). */
+export const RAIL_COLLAPSED = 52;
 export const RIGHT_MIN = 240;
 export const RIGHT_MAX = 460;
 
@@ -63,7 +65,6 @@ function save(state: Persisted) {
 
 interface ShellState extends Persisted {
   studioView: "overview" | "editor";
-  studioHasDraft: boolean;
   setStudioView: (view: "overview" | "editor") => void;
   hydrated: boolean;
   paletteOpen: boolean;
@@ -101,11 +102,7 @@ function persistFrom(s: ShellState) {
 export const useShellStore = create<ShellState>((set, get) => ({
   ...DEFAULTS,
   studioView: "overview",
-  studioHasDraft: false,
-  setStudioView: (studioView) => set({
-    studioView,
-    studioHasDraft: get().studioHasDraft || studioView === "editor",
-  }),
+  setStudioView: (studioView) => set({ studioView }),
   hydrated: false,
   paletteOpen: false,
   keymapOpen: false,

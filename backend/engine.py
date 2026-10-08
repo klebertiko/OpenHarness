@@ -18,14 +18,21 @@ router only ever sets events and drops payloads into the control object.
 """
 import asyncio
 import anyio
+import httpx
 import json
+import os
 import time
 import uuid
 from collections import defaultdict, deque
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from adapters import get_adapter, AdapterConfig
-from providers.resolution import ProviderResolutionError, resolve_node_provider
+from adapters.base import ProbeResult
+from providers.resolution import (
+    FailoverAttempt,
+    ProviderResolutionError,
+    resolve_node_provider_with_failover,
+)
 from providers.outcomes import failure_details
 from sandbox.approval import ToolApproval
 from runtime.router import select_runtime
@@ -138,6 +145,7 @@ RUNS: dict[str, RunControl] = {}
 # The one Gate output port allowed to close a cycle without the graph being
 # treated as structurally broken (frontend/src/lib/ports.ts, PORTS.gate).
 _GATE_RETRY_HANDLE = "fail"
+
 
 
 def _reachable_from(start_ids: set[str], graph: dict[str, list[str]]) -> set[str]:
@@ -285,7 +293,15 @@ def _sse(event: str, data: Any) -> str:
 
 
 # Node types the engine resolves itself, with no adapter round-trip.
-_INTRINSIC = {"input", "output", "router", "hitl"}
+# "decision" (EXPERIMENTAL, ADR-0005) included: it calls a separate Laya
+# loopback process over plain HTTP, never the provider/adapter path.
+_INTRINSIC = {"input", "output", "router", "hitl", "decision"}
+
+# Default port for the EXPERIMENTAL Laya decision-node loopback (ADR-0005) —
+# must match backend/laya_loopback/server.py's own `LAYA_LOOPBACK_PORT`
+# default. Overridable via the same env var.
+_LAYA_LOOPBACK_DEFAULT_PORT = 8761
+_LAYA_LOOPBACK_TIMEOUT_S = 60.0
 
 
 def _node_view(node: dict) -> dict:
@@ -322,6 +338,7 @@ async def execute_harness(
     secrets_store: Any = None,
     cwd: str | None = None,
     enforce_budget: Callable[[str | None, str | None], Awaitable[None]] | None = None,
+    decision_transport: httpx.BaseTransport | None = None,
 ) -> AsyncIterator[str]:
     """
     `enforce_budget`, when given, is called as `await enforce_budget(model,
@@ -337,6 +354,13 @@ async def execute_harness(
     `connections`/`secrets_store` arrive as plain data rather than live
     handles).
 
+    `decision_transport`, when given, is passed straight to the
+    `httpx.AsyncClient` that a `type: "decision"` node (EXPERIMENTAL,
+    ADR-0005) uses to call the separate Laya loopback process -- the same
+    test seam `adapters/openai_compatible.py` already uses for its own
+    `httpx.AsyncClient`. `None` (the default) makes a real loopback call to
+    `http://127.0.0.1:<LAYA_LOOPBACK_PORT>/predict`.
+
     Stream of SSE events:
 
       run_start         {run_id, mode, order:[node_view], unreachable}
@@ -348,7 +372,9 @@ async def execute_harness(
       node_stream       {node_id, chunk}             — answer text
       tool_call         {node_id, call_id, name, args}
       tool_result       {node_id, call_id, ok, result, duration_ms}
-      node_done         {node_id, output, tokens, latency_ms}
+      node_done         {node_id, output, tokens, tokens_estimated, latency_ms}
+                                                     — `tokens_estimated`: true when the count was derived from
+                                                       output length because the adapter reported no usage
       node_error        {node_id, error, tokens?}      — `tokens` present only when real spend
                                                           happened before the failure (e.g. an
                                                           over-limit node, see node_token_warning)
@@ -361,7 +387,7 @@ async def execute_harness(
       hitl_resolved     {node_id, decision, note}
       user_message      {text}                       — steering injected mid-run
       run_stopped       {at_node}
-      harness_done      {status, total_tokens, elapsed_ms, nodes_run}
+      harness_done      {status, total_tokens, tokens_estimated, elapsed_ms, nodes_run}
     """
     nodes: list[dict] = harness_json.get("nodes", [])
     edges: list[dict] = harness_json.get("edges", [])
@@ -374,6 +400,7 @@ async def execute_harness(
     outputs: dict[str, str] = {}
     steering: list[str] = []
     total_tokens = 0
+    run_tokens_estimated = False  # any node count derived from output length
     nodes_run = 0
     harness_start = time.time()
     # PASS/FAIL-style conditional routing (`edge.data.condition`) — a branch
@@ -594,6 +621,79 @@ async def execute_harness(
             nodes_run += 1
             continue
 
+        # ── EXPERIMENTAL — Laya decision node (ADR-0005, spike) ────────────────
+        # Opt-in only: never part of compile_skills_harness.py's standard
+        # Agile graph. `decisionResult` on this node's own `node_done` is
+        # evidence only -- nothing in this module (conditional routing above,
+        # Gate retry, HITL) ever reads it, and this block never writes to
+        # anything another node's branch depends on besides `outputs[node_id]`
+        # itself, which is a verbatim pass-through of its own input (same
+        # shape as the `hitl`-approve path above), never a transformation.
+        # Removing this node from a graph must not change any other node's
+        # result -- see tests/test_engine_decision_node.py, in particular
+        # test_removing_the_decision_node_does_not_change_any_other_node_result.
+        #
+        # Calls a separate Laya process over loopback HTTP
+        # (backend/laya_loopback/server.py) -- never the provider/adapter
+        # path below, never OH_SECRETS (Laya's local HF-cached weights are
+        # not a provider credential). A loopback that isn't up, a busy port,
+        # or a timeout is an honest node_error, same convention as
+        # ProviderResolutionError elsewhere in this file -- never a fabricated
+        # decisionResult.
+        if node_type == "decision":
+            context = "\n\n".join(
+                outputs.get(uid, "") for uid in upstream_ids if outputs.get(uid)
+            )
+            outputs[node_id] = context
+            yield _sse("node_start", {**_node_view(node)})
+
+            port = os.environ.get("LAYA_LOOPBACK_PORT", str(_LAYA_LOOPBACK_DEFAULT_PORT))
+            url = f"http://127.0.0.1:{port}/predict"
+            questions = data.get("decisionQuestions") or {}
+            call_start = time.time()
+            try:
+                async with httpx.AsyncClient(
+                    timeout=_LAYA_LOOPBACK_TIMEOUT_S, transport=decision_transport
+                ) as client:
+                    resp = await client.post(
+                        url,
+                        json={"state": {"output": context}, "questions": questions},
+                    )
+                resp.raise_for_status()
+                payload = resp.json()
+            except Exception as exc:
+                status = STATUS_ERROR
+                yield _sse(
+                    "node_error",
+                    {
+                        "node_id": node_id,
+                        "error": f"Laya loopback unavailable at {url}: {exc}",
+                    },
+                )
+                stopped_at = node_id
+                break
+
+            latency_ms = payload.get("latency_ms", round((time.time() - call_start) * 1000, 2))
+            decision_result = {
+                "schema_version": payload.get("schema_version", "openharness-decision-node-v1"),
+                # Constant -- never graph-author-supplied. See ADR-0005 item 1.
+                "authority": "advisory-shadow",
+                "model_result": payload.get("model_result"),
+                "latency_ms": latency_ms,
+            }
+            yield _sse(
+                "node_done",
+                {
+                    "node_id": node_id,
+                    "output": context,
+                    "tokens": 0,
+                    "latency_ms": latency_ms,
+                    "decisionResult": decision_result,
+                },
+            )
+            nodes_run += 1
+            continue
+
         # ── Adapter-backed nodes ──────────────────────────────────────────────
         prompt_parts = [outputs.get(uid, "") for uid in upstream_ids if outputs.get(uid)]
         prompt = "\n\n".join(prompt_parts) or data.get("prompt", "")
@@ -617,24 +717,200 @@ async def execute_harness(
                 extra={"node_type": node_type, "label": label},
             )
         else:
-            try:
-                resolved = resolve_node_provider(
-                    data,
-                    node_type,
-                    label,
-                    connections=connections,
-                    secrets_store=secrets_store,
-                    cwd=cwd,
+            # ── Provider failover — AC#1 (resolution) + AC#2/#3 (runtime) ──
+            #
+            # `providerIds[1:]` (PROVIDER-FAILOVER story): each id is tried in
+            # order. An id that fails to *resolve* (disabled connection,
+            # unknown provider, missing credential —
+            # `resolve_node_provider_with_failover`, AC#1) is skipped for the
+            # next one with nothing ever observable — no node_start for it.
+            # An id that resolves but whose adapter fails on the *very first*
+            # event it ever yields (CLI missing, immediate exception — AC#2)
+            # is *also* skipped for the next one, and just as invisibly: the
+            # peek below happens before `node_start` is ever emitted, so a
+            # connection that never truly served the turn never appears in
+            # one. Once a candidate's stream has yielded even one event, this
+            # loop commits to it — any later failure is `except Exception`
+            # below, exactly as before this story (AC#3): no retry, no
+            # duplicated or discarded partial output.
+            #
+            # A single-entry (or empty) `providerIds` walks this loop exactly
+            # once, so its observable shape is byte-for-byte what
+            # `resolve_node_provider` + a plain `try/except` around the
+            # stream produced before this story existed (AC#6).
+            remaining_ids = [str(p) for p in (data.get("providerIds") or []) if p]
+            failover_attempts: list[FailoverAttempt] = []
+            resolved = None
+            stream_iter = None
+            peeked_events: list[dict] = []
+            resolution_error: ProviderResolutionError | None = None
+            budget_error: BudgetExceededError | None = None
+            runtime_error: Exception | None = None
+
+            while True:
+                # Not `while remaining_ids:` — an originally-empty/missing
+                # `providerIds` must still take one pass through this loop so
+                # `resolve_node_provider_with_failover` raises its honest "no
+                # provider is set" error (AC#6); every `continue` below only
+                # fires with a non-empty `rest`, so this can't spin forever.
+                sub_data = {**data, "providerIds": remaining_ids}
+                try:
+                    candidate, resolve_rejects = resolve_node_provider_with_failover(
+                        sub_data, node_type, label,
+                        connections=connections, secrets_store=secrets_store, cwd=cwd,
+                    )
+                except ProviderResolutionError as exc:
+                    resolution_error = exc
+                    break
+                failover_attempts.extend(resolve_rejects)
+
+                # ── Global budget enforcement — per candidate, before its
+                # adapter is ever invoked (SEC P2-4 re-review, 2026-09-15; see
+                # the long-form rationale this replaced, git blame). A budget
+                # refusal is a policy decision, not a transient fault — it is
+                # deliberately never retried against the next id.
+                if execution_mode != "mock" and enforce_budget is not None:
+                    residence = (connections or {}).get(candidate.connection_id, {}).get("residence")
+                    try:
+                        await enforce_budget(candidate.config.model, residence)
+                    except BudgetExceededError as exc:
+                        resolved = candidate
+                        budget_error = exc
+                        break
+
+                # ── Pre-flight health check — AC#2 (ARCH bounce, 2026-10-02) ──
+                #
+                # `probe()` never spends a token (adapters/base.py:89) and is
+                # the honest way to learn a candidate is unusable (CLI
+                # missing, credential invalid, etc.) *before* ever touching
+                # its stream. Without this, the peek below used to be the
+                # only signal -- but every real adapter's `stream_events()`
+                # inherits the default in adapters/base.py that yields a
+                # synthetic `{"kind": "phase", ...}` event before the adapter
+                # is actually invoked, so the peek always saw that harmless
+                # event first and committed to a candidate that had not yet
+                # proven itself. A probe failure is treated exactly like a
+                # resolution failure: never observable (no `node_start` for
+                # this candidate), and the next id in the chain is tried.
+                #
+                # B2 (ARCH re-bounce, 2026-10-02): `rest` is computed *before*
+                # deciding whether to probe at all. When there is no next
+                # candidate to fall back to, a probe's result is always
+                # discarded below (the real failure surfaces at the peek
+                # instead, same shape as before this story -- AC#6), so
+                # calling it would only pay its 10-15s timeout
+                # (`claude auth status` / `GET /models`) for nothing -- and
+                # that wait is not Stop-interruptible (STOP-RESPONSIVENESS
+                # regression). Skip `probe()` entirely in that case.
+                idx = remaining_ids.index(candidate.connection_id)
+                rest = remaining_ids[idx + 1:]
+                if rest:
+                    # B1 (ARCH bounce, 2026-10-02): `probe()` itself can raise
+                    # (e.g. `run_cli` spawning the CLI subprocess hits an
+                    # `OSError`, or `NotImplementedError` on Windows' default
+                    # SelectorEventLoop -- adapters/cli_shared.py:180). Left
+                    # unguarded that exception propagates straight out of this
+                    # generator, past the router's own SSE error handling, and
+                    # the client never sees a `node_error`/`harness_done` --
+                    # just a bare transport error with no failover attempted.
+                    # Treat a raising probe exactly like an honest negative
+                    # one, using the same `failure_details` formatting every
+                    # other runtime failure in this loop already goes through.
+                    try:
+                        probe_result = await candidate.adapter.probe(candidate.config)
+                    except Exception as exc:  # noqa: BLE001 — downgraded to ProbeResult below
+                        probe_result = ProbeResult(
+                            ok=False,
+                            detail=failure_details(exc).get("error", "Provider probe failed."),
+                        )
+                    if not probe_result.ok:
+                        # SEC (security-harness, 2026-10-02, F1/P3): `probe_result.detail`
+                        # is free text from the CLI/SDK (raw stderr, httpx exception
+                        # text) -- exactly what `outcomes.py`'s own comment warns can
+                        # carry a URL, prompt or credential. Every other failover
+                        # reason in this loop goes through `failure_details`'s fixed
+                        # vocabulary; a probe rejection must too, never the raw detail.
+                        detail = (
+                            "Provider is not set up (CLI missing, not logged in, or endpoint unreachable)."
+                            if probe_result.health == "setup"
+                            else "Provider failed a pre-flight health check."
+                        )
+                        failover_attempts.append(
+                            FailoverAttempt(connection_id=candidate.connection_id, reason=detail)
+                        )
+                        remaining_ids = rest
+                        continue
+                # else: no candidate left to retry -- fall through to the
+                # ordinary peek below, `probe()` never invoked.
+
+                # ── Peek, skipping the synthetic "phase" lead-in — AC#2/#3 ──
+                #
+                # `stream_events()`'s default implementation (adapters/base.py)
+                # always yields a `{"kind": "phase", ...}` event before the
+                # adapter does any real work, so the *first* event is never
+                # proof the candidate actually served the turn (the probe
+                # above is now that proof). This loop keeps pulling past any
+                # number of leading phase events -- buffering them to replay
+                # faithfully once committed -- and only commits on genuine
+                # content or stops on exception/EOF, same as before.
+                candidate_iter = control.stream_until_stopped(
+                    candidate.adapter.stream_events(prompt, candidate.config)
                 )
-            except ProviderResolutionError as exc:
+                phase_buffer: list[dict] = []
+                try:
+                    while True:
+                        event = await candidate_iter.__anext__()
+                        if isinstance(event, dict) and event.get("kind") == "phase":
+                            phase_buffer.append(event)
+                            continue
+                        break
+                except StopAsyncIteration:
+                    resolved, stream_iter, peeked_events = candidate, candidate_iter, phase_buffer
+                    break
+                except Exception as exc:  # noqa: BLE001 — classified below, never re-raised raw
+                    idx = remaining_ids.index(candidate.connection_id)
+                    rest = remaining_ids[idx + 1:]
+                    if rest:
+                        failover_attempts.append(
+                            FailoverAttempt(
+                                connection_id=candidate.connection_id,
+                                reason=failure_details(exc).get("error", "Provider execution failed."),
+                            )
+                        )
+                        remaining_ids = rest
+                        continue
+                    # No candidate left to retry -- commit to this one and
+                    # report the honest runtime error below, same shape as
+                    # today's single-provider except-block always produced.
+                    #
+                    # B3 (ARCH bounce, 2026-10-02): `phase_buffer` holds any
+                    # leading phase events already pulled from this
+                    # candidate's stream before it failed -- without saving
+                    # them into `peeked_events` here, they were silently
+                    # dropped and the node emitted ['node_start', 'node_error']
+                    # instead of the ['node_start', 'node_phase', 'node_error']
+                    # the original (pre-story) `async for` always produced.
+                    resolved = candidate
+                    runtime_error = exc
+                    peeked_events = phase_buffer
+                    break
+                else:
+                    resolved, stream_iter, peeked_events = candidate, candidate_iter, phase_buffer + [event]
+                    break
+
+            if resolved is None:
+                # Every remaining id failed to *resolve* -- identical to
+                # today's single-id shape (AC#6), just naming the last id
+                # tried when more than one was authored.
                 view = _node_view(node)
                 view["adapter"] = "unresolved"
                 yield _sse("node_start", view)
                 outputs[node_id] = ""
                 status = STATUS_ERROR
-                yield _sse("node_error", {"node_id": node_id, "error": str(exc)})
+                yield _sse("node_error", {"node_id": node_id, "error": str(resolution_error)})
                 stopped_at = node_id
                 break
+
             adapter_name = resolved.adapter_name
             adapter = resolved.adapter
             config = resolved.config
@@ -649,35 +925,26 @@ async def execute_harness(
             # node_id to know which connection to attribute spend to — no
             # other event ever carries it.
             node_view["connection_id"] = resolved.connection_id
+            # AC#4 — explicit, distinguishable failover signal: present only
+            # when at least one earlier id was tried and rejected (resolution
+            # or first-event runtime failure) before this one served the
+            # turn. A plain pin carries no `failover` key at all, so the two
+            # are trivially distinguishable by a client or a test.
+            if failover_attempts:
+                node_view["failover"] = {
+                    "attempts": [
+                        {"connection_id": a.connection_id, "reason": a.reason}
+                        for a in failover_attempts
+                    ],
+                }
 
-        # ── Global budget enforcement — per node, from this node's own
-        # resolved connection, never from graph-author-supplied data (SEC
-        # P2-4 re-review, 2026-09-15). The first fix sampled only the
-        # *first* node in the graph with a `providerIds` field to decide
-        # whether the whole run's spend was priced — a pre-run gate that
-        # trusted graph `data` instead of engine-resolved truth, the exact
-        # defect class P2-1 had already been fixed for elsewhere. A later
-        # unpriced node (or an intrinsic decoy node claiming a priced model
-        # or a local connection it never actually resolves) sailed straight
-        # through it. Checked here instead, once per real node, using
-        # `resolved` from this node's own call above — the same value
-        # `node_done` already reports honestly below — and before
-        # `adapter.stream_events` runs, so a refusal costs this node
-        # nothing. That is *unlike* the per-agent token limit further down,
-        # which can only be known after the call has already completed;
-        # this one is knowable up front, so the run can refuse to spend at
-        # all rather than spend first and complain never.
-        if execution_mode != "mock" and enforce_budget is not None:
-            residence = (connections or {}).get(resolved.connection_id, {}).get("residence")
-            try:
-                await enforce_budget(config.model, residence)
-            except BudgetExceededError as exc:
-                yield _sse("node_start", node_view)
-                outputs[node_id] = ""
-                status = STATUS_ERROR
-                yield _sse("node_error", {"node_id": node_id, "error": str(exc)})
-                stopped_at = node_id
-                break
+        if execution_mode != "mock" and budget_error is not None:
+            yield _sse("node_start", node_view)
+            outputs[node_id] = ""
+            status = STATUS_ERROR
+            yield _sse("node_error", {"node_id": node_id, "error": str(budget_error)})
+            stopped_at = node_id
+            break
 
         yield _sse("node_start", node_view)
         node_start = time.time()
@@ -685,7 +952,50 @@ async def execute_harness(
         node_tokens = 0
 
         try:
-            async for ev in control.stream_until_stopped(adapter.stream_events(prompt, config)):
+            if execution_mode != "mock" and runtime_error is not None:
+                # B3 (ARCH bounce, 2026-10-02): replay the leading phase
+                # events the peek already pulled off this candidate's stream
+                # before it failed, exactly as the `async for` below would
+                # have emitted them had it reached them itself -- restoring
+                # the original ['node_start', 'node_phase', 'node_error']
+                # sequence (AC#6) instead of silently dropping them.
+                for ev in peeked_events:
+                    control.phase = ev.get("phase", "")
+                    yield _sse(
+                        "node_phase",
+                        {
+                            "node_id": node_id,
+                            "phase": ev.get("phase", ""),
+                            "detail": ev.get("detail", ""),
+                        },
+                    )
+                # Exhausted every candidate at the first-event boundary --
+                # re-raise straight into the `except` below so it produces
+                # the exact same node_error shape a single-provider node's
+                # own stream failure always has (AC#6: with one id,
+                # `remaining_ids` is already empty on the very first and
+                # only attempt, so this is the *only* path that id can take).
+                raise runtime_error
+
+            if execution_mode == "mock":
+                stream_source = control.stream_until_stopped(adapter.stream_events(prompt, config))
+            else:
+                # Replays the (possibly several, possibly zero) events
+                # already pulled from `stream_iter` during the peek above --
+                # leading phase events plus the first genuine one, if any --
+                # then resumes that very same generator where the manual
+                # pull left it -- indistinguishable from a plain,
+                # uninterrupted `async for` over it.
+                async def _replay_peeked(first=peeked_events, rest=stream_iter):
+                    for ev in first:
+                        yield ev
+                    if rest is not None:
+                        async for ev in rest:
+                            yield ev
+
+                stream_source = _replay_peeked()
+
+            async for ev in stream_source:
                 kind = ev.get("kind")
                 if kind == "phase":
                     control.phase = ev.get("phase", "")
@@ -733,8 +1043,11 @@ async def execute_harness(
             # rather than the old behaviour, which reported 0 tokens for every
             # streamed node because `invoke` was only called when nothing
             # streamed at all.
+            node_tokens_estimated = False
             if not node_tokens:
                 node_tokens = max(1, len(output) // 4)
+                node_tokens_estimated = True
+                run_tokens_estimated = True
             # These tokens are real and already spent regardless of what
             # happens next (the adapter call already completed) — the run's
             # total must reflect that even when the per-node limit below
@@ -789,6 +1102,7 @@ async def execute_harness(
                     "node_id": node_id,
                     "output": output,
                     "tokens": node_tokens,
+                    "tokens_estimated": node_tokens_estimated,
                     "latency_ms": latency,
                 }
                 if execution_mode != "mock" and not control.stop.is_set():
@@ -801,6 +1115,8 @@ async def execute_harness(
                     # call `adapter.stream_events` above, so both are honest.
                     node_done_data["connection_id"] = resolved.connection_id
                     node_done_data["provider_verified"] = True
+                    if failover_attempts:
+                        node_done_data["failover"] = node_view["failover"]
                 yield _sse("node_done", node_done_data)
 
                 # ── Gate fail-port retry — bounded rework loop ─────────────
@@ -859,6 +1175,7 @@ async def execute_harness(
         {
             "status": status,
             "total_tokens": total_tokens,
+            "tokens_estimated": run_tokens_estimated,
             "elapsed_ms": elapsed,
             "nodes_run": nodes_run,
         },

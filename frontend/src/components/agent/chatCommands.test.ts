@@ -142,7 +142,7 @@ describe("chatCommands builtin Command rows", () => {
   it("names and runs each builtin Command exactly once, with no preset or draft attached", () => {
     const commands = chatCommands({}, { workspace, capabilities, items: [], readSkill: vi.fn() });
     const byName = Object.fromEntries(commands.filter((c) => c.kind === "Command").map((c) => [c.name, c]));
-    expect(Object.keys(byName)).toEqual(["new", "studio", "harness", "providers", "automate", "shortcuts"]);
+    expect(Object.keys(byName)).toEqual(["new", "studio", "harness", "providers", "shortcuts"]);
     for (const c of Object.values(byName)) {
       expect(c.preset).toBeUndefined();
       expect(c.draft).toBeUndefined();

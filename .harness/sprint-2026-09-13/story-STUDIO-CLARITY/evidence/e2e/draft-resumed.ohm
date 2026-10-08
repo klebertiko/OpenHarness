@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "1.1.0",
+  "manifest": {
+    "id": "openharness.studio.sample.minimal-gate",
+    "name": "Agent + review",
+    "version": "0.1.0",
+    "description": "Smallest OHM loop — one Agent, one Gate, human merge.",
+    "license": "MIT",
+    "tags": [
+      "studio"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "impl",
+        "type": "agent",
+        "position": {
+          "x": 0,
+          "y": 120
+        },
+        "data": {
+          "label": "Implementer",
+          "roleId": "BE",
+          "emits": [
+            "Ready for review"
+          ],
+          "adapter": "mock",
+          "providerIds": [
+            "anthropic"
+          ]
+        },
+        "measured": {
+          "width": 212,
+          "height": 100
+        },
+        "selected": true,
+        "role": "agent",
+        "label": "Implementer"
+      },
+      {
+        "id": "g1",
+        "type": "gate",
+        "position": {
+          "x": 280,
+          "y": 120
+        },
+        "data": {
+          "label": "Review Gate",
+          "gateId": "review",
+          "checklist": "tests · AC"
+        },
+        "measured": {
+          "width": 212,
+          "height": 96
+        },
+        "role": "gate",
+        "label": "Review Gate"
+      },
+      {
+        "id": "human",
+        "type": "hitl",
+        "position": {
+          "x": 560,
+          "y": 120
+        },
+        "data": {
+          "label": "HITL",
+          "approvalLabel": "Accept"
+        },
+        "measured": {
+          "width": 212,
+          "height": 96
+        },
+        "role": "hitl",
+        "label": "HITL"
+      }
+    ],
+    "edges": [
+      {
+        "id": "m1",
+        "source": "impl",
+        "sourceHandle": "out",
+        "target": "g1",
+        "targetHandle": "in",
+        "data": {
+          "kind": "flow",
+          "signal": "Ready for review",
+          "label": "Ready for review"
+        },
+        "type": "harness"
+      },
+      {
+        "id": "m2",
+        "source": "g1",
+        "sourceHandle": "pass",
+        "target": "human",
+        "targetHandle": "in",
+        "data": {
+          "kind": "accept",
+          "label": "pass"
+        },
+        "type": "harness"
+      }
+    ]
+  },
+  "content": {
+    "prompts": {},
+    "agents": {},
+    "skills": {},
+    "hooks": {},
+    "commands": {},
+    "scripts": {}
+  },
+  "runtime": {
+    "preferred": "api",
+    "cli": null,
+    "env": [],
+    "secrets": []
+  },
+  "validation": {
+    "mockProfile": "default"
+  }
+}

@@ -1,0 +1,1 @@
+PASS: real browser import -> download -> reimport -> download; authored objects equal. Sidecar HTTP stubbed.

@@ -1,0 +1,69 @@
+{
+  "finishedAt": "2026-09-13T13:10:06.595Z",
+  "scope": "10 targeted semantic mutants; not an exhaustive mutation score",
+  "sandbox": "C:\\Users\\klebe\\AppData\\Local\\Temp\\openharness-studio-mutation-yZCyDM",
+  "baseline": "passed",
+  "originalTargetsUnchanged": true,
+  "results": [
+    {
+      "id": "default-loader-bypassed",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "bundled-content-lost",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "sample-inherits-content",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "abandoned-load-opens",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "draft-forgotten",
+      "file": "src/components/shell/shellStore.ts",
+      "status": "killed",
+      "failedAssertions": 2
+    },
+    {
+      "id": "chat-pins-lost",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "chat-content-lost",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "chat-not-enabled",
+      "file": "src/lib/studio.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "default-import-substituted",
+      "file": "src/components/harnesses/HarnessLibrary.tsx",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "editing-enables-chat",
+      "file": "src/components/harnesses/HarnessLibrary.tsx",
+      "status": "killed",
+      "failedAssertions": 1
+    }
+  ]
+}

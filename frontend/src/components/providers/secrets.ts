@@ -27,17 +27,13 @@
  *
  * HOST BINDINGS, in preference order
  *
- *   a. Tauri (`@tauri-apps/api/core` → `invoke`) — a Rust command backed by the
- *      `keyring` crate writes to the OS store: Windows Credential Manager,
- *      macOS Keychain, or the Secret Service / kwallet on Linux. The key never
- *      crosses back over the IPC boundary; the backend asks Rust for it at
- *      request time. Commands: `secret_save`, `secret_forget`, `secret_list`.
- *      Capability allow-list grants these three and nothing else.
- *   b. Backend (`POST /providers/{id}/secret`) — for the browser-hosted dev
- *      build, so the FastAPI process holds the secret in its own SecretsStore
- *      and the renderer still never sees it. Same shape, weaker guarantees; the
- *      UI says so on the dossier. Proxied same-origin via Next rewrite.
- *   c. Memory — this file's fallback. Process-lifetime only, deliberately NOT
+ *   a. Backend (`POST /providers/{id}/secret`) — the FastAPI sidecar holds the
+ *      secret in its own SecretsStore (desktop: `OH_SECRETS=file` under the app
+ *      data dir, see backend/sidecar_entry.py) and is the store every probe and
+ *      run reads from. Used in the desktop shell and the browser dev build
+ *      alike; the renderer never sees the key again. There is no Tauri keychain
+ *      command: a key saved anywhere the sidecar can't read is unusable.
+ *   b. Memory — this file's fallback. Process-lifetime only, deliberately NOT
  *      persisted. A refresh loses it, which is correct: a dev fallback that
  *      quietly persisted secrets would be the exact bug this seam prevents.
  *
@@ -63,19 +59,8 @@ export interface SecretRef {
   savedAt: string;
 }
 
-/** Process-lifetime fallback. Never serialised, never persisted. */
-const memory = new Map<string, string>();
-
-function tauriInvoke(): ((cmd: string, args?: unknown) => Promise<unknown>) | null {
-  if (typeof window === "undefined") return null;
-  const g = window as unknown as {
-    __TAURI_INTERNALS__?: { invoke?: (c: string, a?: unknown) => Promise<unknown> };
-  };
-  return g.__TAURI_INTERNALS__?.invoke ?? null;
-}
-
 export function activeVault(): SecretVault {
-  return tauriInvoke() ? "os-keychain" : "backend";
+  return "backend";
 }
 
 export const VAULT_LABEL: Record<SecretVault, string> = {
@@ -86,6 +71,16 @@ export const VAULT_LABEL: Record<SecretVault, string> = {
 
 function connectionIdFromService(service: string): string {
   return service.startsWith("openharness/") ? service.slice("openharness/".length) : service;
+}
+
+/** Does a pasted value plausibly belong to this vendor? Empty/short input
+    passes (nothing to contradict yet) so the warning only fires once there's
+    enough text to actually disagree with `expected`. Shared by the Dossier's
+    full credential entry (`CredentialSeal.tsx`) and the chat combo's inline
+    setup (`ChatProviderPicker.tsx`) so the two surfaces never drift to
+    different validation wording for the same mistake. */
+export function prefixMatches(value: string, expected?: string): boolean {
+  return !expected || value.length < expected.length || value.startsWith(expected);
 }
 
 function recognisePrefix(value: string): string {
@@ -156,27 +151,24 @@ export async function saveSecret(service: string, plaintext: string): Promise<Se
   const value = plaintext.trim();
   if (!value) throw new Error("empty credential");
 
-  const invoke = tauriInvoke();
-  if (invoke) {
-    await invoke("secret_save", { service, value });
-    return toRef(service, value, "os-keychain");
-  }
-
+  // No renderer-side fallback: a key the sidecar did not take is not stored
+  // anywhere, and the caller says so. (It used to be parked in a JS Map here —
+  // outside the SecretsStore boundary, and reported as if it were saved.)
+  let secretRef: string | null;
   try {
-    const secretRef = await saveViaBackend(service, value);
-    if (secretRef) return toRef(secretRef, value, "backend");
+    secretRef = await saveViaBackend(service, value);
   } catch {
-    // Backend unreachable — fall through to process memory.
+    throw new Error("Couldn't reach the OpenHarness sidecar, so the key was not stored.");
   }
-
-  memory.set(service, value);
-  return toRef(service, value, "memory");
+  if (!secretRef) throw new Error("The sidecar refused the key, so it was not stored.");
+  return toRef(secretRef, value, "backend");
 }
 
+/** Nothing renderer-side to forget any more — the sidecar's
+    DELETE /providers/{id}/secret is what removes a key. Kept so callers have
+    one place to hook if a local cache ever returns. */
 export async function forgetSecret(service: string): Promise<void> {
-  const invoke = tauriInvoke();
-  if (invoke) await invoke("secret_forget", { service });
-  memory.delete(service);
+  void service;
 }
 
 /**

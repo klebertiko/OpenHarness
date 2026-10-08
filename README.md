@@ -61,8 +61,6 @@ Nilo is the front door — a small presence who greets you, answers what she can
 | **Agent / Chats** | Direct runs and harness-bound conversations; chat tools (`/exec`, `/read`, `/ls`) with HITL approval for exec |
 | **Providers** | Wallet of connections — cloud, local, CLI adapters |
 | **Cowork** | Authorized workspace context for tool use |
-| **Automations** | Scheduled / on-demand simulations against a harness |
-| **Git** | Repo-aware review surfaces (evolving) |
 
 ---
 

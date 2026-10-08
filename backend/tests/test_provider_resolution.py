@@ -18,7 +18,11 @@ import pytest
 
 from adapters.cli_claude import ClaudeCliAdapter
 from adapters.openai_compatible import OpenAICompatibleAdapter
-from providers.resolution import ProviderResolutionError, resolve_node_provider
+from providers.resolution import (
+    ProviderResolutionError,
+    resolve_node_provider,
+    resolve_node_provider_with_failover,
+)
 from secret_store.memory import MemorySecrets
 
 
@@ -280,3 +284,104 @@ def test_no_cwd_means_extra_has_no_cwd_keys_at_all() -> None:
     )
     assert "cwd" not in resolved.config.extra
     assert "cwd_root" not in resolved.config.extra
+
+
+# ── PROVIDER-FAILOVER AC#1 — resolve_node_provider_with_failover ───────────────
+# `providerIds = [A, B]`, A fails to *resolve* (disabled/unknown/missing
+# credential) -> walks the order and resolves on B instead of raising.
+
+
+def test_disabled_first_id_fails_over_to_second_resolvable_id() -> None:
+    conns = _connections()
+    conns["anthropic"]["enabled"] = False
+    resolved, attempts = resolve_node_provider_with_failover(
+        {"providerIds": ["anthropic", "ollama-local"]},
+        "llm",
+        "Draft",
+        connections=conns,
+        secrets_store=MemorySecrets(),
+    )
+    assert resolved.connection_id == "ollama-local"
+    assert [a.connection_id for a in attempts] == ["anthropic"]
+    assert "Anthropic" in attempts[0].reason
+
+
+def test_unknown_first_id_fails_over_to_second_resolvable_id() -> None:
+    resolved, attempts = resolve_node_provider_with_failover(
+        {"providerIds": ["ghost", "ollama-local"]},
+        "llm",
+        "Draft",
+        connections=_connections(),
+        secrets_store=MemorySecrets(),
+    )
+    assert resolved.connection_id == "ollama-local"
+    assert [a.connection_id for a in attempts] == ["ghost"]
+
+
+def test_missing_credential_first_id_fails_over_to_second_resolvable_id() -> None:
+    conns = _connections()
+    conns["openrouter"]["secretRef"] = None
+    resolved, attempts = resolve_node_provider_with_failover(
+        {"providerIds": ["openrouter", "ollama-local"]},
+        "llm",
+        "Draft",
+        connections=conns,
+        secrets_store=MemorySecrets(),
+    )
+    assert resolved.connection_id == "ollama-local"
+    assert [a.connection_id for a in attempts] == ["openrouter"]
+
+
+def test_first_id_usable_means_no_attempts_recorded_not_a_failover() -> None:
+    """A plain pin (no fallback consulted) must not look like a failover — AC#4's
+    distinguishability guarantee starts here: `attempts` must be empty."""
+    resolved, attempts = resolve_node_provider_with_failover(
+        {"providerIds": ["anthropic", "ollama-local"]},
+        "llm",
+        "Draft",
+        connections=_connections(),
+        secrets_store=_store_with(("openharness/anthropic", "sk-ant-REAL")),
+    )
+    assert resolved.connection_id == "anthropic"
+    assert attempts == []
+
+
+def test_all_ids_unresolvable_raises_the_last_ones_honest_error() -> None:
+    conns = _connections()
+    conns["anthropic"]["enabled"] = False
+    with pytest.raises(ProviderResolutionError, match="ghost"):
+        resolve_node_provider_with_failover(
+            {"providerIds": ["anthropic", "ghost"]},
+            "llm",
+            "Draft",
+            connections=conns,
+            secrets_store=MemorySecrets(),
+        )
+
+
+def test_single_id_behaves_byte_for_byte_like_resolve_node_provider_ac6() -> None:
+    conns = _connections()
+    conns["anthropic"]["enabled"] = False
+    try:
+        resolve_node_provider(
+            {"providerIds": ["anthropic"]}, "llm", "Draft",
+            connections=conns, secrets_store=MemorySecrets(),
+        )
+        assert False, "expected ProviderResolutionError"
+    except ProviderResolutionError as legacy_exc:
+        legacy_message = str(legacy_exc)
+
+    with pytest.raises(ProviderResolutionError) as excinfo:
+        resolve_node_provider_with_failover(
+            {"providerIds": ["anthropic"]}, "llm", "Draft",
+            connections=conns, secrets_store=MemorySecrets(),
+        )
+    assert str(excinfo.value) == legacy_message
+
+
+def test_empty_provider_ids_list_is_still_an_honest_error() -> None:
+    with pytest.raises(ProviderResolutionError):
+        resolve_node_provider_with_failover(
+            {"providerIds": []}, "llm", "Draft",
+            connections=_connections(), secrets_store=MemorySecrets(),
+        )

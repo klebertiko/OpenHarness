@@ -20,9 +20,7 @@ function conn(overrides: Partial<Connection>): Connection {
     probes: [],
     facts: [],
     models: [],
-    route: [],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: true,
     lastProbe: "",
     ...overrides,
@@ -116,28 +114,90 @@ describe("Transcript — trajectory breakdown", () => {
     expect(screen.getByText(/future-type/)).toBeTruthy();
   });
 
-  it("labels the rollup as measured once harness_done has confirmed the totals", () => {
-    render(<Transcript run={makeRun()} onResolve={() => {}} elapsed={500} />);
-    const label = screen.getByText("measured");
-    expect(label.getAttribute("title")).toMatch(/backend/i);
-    expect(screen.queryByText("estimated")).toBeNull();
-  });
-
-  it("labels the rollup as estimated while the client is still the only one counting", () => {
+  /* ── run in progress / finished with real metrics / finished without ───── */
+  it("in progress: ticking clock and a 'counting' label — neither estimated nor measured yet", () => {
     const run = makeRun({ status: "running", totals: { tokens: 900, nodesRun: 1, elapsedMs: 0 } });
     render(<Transcript run={run} onResolve={() => {}} elapsed={1_500} />);
-    const label = screen.getByText("estimated");
-    expect(label.getAttribute("title")).toMatch(/local/i);
-    expect(screen.queryByText("measured")).toBeNull();
+    const label = screen.getByText("counting");
+    expect(label.getAttribute("title")).toMatch(/still running|in progress/i);
+    expect(screen.queryByText(/estimated/i)).toBeNull();
+    expect(screen.queryByText(/measured/i)).toBeNull();
+    expect(screen.queryByText(/not recorded/i)).toBeNull();
   });
 
-  it("flips the label from estimated to measured when the backend total arrives mid-view", () => {
+  it("shows whether Laya or the model made the routing decision", () => {
+    const { rerender } = render(<Transcript run={makeRun({
+      routeDecision: { source: "laya", reason: "confident", engageHarness: false, confidence: 0.97, latencyMs: 9.5 },
+    })} onResolve={() => {}} />);
+    expect(screen.getByText(/decided by Laya/i)).toBeTruthy();
+    expect(screen.getByText(/97% confidence/i)).toBeTruthy();
+
+    rerender(<Transcript run={makeRun({
+      routeDecision: { source: "model_fallback", reason: "unavailable", engageHarness: true, confidence: null, latencyMs: null },
+    })} onResolve={() => {}} />);
+    expect(screen.getByText(/decided by model fallback/i)).toBeTruthy();
+    expect(screen.getByText(/Laya unavailable/i)).toBeTruthy();
+  });
+
+  it("finished with real metrics: real duration, real tokens labelled measured, never 'estimated'", () => {
+    const run = makeRun({ totals: { tokens: 19, nodesRun: 1, elapsedMs: 812, tokensEstimated: false } });
+    render(<Transcript run={run} onResolve={() => {}} />);
+    expect(screen.getByText("0.8s")).toBeTruthy();
+    const label = screen.getByText("tokens measured");
+    expect(label.getAttribute("title")).toMatch(/provider|reported/i);
+    expect(screen.queryByText(/estimated/i)).toBeNull();
+    expect(screen.queryByText(/not recorded/i)).toBeNull();
+  });
+
+  it("finished with estimated tokens: that, and only that, carries the 'estimated' label", () => {
+    const run = makeRun({ totals: { tokens: 19, nodesRun: 1, elapsedMs: 812, tokensEstimated: true } });
+    render(<Transcript run={run} onResolve={() => {}} />);
+    expect(screen.getByText("tokens estimated").getAttribute("title")).toMatch(/estimated from/i);
+    expect(screen.queryByText("tokens measured")).toBeNull();
+  });
+
+  it("finished without a captured duration: says so — no '—' elapsed, no fabricated 0", () => {
+    const run = makeRun({
+      plan: [seg({ nodeId: "reply", label: "Nilo", tokens: 19, latencyMs: undefined, tokensEstimated: false })],
+      totals: { tokens: 19, nodesRun: 1, elapsedMs: 0, tokensEstimated: false },
+    });
+    render(<Transcript run={run} onResolve={() => {}} />);
+    const note = screen.getByText("not recorded");
+    expect(note.closest("[title]")?.getAttribute("title")).toMatch(/duration/i);
+    expect(screen.queryByText("elapsed")).toBeNull(); // no "— elapsed" for a run that finished
+    expect(screen.queryByText("0.0s")).toBeNull();
+    expect(screen.queryByText("0ms")).toBeNull();
+    // Tokens are still real, and the node row's missing latency is not a 0ms either.
+    expect(screen.getByText("tokens measured")).toBeTruthy();
+    const row = within(screen.getByRole("table")).getByText("Nilo").closest("tr")!;
+    expect(within(row).getByText("19")).toBeTruthy();
+    expect(within(row).getByText("—")).toBeTruthy();
+  });
+
+  it("finished by a log that predates token provenance: unconfirmed, not claimed as estimated", () => {
+    const run = makeRun({ totals: { tokens: 19, nodesRun: 1, elapsedMs: 812 } });
+    render(<Transcript run={run} onResolve={() => {}} />);
+    expect(screen.getByText("tokens unconfirmed")).toBeTruthy();
+    expect(screen.queryByText(/estimated/i)).toBeNull();
+  });
+
+  it("marks an estimated node's own token cell as approximate", () => {
+    const run = makeRun({
+      plan: [seg({ nodeId: "a", label: "Alpha", tokens: 42, latencyMs: 300, tokensEstimated: true })],
+      totals: { tokens: 42, nodesRun: 1, elapsedMs: 300, tokensEstimated: true },
+    });
+    render(<Transcript run={run} onResolve={() => {}} />);
+    const row = within(screen.getByRole("table")).getByText("Alpha").closest("tr")!;
+    expect(within(row).getByText("~42").getAttribute("title")).toMatch(/estimated/i);
+  });
+
+  it("flips the label from counting to measured when harness_done arrives mid-view", () => {
     const running = makeRun({ status: "running", totals: { tokens: 900, nodesRun: 1, elapsedMs: 0 } });
     const { rerender } = render(<Transcript run={running} onResolve={() => {}} elapsed={1_500} />);
-    expect(screen.getByText("estimated")).toBeTruthy();
-    rerender(<Transcript run={makeRun()} onResolve={() => {}} elapsed={1_500} />);
-    expect(screen.getByText("measured")).toBeTruthy();
-    expect(screen.queryByText("estimated")).toBeNull();
+    expect(screen.getByText("counting")).toBeTruthy();
+    rerender(<Transcript run={makeRun({ totals: { tokens: 900, nodesRun: 1, elapsedMs: 4000, tokensEstimated: false } })} onResolve={() => {}} elapsed={1_500} />);
+    expect(screen.getByText("tokens measured")).toBeTruthy();
+    expect(screen.queryByText("counting")).toBeNull();
   });
 
   it("gives each completed node its own legible latency + token row, not just the aggregate", () => {
@@ -200,6 +260,49 @@ describe("Transcript — trajectory breakdown", () => {
     // configured would be noise, not signal.
     const qaRow = within(table).getByText("QA").closest("tr")!;
     expect(within(qaRow).queryByText(/pinned/i)).toBeNull();
+  });
+
+  it("shows a failover indicator, visually distinct from the pinned badge, on a node AC#4 fired for", () => {
+    // engine.py only attaches `failover` once an earlier providerIds entry
+    // was tried and rejected (AC#4) — QA here served on "ol" only after "an"
+    // was tried and rejected first, never a plain pin. Composer default is
+    // also "ol" here so the two badges' conditions are isolated: this
+    // asserts failover renders on its own vocabulary, not layered under a
+    // pinned-mismatch badge that would fire for an unrelated reason.
+    useChatProviderStore.setState({ chosenId: "ol" });
+    const run = makeRun({
+      plan: [
+        seg({ nodeId: "po", label: "PO", tokens: 1200, latencyMs: 2200, state: "done" }),
+        seg({
+          nodeId: "qa",
+          label: "QA",
+          tokens: 900,
+          latencyMs: 1300,
+          state: "done",
+          connectionId: "ol",
+          failover: { attempts: [{ connectionId: "an", reason: "Provider execution failed." }] },
+        }),
+      ],
+    });
+    render(<Transcript run={run} onResolve={() => {}} elapsed={500} />);
+    const table = screen.getByRole("table");
+    const qaRow = within(table).getByText("QA").closest("tr")!;
+
+    const failoverBadge = within(qaRow).getByText(/failover/i);
+    expect(failoverBadge).toBeTruthy();
+    // Distinct from the pinned badge's own vocabulary, not just adjacent to it.
+    expect(within(qaRow).queryByText(/^pinned:/i)).toBeNull();
+    // Hover/tooltip discloses which connection was tried and rejected first.
+    const badgeEl = failoverBadge.closest("[title]") ?? failoverBadge;
+    expect(badgeEl.getAttribute("title")).toMatch(/anthropic/i);
+    expect(badgeEl.getAttribute("title")).toMatch(/provider execution failed/i);
+  });
+
+  it("never shows a failover indicator on a node with a plain pin (no failover key at all)", () => {
+    render(<Transcript run={makeRun()} onResolve={() => {}} elapsed={500} />);
+    const table = screen.getByRole("table");
+    const devRow = within(table).getByText("Dev").closest("tr")!; // plain connectionId, no failover
+    expect(within(devRow).queryByText(/failover/i)).toBeNull();
   });
 
   it("renders no rollup at all for a run that has not started — no fabricated zeros", () => {

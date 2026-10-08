@@ -3,6 +3,7 @@
 import { HarnessSwitch } from "@/components/agent/HarnessSwitch";
 import { useShellStore } from "@/components/shell/shellStore";
 import { useCanvasStore } from "@/store/canvasStore";
+import { replaceStudioCanvas } from "@/lib/studioDocuments";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 import { bundleGraphToCanvas } from "@/lib/bundleGraph";
 
@@ -26,11 +27,14 @@ export function HarnessBar({ onOpenStudio, onOpenProviders }: HarnessBarProps) {
     const bundle = useHarnessSessionStore.getState().activeBundle;
     if (bundle?.graph) {
       const { nodes, edges } = bundleGraphToCanvas(bundle.graph);
-      useCanvasStore.getState().loadGraph(nodes, edges);
-      useCanvasStore.getState().setHarnessMeta({
-        id: bundle.manifest.id,
-        name: bundle.manifest.name ?? bundle.manifest.id,
-        description: bundle.manifest.description ?? "",
+      replaceStudioCanvas(() => {
+        useCanvasStore.getState().loadGraph(nodes, edges);
+        // A bundle id is not a saved harness record: edits save as a new harness.
+        useCanvasStore.getState().setHarnessMeta({
+          id: null,
+          name: bundle.manifest.name ?? bundle.manifest.id,
+          description: bundle.manifest.description ?? "",
+        });
       });
     }
     setSection("studio");

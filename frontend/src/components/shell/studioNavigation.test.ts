@@ -11,7 +11,6 @@ it("returns to the Studio overview and resumes the editor without replacing the 
   shell.setStudioView("editor");
   shell.setStudioView("overview");
   expect(useShellStore.getState().studioView).toBe("overview");
-  expect(useShellStore.getState().studioHasDraft).toBe(true);
   shell.setStudioView("editor");
   expect(useShellStore.getState().studioView).toBe("editor");
   expect(useCanvasStore.getState().nodes).toEqual([node]);

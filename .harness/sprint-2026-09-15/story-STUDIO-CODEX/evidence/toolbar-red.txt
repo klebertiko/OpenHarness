@@ -1,0 +1,36 @@
+
+> openharness@0.1.0 test
+> vitest run src/components/toolbar/Toolbar.modes.test.tsx
+
+
+ RUN  v3.2.7 D:/Development/src/OpenHarness/frontend
+
+ ❯ src/components/toolbar/Toolbar.modes.test.tsx (2 tests | 1 failed) 66ms
+   ✓ offers only the two actual execution behaviors, retaining the legacy local alias as Connected 37ms
+   × changes execution mode with arrow keys and keeps one tab stop 28ms
+     → expected 'false' to be 'true' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/toolbar/Toolbar.modes.test.tsx > changes execution mode with arrow keys and keeps one tab stop
+AssertionError: expected 'false' to be 'true' // Object.is equality
+
+Expected: "true"
+Received: "false"
+
+ ❯ src/components/toolbar/Toolbar.modes.test.tsx:23:49
+     21|  mock.focus();
+     22|  await user.keyboard("{ArrowRight}");
+     23|  expect(connected.getAttribute("aria-checked")).toBe("true");
+       |                                                 ^
+     24|  expect(document.activeElement).toBe(connected);
+     25|  expect(mock.tabIndex).toBe(-1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  23:24:44
+   Duration  3.29s (transform 91ms, setup 0ms, collect 2.21s, tests 66ms, environment 509ms, prepare 191ms)
+

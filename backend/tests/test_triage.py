@@ -11,7 +11,23 @@ import pytest
 
 from adapters.base import AdapterConfig, AdapterResult, AgentAdapter
 from secret_store.memory import MemorySecrets
-from triage import route_message
+from triage import LayaRouteDecision, _laya_loopback_url, _parse_laya_decision, route_message
+
+
+@pytest.mark.parametrize("value", ["80@evil.example", "0", "65536", "-1", "https://evil.example"])
+def test_laya_port_cannot_change_the_loopback_origin(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    monkeypatch.setenv("LAYA_LOOPBACK_PORT", value)
+    with pytest.raises(ValueError):
+        _laya_loopback_url()
+
+
+def test_laya_response_requires_the_versioned_schema() -> None:
+    payload = {
+        "schema_version": "unexpected-v2",
+        "model_result": {"answers": {"engage_harness": {"noul": 0.9}}},
+    }
+    with pytest.raises(ValueError, match="schema"):
+        _parse_laya_decision(payload, 1.0)
 
 
 class _StubAdapter(AgentAdapter):
@@ -90,6 +106,116 @@ def test_the_engage_token_routes_to_the_full_harness(monkeypatch: pytest.MonkeyP
     assert routed.tokens == 5
     assert routed.connection_id == "anthropic"
     assert routed.adapter_name == "claude"
+
+
+def test_confident_laya_engage_skips_the_model_triage_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def laya_decide(_instruction: str) -> LayaRouteDecision:
+        return LayaRouteDecision(engage_harness=True, confidence=0.93, latency_ms=12.5)
+
+    def provider_must_not_resolve(*_args, **_kwargs):
+        raise AssertionError("a confident Laya engage decision must skip model triage")
+
+    monkeypatch.setattr("triage.resolve_node_provider", provider_must_not_resolve)
+
+    routed = asyncio.run(
+        route_message(
+            "implemente validação de CPF",
+            ["anthropic"],
+            connections=_connections(),
+            secrets_store=MemorySecrets(),
+            laya_decide=laya_decide,
+        )
+    )
+
+    assert routed.engage_harness is True
+    assert routed.decision_source == "laya"
+    assert routed.decision_reason == "confident"
+    assert routed.decision_confidence == pytest.approx(0.93)
+    assert routed.decision_latency_ms == pytest.approx(12.5)
+    assert routed.tokens == 0
+
+
+def test_confident_laya_direct_uses_model_only_to_write_nilos_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub = _StubAdapter(reply="Sim, 1 + 1 = 2.")
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(stub))
+
+    async def laya_decide(_instruction: str) -> LayaRouteDecision:
+        return LayaRouteDecision(engage_harness=False, confidence=0.98, latency_ms=8)
+
+    routed = asyncio.run(
+        route_message(
+            "1+1 é 2?",
+            ["anthropic"],
+            connections=_connections(),
+            secrets_store=MemorySecrets(),
+            laya_decide=laya_decide,
+        )
+    )
+
+    assert routed.engage_harness is False
+    assert routed.reply == "Sim, 1 + 1 = 2."
+    assert routed.decision_source == "laya"
+    assert routed.decision_confidence == pytest.approx(0.98)
+    assert len(stub.calls) == 1
+    assert "<<ENGAGE_HARNESS>>" not in stub.calls[0]
+
+
+def test_provider_failure_after_laya_direct_is_attributed_to_safety_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _RaisingAdapter(_StubAdapter):
+        async def invoke(self, prompt: str, config: AdapterConfig) -> AdapterResult:
+            raise OSError("provider unavailable")
+
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_RaisingAdapter()))
+
+    async def laya_decide(_instruction: str) -> LayaRouteDecision:
+        return LayaRouteDecision(engage_harness=False, confidence=0.98, latency_ms=8)
+
+    routed = asyncio.run(
+        route_message(
+            "1+1 é 2?",
+            ["anthropic"],
+            connections=_connections(),
+            secrets_store=MemorySecrets(),
+            laya_decide=laya_decide,
+        )
+    )
+
+    assert routed.engage_harness is True
+    assert routed.decision_source == "model_fallback"
+    assert routed.decision_reason == "provider_unavailable"
+
+
+@pytest.mark.parametrize("failure", ["low_confidence", "unavailable"])
+def test_laya_uncertainty_or_outage_falls_back_to_the_existing_model_triage(
+    monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    stub = _StubAdapter(reply="<<ENGAGE_HARNESS>>")
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(stub))
+
+    async def laya_decide(_instruction: str) -> LayaRouteDecision:
+        if failure == "unavailable":
+            raise OSError("loopback down")
+        return LayaRouteDecision(engage_harness=True, confidence=0.51, latency_ms=4)
+
+    routed = asyncio.run(
+        route_message(
+            "investigue isto",
+            ["anthropic"],
+            connections=_connections(),
+            secrets_store=MemorySecrets(),
+            laya_decide=laya_decide,
+        )
+    )
+
+    assert routed.engage_harness is True
+    assert routed.decision_source == "model_fallback"
+    assert routed.decision_reason == failure
+    assert len(stub.calls) == 1
+    assert "<<ENGAGE_HARNESS>>" in stub.calls[0]
 
 
 def test_a_real_answer_mentioning_harness_words_is_not_misrouted(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -283,3 +409,34 @@ def test_no_workspace_line_is_added_when_no_folder_is_chosen(monkeypatch: pytest
         route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
     )
     assert "This chat's working folder is" not in captured["system_prompt"]
+
+
+def test_the_reply_carries_the_measured_duration_of_the_one_adapter_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Slow(_StubAdapter):
+        async def invoke(self, prompt: str, config: AdapterConfig) -> AdapterResult:
+            await asyncio.sleep(0.03)
+            return await super().invoke(prompt, config)
+
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_Slow(reply="Oi!")))
+    routed = asyncio.run(
+        route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
+    )
+    assert routed.latency_ms >= 25
+
+
+def test_provider_reported_tokens_are_not_marked_estimated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_StubAdapter(reply="Oi!", tokens_used=19)))
+    routed = asyncio.run(
+        route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
+    )
+    assert routed.tokens == 19
+    assert routed.tokens_estimated is False
+
+
+def test_a_token_count_derived_from_the_reply_length_is_marked_estimated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("triage.resolve_node_provider", lambda *a, **k: _resolved(_StubAdapter(reply="Oi! Tudo bem?", tokens_used=0)))
+    routed = asyncio.run(
+        route_message("olá", ["anthropic"], connections=_connections(), secrets_store=MemorySecrets())
+    )
+    assert routed.tokens == len("Oi! Tudo bem?") // 4
+    assert routed.tokens_estimated is True

@@ -79,7 +79,6 @@ export function chatCommands(skills: unknown, tools?: ChatToolsInput): ChatComma
     ["studio", "go:studio", "Open the harness editor"],
     ["harness", "harness:library", "Browse or import an .ohm harness"],
     ["providers", "go:providers", "Manage connections and models"],
-    ["automate", "go:automations", "Open scheduled work"],
   ];
   const commands: ChatCommand[] = [
     { id: "new", name: "new", description: "Start a new chat; keep your history", kind: "Command", run: () => useThreadStore.getState().startNewChat() },

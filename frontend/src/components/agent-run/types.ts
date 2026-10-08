@@ -54,6 +54,13 @@ export type Block =
   | { kind: "text"; text: string }
   | { kind: "tool"; call: ToolCall };
 
+/** One providerIds entry that was tried and rejected before the connection
+    that actually served the turn (PROVIDER-FAILOVER story, AC#4). */
+export interface FailoverAttempt {
+  connectionId: string;
+  reason: string;
+}
+
 export type SegmentState = "pending" | "running" | "gate" | "done" | "error" | "skipped";
 
 export type Phase = "thinking" | "tool" | "writing" | "routing" | "";
@@ -75,6 +82,13 @@ export interface Segment {
       the connection that actually produced it instead of whichever one the
       composer happened to have selected. */
   connectionId?: string;
+  /** Present only when `connectionId` above is not this node's first
+      `providerIds` entry — one or more earlier connections were tried and
+      rejected first (backend/engine.py's `node_view["failover"]`, AC#4). A
+      plain pin never carries this key at all (absent, not null/empty), so
+      it is the one honest signal that distinguishes "pinned" from
+      "failed over" — never inferred from connectionId alone. */
+  failover?: { attempts: FailoverAttempt[] };
 
   state: SegmentState;
   phase: Phase;
@@ -83,6 +97,12 @@ export interface Segment {
   blocks: Block[];
   output?: string;
   tokens?: number;
+  /** Token provenance from `node_done.tokens_estimated`: true = approximated
+      from output length, false = the provider reported it. Absent = the
+      backend (or an older saved log) never said — unknown, not "real". */
+  tokensEstimated?: boolean;
+  /** Wall time of the node, only when the backend captured one. Absent means
+      "not captured" — a 0 from the wire is never stored as a measurement. */
   latencyMs?: number;
   error?: string;
 
@@ -107,6 +127,14 @@ export type RunStatus =
   | "complete"
   | "error";
 
+export interface RouteDecision {
+  source: "laya" | "model_fallback" | "model";
+  reason: string;
+  engageHarness: boolean;
+  confidence: number | null;
+  latencyMs: number | null;
+}
+
 export interface RunState {
   runId: string | null;
   status: RunStatus;
@@ -116,7 +144,14 @@ export interface RunState {
   step: boolean;
   plan: Segment[];
   cursor: number;
-  totals: { tokens: number; nodesRun: number; elapsedMs: number };
+  totals: {
+    tokens: number;
+    nodesRun: number;
+    /** `harness_done.elapsed_ms`; 0 means the backend did not capture a duration. */
+    elapsedMs: number;
+    /** Run-wide token provenance (see Segment.tokensEstimated); absent = unknown. */
+    tokensEstimated?: boolean;
+  };
   startedAt: number | null;
   endedAt: number | null;
   /** Node the engine is parked before, in step mode. */
@@ -124,6 +159,8 @@ export interface RunState {
   /** Operator instructions injected while the run was already moving. */
   steers: { text: string; atNode: string }[];
   notices: string[];
+  /** Who made the Nilo-vs-Harness choice. Persisted as `route_decision`. */
+  routeDecision: RouteDecision | null;
 }
 
 export interface RunEvent {

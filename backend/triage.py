@@ -66,10 +66,16 @@ the real gates. Same honest-error principle as `providers/resolution.py`.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from functools import lru_cache
+import os
+import math
 from pathlib import Path
+from time import perf_counter
 from typing import Awaitable, Callable
+
+import httpx
 
 from adapters.base import AdapterConfig
 from providers.resolution import ProviderResolutionError, resolve_node_provider
@@ -77,6 +83,10 @@ from providers.resolution import ProviderResolutionError, resolve_node_provider
 _SOUL_PATH = Path(__file__).resolve().parent.parent / "SOUL.md"
 
 _ENGAGE_HARNESS_TOKEN = "<<ENGAGE_HARNESS>>"
+_LAYA_LOOPBACK_DEFAULT_PORT = 8761
+_LAYA_TIMEOUT_S = 0.75
+_LAYA_CONFIDENCE_THRESHOLD = 0.80
+_LAYA_SCHEMA_VERSION = "openharness-decision-node-v1"
 
 _INTAKE_PROMPT = f"""If this message asks the crew to build, plan, investigate, fix, review, or change something, reply with these exact characters and nothing else, no punctuation, no explanation:
 {_ENGAGE_HARNESS_TOKEN}
@@ -85,6 +95,79 @@ Otherwise — a greeting, small talk, a question you can just answer, or somethi
 
 Message:
 {{instruction}}"""
+
+_DIRECT_REPLY_PROMPT = """Answer the message directly and completely as yourself. Do not route it, delegate it, or mention internal routing.
+
+Message:
+{instruction}"""
+
+
+@dataclass(frozen=True, slots=True)
+class LayaRouteDecision:
+    engage_harness: bool
+    confidence: float
+    latency_ms: float
+
+
+LayaDecideFn = Callable[[str], Awaitable[LayaRouteDecision]]
+
+
+def _laya_loopback_url() -> str:
+    """Build a loopback-only URL without letting an env var change the host."""
+    raw_port = os.environ.get("LAYA_LOOPBACK_PORT", str(_LAYA_LOOPBACK_DEFAULT_PORT))
+    try:
+        port = int(raw_port, 10)
+    except ValueError as exc:
+        raise ValueError("LAYA_LOOPBACK_PORT must be an integer") from exc
+    if not 1 <= port <= 65535:
+        raise ValueError("LAYA_LOOPBACK_PORT must be between 1 and 65535")
+    return f"http://127.0.0.1:{port}/predict"
+
+
+def _parse_laya_decision(payload: object, observed_latency_ms: float) -> LayaRouteDecision:
+    """Validate the versioned local protocol before trusting its decision."""
+    if not isinstance(payload, dict) or payload.get("schema_version") != _LAYA_SCHEMA_VERSION:
+        raise ValueError("unsupported Laya routing schema")
+    try:
+        probability = float(payload["model_result"]["answers"]["engage_harness"]["noul"])
+        latency_ms = float(payload.get("latency_ms", observed_latency_ms))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("invalid Laya routing response") from exc
+    if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
+        raise ValueError("Laya routing probability must be between 0 and 1")
+    if not math.isfinite(latency_ms) or latency_ms < 0:
+        raise ValueError("Laya routing latency must be finite and non-negative")
+    return LayaRouteDecision(
+        engage_harness=probability >= 0.5,
+        confidence=max(probability, 1.0 - probability),
+        latency_ms=latency_ms,
+    )
+
+
+async def decide_with_laya(instruction: str) -> LayaRouteDecision:
+    """Ask the local Laya loopback for an advisory routing prediction.
+
+    The caller owns fallback policy. This function only validates the stable
+    ``noul`` response contract already used by ADR-0005's loopback.
+    """
+    url = _laya_loopback_url()
+    questions = {
+        "engage_harness": {
+            "type": "noul",
+            "instructions": (
+                "Does this message ask agents to build, plan, investigate, fix, "
+                "review, use tools, or change something rather than just answer directly?"
+            ),
+        }
+    }
+    started = perf_counter()
+    async with httpx.AsyncClient(timeout=_LAYA_TIMEOUT_S) as client:
+        response = await client.post(
+            url,
+            json={"state": {"instruction": instruction}, "questions": questions},
+        )
+    response.raise_for_status()
+    return _parse_laya_decision(response.json(), (perf_counter() - started) * 1000)
 
 
 @lru_cache(maxsize=1)
@@ -150,6 +233,17 @@ class RouteResult:
     tokens: int = 0
     connection_id: str = ""
     model: str = ""
+    # Wall time of that one adapter call, in ms. 0 only when no call was made
+    # ("not measured") — a call that ran is never reported as 0.
+    latency_ms: int = 0
+    # True only when `tokens` was derived from the reply's length because the
+    # provider reported no usage; False for a provider-reported count (and
+    # for the zero-call defaults, which carry no tokens at all).
+    tokens_estimated: bool = False
+    decision_source: str = "model"
+    decision_reason: str = "laya_not_requested"
+    decision_confidence: float | None = None
+    decision_latency_ms: float | None = None
 
 
 async def route_message(
@@ -160,6 +254,8 @@ async def route_message(
     secrets_store: object | None,
     cwd: str | None = None,
     enforce_budget: Callable[[str | None, str | None], Awaitable[None]] | None = None,
+    laya_decide: LayaDecideFn | None = None,
+    laya_confidence_threshold: float = _LAYA_CONFIDENCE_THRESHOLD,
 ) -> RouteResult:
     """Best-effort routing. Never raises for a *routing* failure — any
     problem deciding or resolving means "run the real harness", not "guess
@@ -173,6 +269,31 @@ async def route_message(
     this callback exists to enforce, not just miss one node's worth of it."""
     if not instruction.strip() or not provider_ids:
         return RouteResult(engage_harness=True)
+
+    laya_decision: LayaRouteDecision | None = None
+    decision_source = "model"
+    decision_reason = "laya_not_requested"
+    if laya_decide is not None:
+        try:
+            laya_decision = await laya_decide(instruction)
+        except Exception:  # noqa: BLE001 — model fallback is the designed cascade
+            decision_source = "model_fallback"
+            decision_reason = "unavailable"
+        else:
+            if laya_decision.confidence >= laya_confidence_threshold:
+                if laya_decision.engage_harness:
+                    return RouteResult(
+                        engage_harness=True,
+                        decision_source="laya",
+                        decision_reason="confident",
+                        decision_confidence=laya_decision.confidence,
+                        decision_latency_ms=laya_decision.latency_ms,
+                    )
+                decision_source = "laya"
+                decision_reason = "confident"
+            else:
+                decision_source = "model_fallback"
+                decision_reason = "low_confidence"
 
     try:
         resolved = resolve_node_provider(
@@ -192,15 +313,25 @@ async def route_message(
     except ProviderResolutionError:
         # The real first node is about to hit this exact error and report it
         # honestly — let it, rather than swallowing it here first.
-        return RouteResult(engage_harness=True)
+        return RouteResult(
+            engage_harness=True,
+            decision_source="model_fallback" if laya_decision else decision_source,
+            decision_reason="provider_unavailable" if laya_decision else decision_reason,
+            decision_confidence=laya_decision.confidence if laya_decision else None,
+            decision_latency_ms=laya_decision.latency_ms if laya_decision else None,
+        )
 
     if enforce_budget is not None:
         residence = (connections or {}).get(resolved.connection_id, {}).get("residence")
         await enforce_budget(resolved.config.model, residence)
 
+    call_started = time.perf_counter()
     try:
+        prompt = (
+            _DIRECT_REPLY_PROMPT if decision_source == "laya" else _INTAKE_PROMPT
+        ).format(instruction=instruction)
         result = await resolved.adapter.invoke(
-            _INTAKE_PROMPT.format(instruction=instruction),
+            prompt,
             AdapterConfig(
                 adapter=resolved.config.adapter,
                 model=resolved.config.model,
@@ -227,7 +358,14 @@ async def route_message(
             ),
         )
     except Exception:  # noqa: BLE001 — routing must never crash the real request
-        return RouteResult(engage_harness=True)
+        return RouteResult(
+            engage_harness=True,
+            decision_source="model_fallback" if laya_decision else decision_source,
+            decision_reason="provider_unavailable" if laya_decision else decision_reason,
+            decision_confidence=laya_decision.confidence if laya_decision else None,
+            decision_latency_ms=laya_decision.latency_ms if laya_decision else None,
+        )
+    latency_ms = max(1, round((time.perf_counter() - call_started) * 1000))
 
     # Real spend already happened the moment `invoke` above returned
     # normally, regardless of what it decided — an error string on an
@@ -247,6 +385,11 @@ async def route_message(
             tokens=result.tokens_used,
             connection_id=resolved.connection_id,
             model=resolved.config.model,
+            latency_ms=latency_ms,
+            decision_source="model_fallback" if laya_decision else decision_source,
+            decision_reason="provider_unavailable" if laya_decision else decision_reason,
+            decision_confidence=laya_decision.confidence if laya_decision else None,
+            decision_latency_ms=laya_decision.latency_ms if laya_decision else None,
         )
 
     text = result.content.strip()
@@ -262,6 +405,11 @@ async def route_message(
             tokens=result.tokens_used,
             connection_id=resolved.connection_id,
             model=resolved.config.model,
+            latency_ms=latency_ms,
+            decision_source=decision_source,
+            decision_reason=decision_reason,
+            decision_confidence=laya_decision.confidence if laya_decision else None,
+            decision_latency_ms=laya_decision.latency_ms if laya_decision else None,
         )
 
     return RouteResult(
@@ -271,4 +419,10 @@ async def route_message(
         tokens=result.tokens_used or max(1, len(text) // 4),
         connection_id=resolved.connection_id,
         model=resolved.config.model,
+        latency_ms=latency_ms,
+        tokens_estimated=not result.tokens_used,
+        decision_source=decision_source,
+        decision_reason=decision_reason,
+        decision_confidence=laya_decision.confidence if laya_decision else None,
+        decision_latency_ms=laya_decision.latency_ms if laya_decision else None,
     )

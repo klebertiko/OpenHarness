@@ -16,7 +16,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   useCanvasStore.setState({ isRunning: false, nodes: [], edges: [], harnessMeta: { id: null, name: "Existing draft", description: "" } });
-  useShellStore.setState({ studioView: "overview", studioHasDraft: false });
+  useShellStore.setState({ studioView: "overview" });
 });
 
 it("opens the returned framework bundle with its authored graph and content", async () => {
@@ -62,7 +62,6 @@ it("opens an empty editable harness with fresh content", () => {
   expect(useCanvasStore.getState().nodes).toEqual([]);
   expect(useCanvasStore.getState().harnessMeta.name).toBe("Untitled harness");
   expect(useHarnessSessionStore.getState().activeBundle!.content!.agents).toEqual({});
-  expect(useShellStore.getState().studioHasDraft).toBe(true);
   expect(useShellStore.getState().studioView).toBe("editor");
 });
 

@@ -98,4 +98,17 @@ describe("HarnessSwitch (harness picker)", () => {
     expect(onOpenStudio).toHaveBeenCalled();
     expect(screen.queryByRole("listbox")).toBeNull();
   });
+
+  it("keyboard: the focused element announces the active option (F9)", async () => {
+    const user = userEvent.setup();
+    render(<HarnessSwitch />);
+    screen.getByRole("button", { name: /^Harness:/ }).focus();
+    await user.keyboard("{ArrowDown}");
+    const focused = document.activeElement as HTMLElement;
+    const active = focused.getAttribute("aria-activedescendant");
+    expect(active).toBeTruthy();
+    expect(document.getElementById(active!)?.textContent).toContain("OpenHarness Agile");
+    await user.keyboard("{ArrowUp}");
+    expect(document.getElementById(focused.getAttribute("aria-activedescendant")!)?.textContent).toContain("No harness");
+  });
 });

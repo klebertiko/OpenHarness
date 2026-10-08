@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Download, FlaskConical, Upload } from "lucide-react";
-import { composeBundleFromCanvas, downloadOHarness, isOHarnessBundle, mockBundle, validateBundle, type MockStep } from "@/lib/bundlesApi";
+import { composeBundleFromCanvas, isOHarnessBundle, mockBundle, validateBundle, type MockStep } from "@/lib/bundlesApi";
+import { saveOhmFile } from "@/lib/ohmFile";
 import { openStudioBundle } from "@/lib/studio";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
@@ -58,10 +59,14 @@ export function ValidateDock() {
       }
     } catch (error) { if (current()) fail(error); }
   }
-  function onExport() {
-    begin("Exporting…");
-    try { downloadOHarness(compose()); setStatus("ok"); setMessage("Downloaded .ohm"); }
-    catch (error) { fail(error); }
+  async function onExport() {
+    const current = begin("Exporting…");
+    try {
+      const result = await saveOhmFile(compose());
+      if (!current()) return;
+      if (result.status === "cancelled") { setStatus("idle"); setMessage(""); return; }
+      setStatus("ok"); setMessage(result.native ? "Saved to " + result.name : "Downloaded .ohm");
+    } catch (error) { if (current()) fail(error); }
   }
   async function onImportFile(file: File) {
     if (useCanvasStore.getState().isRunning) return;
@@ -82,7 +87,7 @@ export function ValidateDock() {
       <DockAction icon={CheckCircle2} label="Validate" onClick={() => void inspect("validate")} disabled={busy || running} />
       <DockAction icon={FlaskConical} label="Plan simulation" onClick={() => void inspect("mock")} disabled={busy || running} />
       <span className="mx-1 h-[14px] w-px bg-line-soft" aria-hidden />
-      <DockAction icon={Download} label="Export .ohm" onClick={onExport} disabled={busy} />
+      <DockAction icon={Download} label="Export .ohm" onClick={() => void onExport()} disabled={busy} />
       <DockAction icon={Upload} label="Import .ohm" onClick={() => fileRef.current?.click()} disabled={busy || running} />
       <input ref={fileRef} type="file" accept=".ohm,.oharness,application/json" className="hidden" disabled={running}
         onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onImportFile(file); }} />
