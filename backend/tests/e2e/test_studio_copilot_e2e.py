@@ -55,7 +55,9 @@ def sidecar(tmp_path):
 
     def start():
         nonlocal process
-        process = subprocess.Popen(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+        # Fixed argv, trusted interpreter, shell=False (default), and an isolated
+        # worktree: no external value can become a command or argument here.
+        process = subprocess.Popen(  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
             [sys.executable, "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8001"],
             cwd=Path(__file__).resolve().parents[2], env=env, stdout=log, stderr=log,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
