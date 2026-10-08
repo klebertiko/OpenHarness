@@ -9,8 +9,8 @@ import { runResultText, runsApi, type RunLog, type RunLogDetail, type RunStatus 
 
 /**
  * Activity — one place for every harness execution, wherever it came from: a
- * chat message with the harness on, a scheduled Automation, or a test run in
- * Studio. Each row is one run: status, which harness, when, how long. Opening
+ * chat message with the harness on, or a test run in Studio. Each row is one
+ * run: status, which harness, when, how long. Opening
  * it shows what the engine kept. Backed by the sidecar's `/execute/logs`
  * store (last 50).
  */
@@ -84,7 +84,7 @@ function RunList({
       <div className="px-3 py-4">
         <p className="text-[13px] text-ink">No activity yet.</p>
         <p className="mt-1 text-[12px] text-ink-mute">
-          {error || "A chat with the harness on, or a scheduled Automation, shows up here."}
+          {error || "A chat with the harness on, or a test run in Studio, shows up here."}
         </p>
       </div>
     );

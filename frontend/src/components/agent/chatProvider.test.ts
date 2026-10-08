@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatProviderOptions, pickChatProvider } from "./chatProvider";
+import { chatProviderOptions, missingProviderAction, pickChatProvider } from "./chatProvider";
 import type { Connection } from "@/components/providers/providerStore";
 
 const conn = (over: Partial<Connection>): Connection =>
@@ -96,5 +96,31 @@ describe("chatProviderOptions tone", () => {
   it("gives Auto the tone of the connection it resolves to, and 'unconfigured' when nothing is available", () => {
     expect(chatProviderOptions([anthropic, ollama, openai]).find((o) => o.label === "Auto")?.tone).toBe("verified");
     expect(chatProviderOptions([openai]).find((o) => o.label === "Auto")?.tone).toBe("unconfigured");
+  });
+});
+
+describe("missingProviderAction", () => {
+  // Credential shape is read from the catalog, not hardcoded by vendor name —
+  // openrouter is "api-key" (paste a key), anthropic is "cli" (a session
+  // switch, nothing to type). See components/providers/catalog.ts.
+  const keyed = conn({ id: "or", provider: "openrouter", label: "OpenRouter", enabled: false, health: "setup" });
+  const keyless = conn({ id: "an", provider: "anthropic", label: "Anthropic", enabled: false, health: "setup" });
+
+  it("is null the moment a provider actually resolves", () => {
+    expect(missingProviderAction([anthropic], "an")).toBeNull();
+    expect(missingProviderAction([anthropic])).toBeNull();
+  });
+
+  it("names the paste-a-key action for an api-key credential, never a bare 'Unavailable'", () => {
+    expect(missingProviderAction([keyed], "or")).toEqual({ text: "Paste an OpenRouter key to send", id: "or" });
+  });
+
+  it("names the on/off-switch action for a CLI or keyless credential", () => {
+    expect(missingProviderAction([keyless], "an")).toEqual({ text: "Turn on Anthropic to send", id: "an" });
+  });
+
+  it("falls back to a generic prompt when there is nothing concrete to expand", () => {
+    expect(missingProviderAction([], null)).toEqual({ text: "Connect a provider to send", id: null });
+    expect(missingProviderAction([anthropic], "gone")).toEqual({ text: "Pick a provider to send", id: null });
   });
 });

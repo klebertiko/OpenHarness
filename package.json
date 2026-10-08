@@ -9,7 +9,8 @@
     "tauri:build": "tauri build",
     "brand:icons": "node scripts/brand-icons.mjs",
     "frontend:build": "npm run build --prefix frontend",
-    "sidecar:dev": "cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000"
+    "sidecar:dev": "cd backend && python -m uvicorn main:app --host 127.0.0.1 --port 8000",
+    "desktop:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-desktop.ps1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

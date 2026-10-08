@@ -182,11 +182,15 @@ export function composeBundleFromCanvas<
   };
 }
 
+export function serializeBundle(bundle: OHarnessBundle): string {
+  return JSON.stringify(bundle, null, 2);
+}
+
 export function downloadOHarness(bundle: OHarnessBundle, filename?: string): void {
   const name =
     filename ??
     `${(bundle.manifest.name || "harness").replace(/\s+/g, "_")}.ohm`;
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+  const blob = new Blob([serializeBundle(bundle)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);

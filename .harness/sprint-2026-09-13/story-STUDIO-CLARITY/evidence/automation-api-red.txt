@@ -1,0 +1,507 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                                 [100%]
+================================== FAILURES ===================================
+____________________ test_blank_names_rejected[-JobCreate] ____________________
+
+model = <class 'routers.automations.JobCreate'>, name = ''
+
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    @pytest.mark.parametrize("name", ["", "  ", "\t\n"])
+    def test_blank_names_rejected(model, name):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:11: Failed
+____________________ test_blank_names_rejected[-JobUpdate] ____________________
+
+model = <class 'routers.automations.JobUpdate'>, name = ''
+
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    @pytest.mark.parametrize("name", ["", "  ", "\t\n"])
+    def test_blank_names_rejected(model, name):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:11: Failed
+___________________ test_blank_names_rejected[  -JobCreate] ___________________
+
+model = <class 'routers.automations.JobCreate'>, name = '  '
+
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    @pytest.mark.parametrize("name", ["", "  ", "\t\n"])
+    def test_blank_names_rejected(model, name):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:11: Failed
+___________________ test_blank_names_rejected[  -JobUpdate] ___________________
+
+model = <class 'routers.automations.JobUpdate'>, name = '  '
+
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    @pytest.mark.parametrize("name", ["", "  ", "\t\n"])
+    def test_blank_names_rejected(model, name):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:11: Failed
+__________________ test_blank_names_rejected[\t\n-JobCreate] __________________
+
+model = <class 'routers.automations.JobCreate'>, name = '\t\n'
+
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    @pytest.mark.parametrize("name", ["", "  ", "\t\n"])
+    def test_blank_names_rejected(model, name):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:11: Failed
+__________________ test_blank_names_rejected[\t\n-JobUpdate] __________________
+
+model = <class 'routers.automations.JobUpdate'>, name = '\t\n'
+
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    @pytest.mark.parametrize("name", ["", "  ", "\t\n"])
+    def test_blank_names_rejected(model, name):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:11: Failed
+___________ test_invalid_scheduler_expressions_rejected[JobCreate-] ___________
+
+model = <class 'routers.automations.JobCreate'>, cron = ''
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_______ test_invalid_scheduler_expressions_rejected[JobCreate-* * * *] ________
+
+model = <class 'routers.automations.JobCreate'>, cron = '* * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobCreate-60 * * * *] ______
+
+model = <class 'routers.automations.JobCreate'>, cron = '60 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobCreate-* 24 * * *] ______
+
+model = <class 'routers.automations.JobCreate'>, cron = '* 24 * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobCreate-* * 0 * *] _______
+
+model = <class 'routers.automations.JobCreate'>, cron = '* * 0 * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobCreate-* * * 13 *] ______
+
+model = <class 'routers.automations.JobCreate'>, cron = '* * * 13 *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobCreate-* * * * 7] _______
+
+model = <class 'routers.automations.JobCreate'>, cron = '* * * * 7'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobCreate-*/0 * * * *] ______
+
+model = <class 'routers.automations.JobCreate'>, cron = '*/0 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobCreate-10-2 * * * *] _____
+
+model = <class 'routers.automations.JobCreate'>, cron = '10-2 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobCreate-* * * * MON] ______
+
+model = <class 'routers.automations.JobCreate'>, cron = '* * * * MON'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobCreate-* * * * ?] _______
+
+model = <class 'routers.automations.JobCreate'>, cron = '* * * * ?'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobCreate-1,,2 * * * *] _____
+
+model = <class 'routers.automations.JobCreate'>, cron = '1,,2 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobCreate-*/-1 * * * *] _____
+
+model = <class 'routers.automations.JobCreate'>, cron = '*/-1 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobCreate-*,1 * * * *] ______
+
+model = <class 'routers.automations.JobCreate'>, cron = '*,1 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+___________ test_invalid_scheduler_expressions_rejected[JobUpdate-] ___________
+
+model = <class 'routers.automations.JobUpdate'>, cron = ''
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_______ test_invalid_scheduler_expressions_rejected[JobUpdate-* * * *] ________
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobUpdate-60 * * * *] ______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '60 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobUpdate-* 24 * * *] ______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* 24 * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobUpdate-* * 0 * *] _______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* * 0 * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobUpdate-* * * 13 *] ______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* * * 13 *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobUpdate-* * * * 7] _______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* * * * 7'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobUpdate-*/0 * * * *] ______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '*/0 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobUpdate-10-2 * * * *] _____
+
+model = <class 'routers.automations.JobUpdate'>, cron = '10-2 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobUpdate-* * * * MON] ______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* * * * MON'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+______ test_invalid_scheduler_expressions_rejected[JobUpdate-* * * * ?] _______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '* * * * ?'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobUpdate-1,,2 * * * *] _____
+
+model = <class 'routers.automations.JobUpdate'>, cron = '1,,2 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobUpdate-*/-1 * * * *] _____
+
+model = <class 'routers.automations.JobUpdate'>, cron = '*/-1 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+_____ test_invalid_scheduler_expressions_rejected[JobUpdate-*,1 * * * *] ______
+
+model = <class 'routers.automations.JobUpdate'>, cron = '*,1 * * * *'
+
+    @pytest.mark.parametrize("cron", ["", "* * * *", "60 * * * *", "* 24 * * *", "* * 0 * *", "* * * 13 *", "* * * * 7", "*/0 * * * *", "10-2 * * * *", "* * * * MON", "* * * * ?", "1,,2 * * * *", "*/-1 * * * *", "*,1 * * * *"])
+    @pytest.mark.parametrize("model", [JobCreate, JobUpdate])
+    def test_invalid_scheduler_expressions_rejected(model, cron):
+>       with pytest.raises(ValidationError):
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+tests\test_automation_validation.py:17: Failed
+____________ test_supported_cron_and_on_demand_remain_valid[None] _____________
+
+cron = None
+
+    @pytest.mark.parametrize("cron", [None, "* * * * *", "*/5 0-23 1,15 * 0-6", "0 9 * * 1-5", "59 23 31 12 6"])
+    def test_supported_cron_and_on_demand_remain_valid(cron):
+>       assert JobCreate(name="  Example  ", cron=cron).name == "Example"
+E       AssertionError: assert '  Example  ' == 'Example'
+E         
+E         - Example
+E         +   Example  
+E         ? ++       ++
+
+tests\test_automation_validation.py:22: AssertionError
+__________ test_supported_cron_and_on_demand_remain_valid[* * * * *] __________
+
+cron = '* * * * *'
+
+    @pytest.mark.parametrize("cron", [None, "* * * * *", "*/5 0-23 1,15 * 0-6", "0 9 * * 1-5", "59 23 31 12 6"])
+    def test_supported_cron_and_on_demand_remain_valid(cron):
+>       assert JobCreate(name="  Example  ", cron=cron).name == "Example"
+E       AssertionError: assert '  Example  ' == 'Example'
+E         
+E         - Example
+E         +   Example  
+E         ? ++       ++
+
+tests\test_automation_validation.py:22: AssertionError
+_____ test_supported_cron_and_on_demand_remain_valid[*/5 0-23 1,15 * 0-6] _____
+
+cron = '*/5 0-23 1,15 * 0-6'
+
+    @pytest.mark.parametrize("cron", [None, "* * * * *", "*/5 0-23 1,15 * 0-6", "0 9 * * 1-5", "59 23 31 12 6"])
+    def test_supported_cron_and_on_demand_remain_valid(cron):
+>       assert JobCreate(name="  Example  ", cron=cron).name == "Example"
+E       AssertionError: assert '  Example  ' == 'Example'
+E         
+E         - Example
+E         +   Example  
+E         ? ++       ++
+
+tests\test_automation_validation.py:22: AssertionError
+_________ test_supported_cron_and_on_demand_remain_valid[0 9 * * 1-5] _________
+
+cron = '0 9 * * 1-5'
+
+    @pytest.mark.parametrize("cron", [None, "* * * * *", "*/5 0-23 1,15 * 0-6", "0 9 * * 1-5", "59 23 31 12 6"])
+    def test_supported_cron_and_on_demand_remain_valid(cron):
+>       assert JobCreate(name="  Example  ", cron=cron).name == "Example"
+E       AssertionError: assert '  Example  ' == 'Example'
+E         
+E         - Example
+E         +   Example  
+E         ? ++       ++
+
+tests\test_automation_validation.py:22: AssertionError
+________ test_supported_cron_and_on_demand_remain_valid[59 23 31 12 6] ________
+
+cron = '59 23 31 12 6'
+
+    @pytest.mark.parametrize("cron", [None, "* * * * *", "*/5 0-23 1,15 * 0-6", "0 9 * * 1-5", "59 23 31 12 6"])
+    def test_supported_cron_and_on_demand_remain_valid(cron):
+>       assert JobCreate(name="  Example  ", cron=cron).name == "Example"
+E       AssertionError: assert '  Example  ' == 'Example'
+E         
+E         - Example
+E         +   Example  
+E         ? ++       ++
+
+tests\test_automation_validation.py:22: AssertionError
+_______ test_api_rejects_invalid_update_and_supports_clearing_schedule ________
+
+    def test_api_rejects_invalid_update_and_supports_clearing_schedule():
+        with TestClient(app) as client:
+            created = client.post("/automations/", json={"name":"Validation fixture", "cron":None})
+            assert created.status_code == 201
+            job_id = created.json()["id"]
+            bad = client.put(f"/automations/{job_id}", json={"cron":"60 * * * *"})
+>           assert bad.status_code == 422
+E           assert 200 == 422
+E            +  where 200 = <Response [200 OK]>.status_code
+
+tests\test_automation_validation.py:31: AssertionError
+============================== warnings summary ===============================
+tests/test_automation_validation.py::test_api_rejects_invalid_update_and_supports_clearing_schedule
+  D:\Development\src\OpenHarness\backend\routers\automations.py:101: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    job.updated_at = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_automation_validation.py::test_blank_names_rejected[-JobCreate]
+FAILED tests/test_automation_validation.py::test_blank_names_rejected[-JobUpdate]
+FAILED tests/test_automation_validation.py::test_blank_names_rejected[  -JobCreate]
+FAILED tests/test_automation_validation.py::test_blank_names_rejected[  -JobUpdate]
+FAILED tests/test_automation_validation.py::test_blank_names_rejected[\t\n-JobCreate]
+FAILED tests/test_automation_validation.py::test_blank_names_rejected[\t\n-JobUpdate]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-60 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* 24 * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* * 0 * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* * * 13 *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* * * * 7]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-*/0 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-10-2 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* * * * MON]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-* * * * ?]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-1,,2 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-*/-1 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobCreate-*,1 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-60 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* 24 * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* * 0 * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* * * 13 *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* * * * 7]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-*/0 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-10-2 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* * * * MON]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-* * * * ?]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-1,,2 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-*/-1 * * * *]
+FAILED tests/test_automation_validation.py::test_invalid_scheduler_expressions_rejected[JobUpdate-*,1 * * * *]
+FAILED tests/test_automation_validation.py::test_supported_cron_and_on_demand_remain_valid[None]
+FAILED tests/test_automation_validation.py::test_supported_cron_and_on_demand_remain_valid[* * * * *]
+FAILED tests/test_automation_validation.py::test_supported_cron_and_on_demand_remain_valid[*/5 0-23 1,15 * 0-6]
+FAILED tests/test_automation_validation.py::test_supported_cron_and_on_demand_remain_valid[0 9 * * 1-5]
+FAILED tests/test_automation_validation.py::test_supported_cron_and_on_demand_remain_valid[59 23 31 12 6]
+FAILED tests/test_automation_validation.py::test_api_rejects_invalid_update_and_supports_clearing_schedule
+40 failed, 1 warning in 1.28s

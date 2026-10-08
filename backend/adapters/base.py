@@ -51,7 +51,10 @@ class ProbeResult:
     latency_ms: int = 0
     # (key, value, tone) triples surfaced in the dossier's Account block.
     facts: list[tuple[str, str, str]] = field(default_factory=list)
-    models: list[ModelInfo] = field(default_factory=list)
+    # Model ids the endpoint itself reported serving (OpenAI-compatible
+    # `GET /models`). Empty when the adapter has no such listing (CLI
+    # adapters) — the UI then falls back to its catalog, labelled as such.
+    models: list[str] = field(default_factory=list)
 
 
 class AgentAdapter(ABC):

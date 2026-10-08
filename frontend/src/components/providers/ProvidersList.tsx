@@ -1,19 +1,27 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { providerReadiness } from "@/components/agent/chatProvider";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { type ConnectionUsage } from "@/lib/usageApi";
-import type { Health, Residence } from "./catalog";
+import { RESIDENCE_SR, ResidenceMark, ToneDot } from "./atoms";
+import { nextStep } from "./nextStep";
 import { useProviderStore, type Connection } from "./providerStore";
 import { usageCostLabel, useUsageStore } from "./usageStore";
 
 /**
- * Every connection this install holds, grouped by residence.
+ * Every connection this install holds, grouped by whether it can answer a
+ * run right now — "Ready" above "Needs setup" — the same split the chat
+ * combo groups its own rows by (`ChatProviderPicker.tsx`), so a connection
+ * never wears a different status word, or sits in a differently-named
+ * bucket, depending which surface you're looking at it from.
  *
- * Residence is the top-level grouping rather than vendor because it is the
- * question with a consequence: "did that prompt leave this machine?" changes
- * what you are allowed to put in it. The two Ollama rows land in different
- * groups for exactly that reason.
+ * This used to group by residence instead (did the prompt leave this
+ * machine?) on the reasoning that residence is the property with a
+ * consequence. That's still true, so it survives here as the small filled
+ * / hollow mark on each row (`ResidenceMark`) rather than disappearing —
+ * readiness answers "what can I use right now", residence answers "what am
+ * I allowed to put in it", and a list grouped by the first still needs the
+ * second visible per row.
  *
  * Credentials never appear here — only labels and health.
  * ADR 0001 § Consequences ¶6 (`docs/adr/0001-desktop-packaging.md`):
@@ -22,19 +30,10 @@ import { usageCostLabel, useUsageStore } from "./usageStore";
  * Endpoints, probes and billing live in the dossier, one click away.
  */
 
-const GROUPS: { key: Residence; label: string }[] = [
-  { key: "local", label: "On this machine" },
-  { key: "cloud", label: "Cloud" },
+const GROUPS: { key: "ready" | "needsSetup"; label: string }[] = [
+  { key: "ready", label: "Ready" },
+  { key: "needsSetup", label: "Needs setup" },
 ];
-
-/** Health as one plain sentence, and the one colour that goes with it. */
-const STATUS: Record<Health, { text: string; tone: Tone }> = {
-  live: { text: "Connected", tone: "ok" },
-  setup: { text: "Needs setup", tone: "warn" },
-  degraded: { text: "Unstable connection", tone: "warn" },
-  fault: { text: "Can't connect", tone: "fault" },
-  probing: { text: "Checking…", tone: "idle" },
-};
 
 /** Cost badge text for one connection's row — undefined (render nothing)
     when it has never actually been used, a genuinely different state from
@@ -56,23 +55,27 @@ function ProviderRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const status = STATUS[c.health];
   const costLabel = rowCostLabel(c, usage);
+  const readiness = providerReadiness(c);
+  const step = nextStep(c);
   return (
     <ListRow
       title={c.label}
-      subtitle={status.text}
-      leading={<StatusDot tone={status.tone} pulse={c.health === "probing"} />}
+      subtitle={
+        <>
+          <span>{readiness.label}</span>
+          {step && <span className="text-ink-faint"> · {step.hint}</span>}
+        </>
+      }
+      hint={step ? `${readiness.label} — ${step.label}` : readiness.label}
+      leading={<ToneDot tone={readiness.tone} />}
       selected={selected}
       onSelect={onSelect}
       trailing={
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-2">
+          <ResidenceMark residence={c.residence} />
+          <span className="sr-only">{RESIDENCE_SR[c.residence]}</span>
           {costLabel && <span className="t-meta text-ink-faint">{costLabel}</span>}
-          <ChevronRight
-            size={14}
-            strokeWidth={1.8}
-            className="text-ink-faint opacity-0 transition-opacity group-hover:opacity-100"
-          />
         </span>
       }
     />
@@ -122,14 +125,14 @@ function BudgetStrip() {
   return (
     <div className="mx-1.5 mt-2 rounded-[8px] border border-line-soft bg-sub-100 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="t-label text-ink-faint">spend</span>
+        <span className="t-body text-ink-mute">Spend</span>
         <span className={`t-meta flex items-center gap-1.5 ${BUDGET_TONE_CLASS[tone]}`}>
           <StatusDot tone={tone} />
           {summary ? usageCostLabel(summary) : "—"}
         </span>
       </div>
       {loading && <p role="status" className="t-body text-ink-dim">Loading usage...</p>}
-      {error && <p role="alert" className="t-body text-warn">Usage may be stale: {error}</p>}
+      {error && <p role="alert" className="t-body mt-1 text-warn [overflow-wrap:anywhere]">Usage may be stale: {error}</p>}
       {editing ? (
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
@@ -142,28 +145,28 @@ function BudgetStrip() {
               if (e.key === "Escape") setEditing(false);
             }}
             placeholder="no limit"
-            className="t-meta h-[22px] w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
+            className="t-meta h-7 w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
           />
-          <button type="button" onClick={() => void save()} className="t-meta flex-none text-ink-dim hover:text-ink">
-            save
+          <button type="button" onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
+            Save
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="t-meta flex-none text-ink-faint hover:text-ink-dim"
+            className="t-body flex-none rounded-control px-1 text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
           >
-            cancel
+            Cancel
           </button>
         </div>
       ) : (
         <button
           type="button"
           onClick={startEdit}
-          className="t-meta mt-0.5 block truncate text-left text-ink-faint hover:text-ink-dim"
+          className="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
         >
           {budget?.limitUsd != null
             ? `of $${budget.limitUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} budget`
-            : "no budget set — click to set one"}
+            : "No budget — set one"}
         </button>
       )}
     </div>
@@ -185,7 +188,8 @@ export function ProvidersList() {
     <div className="h-full min-h-0 overflow-y-auto pb-3">
       <BudgetStrip />
       {GROUPS.map((g) => {
-        const rows = connections.filter((c) => c.residence === g.key);
+        const ready = (c: Connection) => providerReadiness(c).ready;
+        const rows = connections.filter((c) => (g.key === "ready" ? ready(c) : !ready(c)));
         if (!rows.length) return null;
         return (
           <ListGroup key={g.key} label={g.label}>

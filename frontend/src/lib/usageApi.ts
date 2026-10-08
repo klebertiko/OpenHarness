@@ -1,8 +1,8 @@
 /**
  * Usage ledger + global budget — FastAPI sidecar via `apiBase` (static
- * export / Tauri), mirroring automationsApi.ts's shape. The sidecar is the
- * only source of truth for tokens/cost (backend/usage_tracking.py); this
- * client never computes a number itself, only formats what it is given.
+ * export / Tauri). The sidecar is the only source of truth for tokens/cost
+ * (backend/usage_tracking.py); this client never computes a number itself,
+ * only formats what it is given.
  */
 
 import { apiUrl } from "@/lib/apiBase";

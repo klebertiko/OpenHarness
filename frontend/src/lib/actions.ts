@@ -3,8 +3,10 @@ import { useCallback, useState } from "react";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useActiveRunStore } from "@/store/activeRunStore";
 import { api } from "@/lib/api";
+import type { HarnessEdge, HarnessNode } from "@/lib/types";
 import { useShellStore } from "@/components/shell/shellStore";
 import { sendControl } from "@/components/agent-run/runClient";
+import { flushAutosave, replaceStudioCanvas, useStudioDocsStore } from "@/lib/studioDocuments";
 
 /**
  * The harness verbs, in one place.
@@ -14,36 +16,50 @@ import { sendControl } from "@/components/agent-run/runClient";
  * the complete index of what this app can do; that claim only stays true if
  * there is no second, button-only copy of the logic.
  */
-export function useHarnessActions() {
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
+/**
+ * Load graph JSON as a new harness. It is saved right away and never
+ * overwrites the open one, whose pending edits are saved first. Returns
+ * false (and changes nothing) for a run in progress or unreadable JSON.
+ */
+export function importGraphFile(text: string, fileName: string): boolean {
+  if (useCanvasStore.getState().isRunning) return false;
+  let parsed: { nodes?: unknown; edges?: unknown };
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+  const rawNodes = Array.isArray(parsed?.nodes) ? parsed.nodes : [];
+  const rawEdges = Array.isArray(parsed?.edges) ? parsed.edges : [];
+  // Reject anything the canvas can't render instead of half-loading it.
+  const nodesOk = rawNodes.every((n) => isObj(n) && typeof n.id === "string" && typeof n.type === "string");
+  const edgesOk = rawEdges.every((e) => isObj(e) && typeof e.source === "string" && typeof e.target === "string");
+  if (!nodesOk || !edgesOk) return false;
+  const nodes = rawNodes.map((n: Record<string, unknown>) => ({
+    ...n,
+    position: isObj(n.position) ? n.position : { x: 0, y: 0 },
+    data: isObj(n.data) ? n.data : {},
+  })) as unknown as HarnessNode[];
+  const edges = rawEdges as unknown as HarnessEdge[];
+  replaceStudioCanvas(() => {
+    useCanvasStore.getState().loadGraph(nodes, edges);
+    useCanvasStore.getState().setHarnessMeta({ id: null, name: fileName.replace(/\.(harness\.)?json$/i, "") || "Imported harness", description: "" });
+  }, { saveNow: true });
+  useShellStore.getState().setSection("studio");
+  useShellStore.getState().setStudioView("editor");
+  return true;
+}
 
+export function useHarnessActions() {
+  const [saveMsg, setSaveMsg] = useState("");
+  const saveState = useStudioDocsStore((st) => st.saveState);
+
+  // One save path: the same autosave that runs while editing, flushed now.
   const save = useCallback(async () => {
-    const { nodes, edges, harnessMeta, setHarnessMeta } = useCanvasStore.getState();
-    setSaving(true);
-    try {
-      const graph = { nodes, edges };
-      if (harnessMeta.id) {
-        await api.harnesses.update(harnessMeta.id, {
-          graph_json: graph,
-          name: harnessMeta.name,
-        });
-      } else {
-        const res = await api.harnesses.create(
-          harnessMeta.name,
-          harnessMeta.description,
-          graph
-        );
-        setHarnessMeta({ id: res.id });
-      }
-      setSaveMsg("saved");
-    } catch {
-      setSaveMsg("save failed");
-    } finally {
-      setSaving(false);
-      setTimeout(() => setSaveMsg(""), 2400);
-    }
+    await flushAutosave();
   }, []);
+  const statusMsg = saveState === "saving" ? "Saving…" : saveState === "error" ? "Not saved — local engine unreachable" : saveState === "saved" ? "Saved" : "";
 
   const exportJson = useCallback(() => {
     const { nodes, edges, harnessMeta } = useCanvasStore.getState();
@@ -68,13 +84,7 @@ export function useHarnessActions() {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = (ev) => {
-        if (useCanvasStore.getState().isRunning) return;
-        try {
-          const parsed = JSON.parse(ev.target?.result as string);
-          useCanvasStore.getState().loadGraph(parsed.nodes ?? [], parsed.edges ?? []);
-          useShellStore.getState().setSection("studio");
-          useShellStore.getState().setStudioView("editor");
-        } catch {
+        if (!importGraphFile(ev.target?.result as string, file.name)) {
           setSaveMsg("bad file");
           setTimeout(() => setSaveMsg(""), 2400);
         }
@@ -150,5 +160,5 @@ export function useHarnessActions() {
     void sendControl(runId, { action: "resume", decision, note });
   }, []);
 
-  return { run, stop, resolveHitl, save, exportJson, importJson, saving, saveMsg };
+  return { run, stop, resolveHitl, save, exportJson, importJson, saving: saveState === "saving", saveMsg: saveMsg || statusMsg };
 }

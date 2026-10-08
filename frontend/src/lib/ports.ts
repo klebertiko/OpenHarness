@@ -46,6 +46,13 @@ export const PORTS: Record<NodeType, PortSchema> = {
     in: [],
     out: [p("call", "call")],
   },
+  // EXPERIMENTAL (ADR-0005, spike) — plain pass-through ports, same shape as
+  // `agent`: `decisionResult` is attached evidence, never a named out port,
+  // so there is no accept/reject tone here the way Gate/HITL have.
+  decision: {
+    in: [p("in", "signal")],
+    out: [p("out", "signal")],
+  },
 };
 
 export const portRows = (type: NodeType) =>

@@ -30,9 +30,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Alt+1", "Chats"],
       ["Alt+2", "Studio"],
-      ["Alt+3", "Automate"],
-      ["Alt+4", "Pull requests"],
-      ["Alt+5", "Providers"],
+      ["Alt+3", "Providers"],
     ],
   },
   {

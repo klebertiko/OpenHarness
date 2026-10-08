@@ -5,6 +5,7 @@ import {
   Sparkles,
   Plug,
   Wrench,
+  FlaskConical,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { NodeType } from "./types";
@@ -20,6 +21,8 @@ export const ROLE_VAR: Record<NodeType, string> = {
   skill: "var(--role-skill)",
   mcp: "var(--role-mcp)",
   tool: "var(--role-tool)",
+  // EXPERIMENTAL (ADR-0005, spike).
+  decision: "var(--role-decision)",
 };
 
 export const ROLE_CODE: Record<NodeType, string> = {
@@ -29,6 +32,8 @@ export const ROLE_CODE: Record<NodeType, string> = {
   skill: "SKL",
   mcp: "MCP",
   tool: "TOOL",
+  // EXPERIMENTAL (ADR-0005, spike).
+  decision: "LAYA",
 };
 
 export const ROLE_ICON: Record<NodeType, LucideIcon> = {
@@ -38,4 +43,7 @@ export const ROLE_ICON: Record<NodeType, LucideIcon> = {
   skill: Sparkles,
   mcp: Plug,
   tool: Wrench,
+  // EXPERIMENTAL (ADR-0005, spike) — flask marks it as an experimental probe,
+  // deliberately not reusing Gate/HITL's iconography (never a real gate).
+  decision: FlaskConical,
 };

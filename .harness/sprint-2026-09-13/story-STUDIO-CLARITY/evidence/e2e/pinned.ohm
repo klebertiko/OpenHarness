@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.1.0",
+  "manifest": {
+    "id": "openharness.default.agile",
+    "name": "OpenHarness Agile (skills-framework)",
+    "version": "0.1.0",
+    "description": "Authoring fidelity",
+    "license": "MIT",
+    "tags": [
+      "test"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "writer",
+        "type": "agent",
+        "position": {
+          "x": 120,
+          "y": 90
+        },
+        "data": {
+          "label": "Writer",
+          "providerIds": [
+            "anthropic"
+          ]
+        },
+        "measured": {
+          "width": 212,
+          "height": 100
+        },
+        "selected": true,
+        "role": "agent",
+        "label": "Writer"
+      },
+      {
+        "id": "reviewer",
+        "type": "agent",
+        "position": {
+          "x": 520,
+          "y": 90
+        },
+        "data": {
+          "label": "Reviewer",
+          "providerIds": [
+            "openai"
+          ]
+        },
+        "measured": {
+          "width": 212,
+          "height": 100
+        },
+        "selected": false,
+        "role": "agent",
+        "label": "Reviewer"
+      }
+    ],
+    "edges": [
+      {
+        "id": "review",
+        "source": "writer",
+        "target": "reviewer",
+        "type": "harness"
+      }
+    ]
+  },
+  "content": {
+    "prompts": {
+      "draft": "Line one\nLine two"
+    },
+    "agents": {},
+    "skills": {},
+    "hooks": {},
+    "commands": {},
+    "scripts": {}
+  },
+  "runtime": {
+    "preferred": "api",
+    "cli": null,
+    "env": [],
+    "secrets": []
+  },
+  "validation": {
+    "mockProfile": "default"
+  },
+  "extension": {
+    "formatOwner": "roundtrip-test"
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowUp, Code2, ListChecks, Search, Square } from "lucide-react";
 
 import { HarnessBar } from "@/components/agent/HarnessBar";
@@ -9,13 +9,15 @@ import { useChatTools } from "@/components/agent/useChatTools";
 import type { ToolPreset } from "@/components/agent/chatCommands";
 import { ChatProviderPicker } from "@/components/agent/ChatProviderPicker";
 import { WorkspacePicker } from "@/components/agent/WorkspacePicker";
-import { pickChatProvider } from "@/components/agent/chatProvider";
+import { missingProviderAction, pickChatProvider } from "@/components/agent/chatProvider";
 import { useChatProviderStore } from "@/store/chatProviderStore";
+import { useChatSetupRequestStore } from "@/store/chatSetupStore";
 import { chosenWorkspace, useWorkspaceStore } from "@/store/workspaceStore";
 import { Nilo } from "@/components/brand/Nilo";
 import { ThinkingStatus } from "@/components/brand/ThinkingStatus";
 import { Transcript } from "@/components/agent-run/Transcript";
 import { HistoricalRunDetail } from "@/components/agent-run/HistoricalRunDetail";
+import { RunDetailRegion, RunDetailToggle } from "@/components/agent-run/RunDetailToggle";
 import { useRunStream } from "@/components/agent-run/useRunStream";
 import { Gate } from "@/components/agent-run/Gate";
 import { bundleGraphToEngine } from "@/lib/bundleGraph";
@@ -52,6 +54,14 @@ export function AgentStage() {
     () => pickChatProvider(connections, chosenProviderId),
     [connections, chosenProviderId],
   );
+  // design.md § Provider stance: never a bare "Unavailable" — when nothing
+  // resolves, the composer states exactly what's missing as an action, and
+  // that action opens the combo's inline setup for the right connection.
+  const missing = useMemo(
+    () => missingProviderAction(connections, chosenProviderId),
+    [connections, chosenProviderId],
+  );
+  const requestProviderSetup = useChatSetupRequestStore((s) => s.requestSetup);
   // Chat tools broker (contract v1.1): what `/` can offer for this workspace
   // with this connection. Absent workspace → the menu says why.
   const chatTools = useChatTools(
@@ -99,6 +109,16 @@ export function AgentStage() {
     graph,
     harnessEnabled: enabled,
   });
+
+  // One "run detail" control per run. A finished run saved on a chat message is
+  // offered by that message (HistoricalRunDetail); the stage only offers it for
+  // a run that has no message to carry it — one still in flight.
+  const stageDetailId = useId();
+  const runSavedOnMessage = Boolean(run.runId) && messages.some((m) => m.runId === run.runId);
+  const showStageDetailControl =
+    live ||
+    ((run.status === "complete" || run.status === "error" || run.status === "stopped") &&
+      !runSavedOnMessage);
 
   const pendingToolApproval = run.plan.some((segment) =>
     segment.blocks.some((block) =>
@@ -258,17 +278,13 @@ export function AgentStage() {
                   <span className="text-ink-mute">{provider.label}</span>
                 </>
               ) : (
-                <>
-                  No provider connected.{" "}
-                  <button
-                    type="button"
-                    onClick={() => goToProviders("providers")}
-                    className="font-[550] text-signal underline-offset-2 hover:underline"
-                  >
-                    Connect one
-                  </button>{" "}
-                  to start a chat.
-                </>
+                <button
+                  type="button"
+                  onClick={() => requestProviderSetup(missing?.id ?? null)}
+                  className="font-[550] text-signal underline-offset-2 hover:underline"
+                >
+                  {missing?.text ?? "Connect a provider to send"}
+                </button>
               )}
             </p>
           </div>
@@ -298,7 +314,15 @@ export function AgentStage() {
                   {m.content}
                 </div>
                 {m.role === "assistant" && m.runId && (
-                  <HistoricalRunDetail runId={m.runId} />
+                  <HistoricalRunDetail
+                    runId={m.runId}
+                    // The run that just finished is still in memory: hand it
+                    // over (and the detail the person already opened) so this
+                    // is its only control and it needs no round trip.
+                    run={m.runId === run.runId && !live ? run : undefined}
+                    elapsed={m.runId === run.runId && !live ? elapsed : undefined}
+                    defaultOpen={m.runId === run.runId && !live ? showRunDetail : false}
+                  />
                 )}
               </div>
             ))}
@@ -319,23 +343,18 @@ export function AgentStage() {
               </div>
             )}
 
-            {(run.status === "complete" ||
-              run.status === "error" ||
-              run.status === "stopped" ||
-              live) && (
-              <button
-                type="button"
-                onClick={() => setShowRunDetail((v) => !v)}
-                className="self-start text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline"
-              >
-                {showRunDetail ? "Hide run detail" : "Show run detail"}
-              </button>
+            {showStageDetailControl && (
+              <RunDetailToggle
+                open={showRunDetail}
+                onToggle={() => setShowRunDetail((v) => !v)}
+                controlsId={stageDetailId}
+              />
             )}
 
-            {showRunDetail && (
-              <div className="overflow-hidden rounded-panel border border-line bg-sub-100">
-                <Transcript run={run} onResolve={resolveGate} />
-              </div>
+            {showStageDetailControl && showRunDetail && (
+              <RunDetailRegion id={stageDetailId}>
+                <Transcript run={run} onResolve={resolveGate} elapsed={elapsed} />
+              </RunDetailRegion>
             )}
 
             <div ref={bottomRef} />
@@ -361,7 +380,18 @@ export function AgentStage() {
             <ChatProviderPicker onConnect={() => goToProviders("providers")} />
             <WorkspacePicker />
             <span className="flex-1" />
-            <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to send</span>
+            {missing ? (
+              <button
+                type="button"
+                onClick={() => requestProviderSetup(missing.id)}
+                title={missing.text}
+                className="hidden min-w-0 max-w-[240px] truncate text-[11px] font-[550] text-signal underline-offset-2 hover:underline sm:block"
+              >
+                {missing.text}
+              </button>
+            ) : (
+              <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to send</span>
+            )}
             {live ? (
               <button
                 type="button"
@@ -377,6 +407,7 @@ export function AgentStage() {
                 type="button"
                 disabled={!canStart}
                 onClick={onStart}
+                title={!canStart && missing ? missing.text : undefined}
                 aria-label="Send message"
                 className="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
               >

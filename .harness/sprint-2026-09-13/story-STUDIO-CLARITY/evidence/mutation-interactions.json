@@ -1,0 +1,69 @@
+{
+  "finishedAt": "2026-09-13T23:03:28.426Z",
+  "scope": "10 targeted semantic mutants; not an exhaustive mutation score",
+  "sandbox": "C:\\Users\\klebe\\AppData\\Local\\Temp\\openharness-interactions-mutation-5XEy8k",
+  "baseline": "passed",
+  "originalTargetsUnchanged": true,
+  "results": [
+    {
+      "id": "slash-menu-suppressed",
+      "file": "src/components/agent/ChatComposer.tsx",
+      "status": "killed",
+      "failedAssertions": 6
+    },
+    {
+      "id": "slash-selection-submits",
+      "file": "src/components/agent/ChatComposer.tsx",
+      "status": "killed",
+      "failedAssertions": 3
+    },
+    {
+      "id": "slash-live-guard-removed",
+      "file": "src/components/agent/ChatComposer.tsx",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "slash-escape-erases-draft",
+      "file": "src/components/agent/ChatComposer.tsx",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "unknown-command-submits",
+      "file": "src/components/agent/ChatComposer.tsx",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "stale-validation-visible",
+      "file": "src/components/studio/ValidateDock.tsx",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "async-validation-not-discarded",
+      "file": "src/components/studio/ValidateDock.tsx",
+      "status": "survived",
+      "failedAssertions": 0
+    },
+    {
+      "id": "cross-bundle-undo-restored",
+      "file": "src/store/canvasStore.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "run-allows-load",
+      "file": "src/store/canvasStore.ts",
+      "status": "killed",
+      "failedAssertions": 1
+    },
+    {
+      "id": "node-pin-hidden-by-legacy",
+      "file": "src/components/canvas/nodeProvider.ts",
+      "status": "killed",
+      "failedAssertions": 2
+    }
+  ]
+}

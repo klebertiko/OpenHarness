@@ -1,3 +1,6 @@
 # Historical unit-test fixture (glpat-shaped), rewritten in later commits.
 # Fingerprint from gitleaks history scan — not a live credential.
 8b75596f98ee2c29c9c20a2961b00e1c16de8aaf:backend/tests/repos/test_github_gitlab_adapters.py:gitlab-pat:17
+
+# Synthetic AKIA-shaped example quoted in a SEC gate record (prose, not a key).
+35116a3657d92c69e4d08c9d56530b2a36715add:.harness/sprint-2026-09-18/gates/sec-2026-09-24.md:aws-access-token:19

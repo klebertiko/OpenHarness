@@ -1,0 +1,17 @@
+# EXPERIMENTAL — Laya decision-node loopback (ADR-0005, spike).
+#
+# Deliberately NOT part of backend/requirements.txt: this process is never
+# started by the sidecar, never imported by it, and its weights are local
+# HF cache, not an OH_SECRETS credential (see server.py's module docstring).
+# Install into the same backend/.venv with:
+#   .venv/Scripts/python.exe -m pip install -r laya_loopback/requirements.txt
+#
+# Pinned to the same laya version .github/workflows/laya-shadow.yml already
+# runs in CI (scripts/laya_issue_shadow.py), so the loopback and the CI
+# shadow job stay on provably-equivalent behaviour.
+laya==0.3.5
+# Pulled in transitively by huggingface_hub today, but pinned explicitly
+# here because this file's whole job is the loopback's file-lock-based
+# single-process guarantee -- that guarantee must not silently depend on
+# whatever version another dependency happened to drag in.
+filelock==4.0.9

@@ -14,8 +14,6 @@ describe("shellNavCommands", () => {
     expect(ids).toEqual([
       "go:chats",
       "go:studio",
-      "go:automations",
-      "go:git",
       "go:providers",
       "harness:library",
       "harness:on",
@@ -35,11 +33,6 @@ describe("shellNavCommands", () => {
     shellNavCommands().find((c) => c.id === "go:chats")!.run();
     expect(useShellStore.getState().section).toBe("chats");
     expect(useShellStore.getState().rightOpen).toBe(false);
-  });
-
-  it("Pull requests command is labelled for people, not 'git'", () => {
-    const git = shellNavCommands().find((c) => c.id === "go:git")!;
-    expect(git.label).toBe("Go to Pull requests");
   });
 
   it("harness on/off toggles harnessSessionStore.enabled", () => {
