@@ -1,19 +1,15 @@
 "use client";
-import { useEffect } from "react";
-import { Activity, ExternalLink, Info } from "lucide-react";
-import { Nilo } from "@/components/brand/Nilo";
-import { rowStatus } from "@/components/agent/chatProvider";
+import { useEffect, useState } from "react";
+import { Activity, ChevronDown, ExternalLink, Info } from "lucide-react";
+import { Combobox } from "@/components/ui/Combobox";
+import { providerReadiness } from "@/components/agent/chatProvider";
 import { type ConnectionUsage } from "@/lib/usageApi";
-import {
-  BILLING_LABEL,
-  CAPABILITY_LABEL,
-  HEALTH_INK,
-  RESIDENCE_LABEL,
-} from "./catalog";
-import { Chip, Monogram, ProbeTrace, ResidenceMark, Stamp } from "./atoms";
+import { BILLING_LABEL, CAPABILITY_LABEL, RESIDENCE_LABEL } from "./catalog";
+import { Chip, Fact, Monogram, ProbeTrace, ResidenceMark, TONE_TEXT, ToneDot } from "./atoms";
 import { Btn, CredentialSeal } from "./CredentialSeal";
 import { Block, CursorHandoff, ModelSection } from "./ModelSection";
-import { specOf, useProviderStore, type Connection } from "./providerStore";
+import { nextStep } from "./nextStep";
+import { specOf, useProviderStore } from "./providerStore";
 import { usageCostLabel, useUsageStore } from "./usageStore";
 
 /* Hallmark · genre: modern-minimal editorial workspace
@@ -22,17 +18,22 @@ import { usageCostLabel, useUsageStore } from "./usageStore";
 /**
  * The dossier — everything known about one connection.
  *
- * Rhythm is deliberately different from the wallet next to it. The wallet is a
- * list you skim; this is a spec sheet you read. Header band spans the full
- * width and anchors identity; the body runs in a bounded measure so the prose
- * stays readable when the window is 2000px wide, rather than stretching into a
- * single unreadable line the way a naive flex-1 would.
+ * Reading order is the hierarchy: who it is and whether it answers (header),
+ * the one thing that would make it answer (a single primary button, only
+ * when something is missing), then the spec sheet, then the detail blocks.
+ * Status is read only through `providerReadiness` (chatProvider.ts), so this
+ * header, the list on the left and the chat picker never disagree.
+ *
+ * Width is never assumed: the header wraps its actions under the name, the
+ * facts reflow from one to five columns, and below the shell's 640px
+ * breakpoint — where the list on the left is suppressed — a provider
+ * switcher (the shared Combobox) takes its place so the screen is never a dead end.
  */
 
 /** This connection's spend, read honestly: "free" only for a genuinely
     local/on-device connection, "cost unknown" for a cloud one this catalog
     has no price for, "—" when it has simply never been used. */
-function spendStamp(c: Connection, usage: ConnectionUsage | undefined) {
+function spendFact(usage: ConnectionUsage | undefined) {
   if (!usage || usage.tokensTotal <= 0) {
     return { value: "—", note: "no usage recorded yet", tone: "ink" as const };
   }
@@ -42,9 +43,46 @@ function spendStamp(c: Connection, usage: ConnectionUsage | undefined) {
   return { value, note, tone };
 }
 
+/** Stand-in for the left list when the window is too narrow to show it
+    (the shell hides the left panel under 640px — AppShell's narrow policy). */
+function ProviderSwitcher() {
+  const { connections, selectedId, select } = useProviderStore();
+  if (!connections.length) return null;
+  const current = connections.find((c) => c.id === selectedId);
+  return (
+    <div className="mb-3 flex items-center gap-2 sm:hidden">
+      <span className="t-body flex-none text-ink-mute" aria-hidden>
+        Provider
+      </span>
+      <div className="min-w-0 flex-1">
+        <Combobox
+          label="Provider"
+          triggerLabel={`Provider: ${current ? current.label : "Choose a provider"}`}
+          value={current ? current.id : null}
+          options={connections.map((c) => ({ id: c.id, label: c.label, detail: providerReadiness(c).label }))}
+          onChange={select}
+          triggerClassName="t-body h-8 w-full justify-between border border-line bg-sub-200 px-2 text-ink"
+          trigger={
+            <>
+              <span className="min-w-0 truncate">{current ? `${current.label} — ${providerReadiness(current).label}` : "Choose a provider"}</span>
+              <ChevronDown size={13} strokeWidth={1.8} className="flex-none text-ink-faint" aria-hidden />
+            </>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+const CRED_INPUT_ID = "oh-cred";
+
 export function Dossier() {
-  const { connections, selectedId, probe, attachSecret, revokeSecret, setEndpoint, toggleEnabled } =
+  const { connections, selectedId, probe, attachSecret, revokeSecret, saveEndpoint, toggleEnabled } =
     useProviderStore();
+  // The endpoint field edits a draft; the sidecar row (what probes and runs
+  // read) changes only on a confirmed save — blur, Enter, or before a Test.
+  const [draft, setDraft] = useState<{ id: string; value: string } | null>(null);
+  const [endpointSave, setEndpointSave] = useState<{ id: string; state: "saving" | "saved" | "failed" } | null>(null);
   const hydrateUsage = useUsageStore((s) => s.hydrate);
   const usageByConnection = useUsageStore((s) => s.summary?.byConnection);
   useEffect(() => {
@@ -54,241 +92,263 @@ export function Dossier() {
   const c = connections.find((x) => x.id === selectedId);
   if (!c) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <Nilo cell={4} state="idle" />
-        <p className="mt-1 text-[13px] text-ink">Pick a provider on the left.</p>
-        <p className="max-w-[260px] text-[12px] text-ink-mute">
-          Its connection, models and health live here.
-        </p>
+      <div className="flex h-full flex-col px-4 pt-4 sm:px-6">
+        <ProviderSwitcher />
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 text-center">
+          <p className="t-title text-ink">
+            Pick a provider<span className="hidden sm:inline"> on the left</span>.
+          </p>
+          <p className="t-body max-w-[260px] text-ink-mute">Its connection, models and health live here.</p>
+        </div>
       </div>
     );
   }
+
   const spec = specOf(c);
-  const ready = c.enabled && c.health !== "fault";
+  const readiness = providerReadiness(c);
+  const ready = readiness.ready;
+  const step = nextStep(c);
+  // The store's detail often opens by restating the status word ("Not
+  // connected. Add a key…"); the status line above already says it.
+  const detail = c.detail.startsWith(`${readiness.label}.`)
+    ? c.detail.slice(readiness.label.length + 1).trim()
+    : c.detail;
+  const probing = c.health === "probing";
   const usage = usageByConnection?.find((u) => u.connectionId === c.id);
-  const spend = spendStamp(c, usage);
+  const spend = spendFact(usage);
 
   const okProbes = c.probes.filter((p) => p.ok);
   const median = okProbes.length
     ? [...okProbes].sort((a, b) => a.ms - b.ms)[Math.floor(okProbes.length / 2)].ms
     : null;
 
+  const endpointValue = draft?.id === c.id ? draft.value : c.endpoint;
+  const endpointStatus = endpointSave?.id === c.id ? endpointSave.state : null;
+  /** Save a pending endpoint edit; true when nothing is pending or it saved. */
+  const commitEndpoint = async (): Promise<boolean> => {
+    if (!spec.endpoint.editable || endpointValue.trim() === c.endpoint) return true;
+    setEndpointSave({ id: c.id, state: "saving" });
+    const saved = await saveEndpoint(c.id, endpointValue);
+    setEndpointSave({ id: c.id, state: saved ? "saved" : "failed" });
+    if (saved) setDraft(null);
+    return saved;
+  };
+  /** Every test runs against the endpoint on screen, never a stale one. */
+  const test = async () => {
+    if (await commitEndpoint()) await probe(c.id);
+  };
+
+  const turnOnThenTest = () => {
+    // Turn on, then test — one flow, the same promise the chat combo's inline
+    // setup makes (design.md § Provider stance).
+    void commitEndpoint().then((saved) => (saved ? toggleEnabled(c.id).then(() => probe(c.id)) : undefined));
+  };
+
+  const runStep = () => {
+    if (!step) return;
+    if (step.kind === "paste") {
+      const field = document.getElementById(CRED_INPUT_ID);
+      field?.scrollIntoView({ block: "center", behavior: "smooth" });
+      field?.focus({ preventScroll: true });
+    } else if (step.kind === "turnOn") {
+      turnOnThenTest();
+    } else if (step.kind === "model") {
+      const picker = document.querySelector<HTMLElement>('[aria-label^="Default model:"]');
+      picker?.scrollIntoView({ block: "center", behavior: "smooth" });
+      picker?.focus({ preventScroll: true });
+    } else {
+      void test();
+    }
+  };
+
+  const seal = (
+    <CredentialSeal
+      connection={c}
+      spec={spec}
+      onAttach={(v) => attachSecret(c.id, v)}
+      onRevoke={() => revokeSecret(c.id)}
+    />
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* ── Header band ──────────────────────────────────────────────────── */}
-      <header className="flex-none border-b border-line bg-sub-100 px-5 pb-3 pt-4">
-        <div className="flex items-start gap-3">
-          <Monogram text={spec.monogram} live={c.health === "live"} size={30} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="t-display text-[20px] text-ink">{c.label}</h1>
-              <span
-                className="t-meta flex items-center gap-1.5 rounded-control border px-1.5 py-px"
-                style={{
-                  borderColor: HEALTH_INK[c.health],
-                  color: HEALTH_INK[c.health],
-                }}
-              >
-                <span
-                  className="h-[5px] w-[5px] rounded-[1px]"
-                  style={{ background: HEALTH_INK[c.health] }}
-                  aria-hidden
-                />
-                {rowStatus(c)}
-              </span>
-              {!c.enabled && <Chip>held out of runs</Chip>}
+      {/* ── Identity, status, the one action ─────────────────────────────── */}
+      <header className="flex-none border-b border-line bg-sub-100 px-4 pb-4 pt-4 sm:px-6">
+        <ProviderSwitcher />
+        <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
+          <div className="flex min-w-0 flex-[1_1_16rem] items-start gap-3">
+            <Monogram text={spec.monogram} live={readiness.verified} size="lg" />
+            <div className="min-w-0">
+              <h1 className="t-display text-[20px] text-ink [overflow-wrap:anywhere]">{c.label}</h1>
+              <p className="t-body mt-1 flex items-center gap-1.5" aria-live="polite">
+                <ToneDot tone={readiness.tone} />
+                <span className={`font-medium ${TONE_TEXT[readiness.tone]}`}>{readiness.label}</span>
+              </p>
+              {detail && <p className="t-body mt-1 max-w-[68ch] text-ink-dim">{detail}</p>}
             </div>
-            <p className="t-body mt-1 max-w-[76ch] text-ink-dim">{c.detail}</p>
           </div>
 
-          <div className="flex flex-none gap-2">
-            <Btn onClick={() => void probe(c.id)}>
-              <Activity size={12} strokeWidth={1.7} />
-              {c.health === "probing" ? "Testing…" : "Test"}
-            </Btn>
-            <Btn
-              onClick={() => {
-                const turningOn = !c.enabled;
-                // Turn on, then test — one flow, same promise the chat
-                // combo's inline setup makes (design.md § Provider stance).
-                void toggleEnabled(c.id).then(() => {
-                  if (turningOn) void probe(c.id);
-                });
-              }}
-            >
-              {c.enabled ? "Hold back" : "Put in service"}
-            </Btn>
+          <div className="flex flex-wrap items-center gap-2">
+            {step && (
+              <Btn primary onClick={runStep} disabled={probing}>
+                {step.kind === "retest" && <Activity size={12} strokeWidth={1.7} aria-hidden />}
+                {step.kind === "retest" && probing ? "Testing…" : step.label}
+              </Btn>
+            )}
+            {(!step || step.kind === "model") && (
+              <Btn onClick={() => void test()} disabled={probing}>
+                <Activity size={12} strokeWidth={1.7} aria-hidden />
+                {probing ? "Testing…" : "Test"}
+              </Btn>
+            )}
+            {c.enabled && <Btn onClick={() => void toggleEnabled(c.id)}>Turn off</Btn>}
           </div>
-        </div>
-
-        {/* The three-axis strip. Four fixed columns in a recessed band, so two
-            connections are compared by scanning one column rather than
-            re-reading a paragraph. The band is inset rather than flat because
-            it is a readout, not prose — the same move the status bar makes. */}
-        <div className="-mx-5 mt-4 flex border-y border-line-soft bg-sub-200 px-5 py-2.5 [&>*:first-child]:border-l-0 [&>*:first-child]:pl-0">
-          <Stamp
-            kicker="runs on"
-            value={RESIDENCE_LABEL[c.residence]}
-            mark={<ResidenceMark residence={c.residence} />}
-            note={
-              c.residence === "local"
-                ? "the prompt never leaves"
-                : `${spec.vendor} infrastructure`
-            }
-          />
-          <Stamp
-            kicker="answers to"
-            value={spec.capabilities.map((k) => CAPABILITY_LABEL[k]).join(" · ")}
-            tone={spec.capabilities.includes("chat") ? "ink" : "warn"}
-            note={
-              spec.capabilities.includes("chat")
-                ? "LLM nodes may target it"
-                : "LLM nodes may not target it"
-            }
-          />
-          <Stamp
-            kicker="billed as"
-            value={BILLING_LABEL[spec.billing]}
-            tone={c.health === "degraded" ? "warn" : "ink"}
-            note={c.secret ? "Credential on file for this connection" : "No credential attached yet"}
-          />
-          <Stamp
-            kicker="reachability"
-            value={median !== null ? `${median} ms median` : "never reached"}
-            mark={<ProbeTrace probes={c.probes} health={c.health} height={11} />}
-            tone={c.health === "fault" ? "fault" : "ink"}
-            note={
-              c.probes.length
-                ? `${okProbes.length} of ${c.probes.length} probes answered`
-                : "not yet tested"
-            }
-          />
-          <Stamp kicker="spent" value={spend.value} tone={spend.tone} note={spend.note} />
         </div>
       </header>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="max-w-[860px] px-5 pb-10">
-          {/* A not-ready connection leads with the one action that makes it
-              ready — paste a key or flip the switch, then test, one flow —
-              before any caveat or summary prose. Once it's ready, the same
-              block moves below the prose; nobody needs "how to connect"
-              instructions for a connection they already use every day. */}
-          {!ready && (
-            <CredentialSeal
-              connection={c}
-              spec={spec}
-              onAttach={(v) => attachSecret(c.id, v)}
-              onRevoke={() => revokeSecret(c.id)}
+        <div className="max-w-[880px] px-4 pb-10 [container-type:inline-size] sm:px-6">
+          {/* A not-ready connection leads with the block that makes it ready;
+              once it is ready, the same block moves below the spec sheet —
+              nobody needs connect instructions for a provider they use daily. */}
+          {!ready && seal}
+
+          <dl className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(100%,8.5rem),1fr))] gap-x-5 gap-y-3">
+            <Fact
+              term="Runs on"
+              value={RESIDENCE_LABEL[c.residence]}
+              mark={<ResidenceMark residence={c.residence} />}
+              note={c.residence === "local" ? "the prompt never leaves" : `${spec.vendor} infrastructure`}
             />
-          )}
+            <Fact
+              term="Answers to"
+              value={spec.capabilities.map((k) => CAPABILITY_LABEL[k]).join(" · ")}
+              tone={spec.capabilities.includes("chat") ? "ink" : "warn"}
+              note={spec.capabilities.includes("chat") ? "LLM nodes may target it" : "LLM nodes may not target it"}
+            />
+            <Fact
+              term="Billed as"
+              value={BILLING_LABEL[spec.billing]}
+              tone={readiness.tone === "attention" ? "warn" : "ink"}
+              note={
+                spec.credential.kind === "api-key"
+                  ? c.secret
+                    ? "key on file"
+                    : "no key yet"
+                  : spec.credential.kind === "cli"
+                    ? "your CLI login"
+                    : "no credential needed"
+              }
+            />
+            <Fact
+              term="Reachability"
+              value={median !== null ? `${median} ms median` : "never reached"}
+              mark={<ProbeTrace probes={c.probes} tone={readiness.tone} />}
+              tone={readiness.state === "fault" ? "fault" : "ink"}
+              note={
+                c.probes.length ? `${okProbes.length} of ${c.probes.length} probes answered` : "not yet tested"
+              }
+            />
+            <Fact term="Spent" value={spend.value} tone={spend.tone} note={spend.note} />
+          </dl>
 
           {spec.caveat && (
-            <div
-              className="mt-4 flex gap-2.5 rounded-control bg-sub-200 py-2.5 pl-2.5 pr-3"
-              style={{ boxShadow: "inset 2px 0 0 0 var(--warn)" }}
-            >
-              <Info size={13} strokeWidth={1.8} className="mt-[2px] flex-none text-warn" />
-              <p className="t-body max-w-[74ch] text-ink-dim">{spec.caveat}</p>
+            <div className="mt-5 flex gap-2.5 rounded-control border-l-2 border-warn bg-sub-200 py-2.5 pl-2.5 pr-3">
+              <Info size={13} strokeWidth={1.8} className="mt-[2px] flex-none text-warn" aria-hidden />
+              <p className="t-body max-w-[70ch] text-ink-dim">{spec.caveat}</p>
             </div>
           )}
 
-          <p className="t-body mt-4 max-w-[74ch] text-ink-mute">{spec.summary}</p>
+          <p className="t-body mt-4 max-w-[70ch] text-ink-mute">{spec.summary}</p>
 
-          {ready && (
-            <CredentialSeal
-              connection={c}
-              spec={spec}
-              onAttach={(v) => attachSecret(c.id, v)}
-              onRevoke={() => revokeSecret(c.id)}
-            />
-          )}
+          {ready && <div className="mt-4">{seal}</div>}
 
-          {/* Endpoint sits below the credential, not above it: on a connection
-              that needs setup the key is the only thing standing between the
-              user and a working provider, and the endpoint is nearly always
-              already correct. */}
-          <Block
-            title="Endpoint"
-            chip={spec.endpoint.editable ? undefined : <Chip>fixed by vendor</Chip>}
-          >
-            <div className="flex items-center gap-2">
+          {/* Endpoint sits below the credential: on a connection that needs
+              setup the key is the only thing standing between the user and a
+              working provider, and the endpoint is nearly always correct. */}
+          <Block title="Endpoint" chip={spec.endpoint.editable ? undefined : <Chip>fixed by vendor</Chip>}>
+            <div className="flex flex-wrap items-center gap-2">
               <input
-                value={c.endpoint}
+                aria-label={`${c.label} endpoint`}
+                value={endpointValue}
                 readOnly={!spec.endpoint.editable}
-                onChange={(e) => setEndpoint(c.id, e.target.value)}
+                onChange={(e) => {
+                  setDraft({ id: c.id, value: e.target.value });
+                  setEndpointSave(null);
+                }}
+                onBlur={() => void commitEndpoint()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void commitEndpoint();
+                  }
+                }}
                 spellCheck={false}
                 className={[
-                  "oh-focus-inner t-meta h-[27px] min-w-0 flex-1 rounded-control border border-line-soft bg-sub-200 px-2 outline-none",
-                  spec.endpoint.editable
-                    ? "text-ink focus:border-signal-deep"
-                    : "cursor-default text-ink-mute",
+                  "oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_12rem] rounded-control border border-line-soft bg-sub-200 px-2 outline-none",
+                  spec.endpoint.editable ? "text-ink focus:border-signal-deep" : "cursor-default text-ink-mute",
                 ].join(" ")}
               />
               <a
                 href={spec.docs}
                 target="_blank"
                 rel="noreferrer"
-                className="t-body inline-flex h-[27px] flex-none items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2.5 text-ink-mute transition-colors hover:bg-sub-300 hover:text-ink"
+                className="t-body inline-flex h-8 flex-none items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2.5 text-ink-mute transition-colors hover:bg-sub-300 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
               >
-                Docs
-                <ExternalLink size={11} strokeWidth={1.7} />
+                {spec.vendor} docs
+                <ExternalLink size={11} strokeWidth={1.7} aria-hidden />
               </a>
             </div>
+            {endpointStatus === "saving" && <p role="status" className="t-meta mt-1.5 text-ink-dim">Saving endpoint…</p>}
+            {endpointStatus === "saved" && <p role="status" className="t-meta mt-1.5 text-signal">Endpoint saved.</p>}
+            {endpointStatus === "failed" && (
+              <p role="alert" className="t-meta mt-1.5 text-fault">
+                Couldn&apos;t save the endpoint, so tests and runs still use {c.endpoint || "the previous one"}. Check the app is running and try again.
+              </p>
+            )}
           </Block>
 
           <Block
             title="Usage"
-            chip={usage && usage.tokensTotal > 0 ? <Chip>{usage.tokensTotal.toLocaleString()} tokens</Chip> : undefined}
             lede="Recorded usage for this connection. Measured and estimated tokens are not separated in this summary; costs are estimates, not invoices."
           >
             {!usage || usage.tokensTotal <= 0 ? (
               <p className="t-body text-ink-faint">No usage recorded on this connection yet.</p>
             ) : (
-              <dl className="grid grid-cols-[128px_1fr] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
-                <div className="contents">
-                  <dt className="t-body text-ink-faint">tokens</dt>
-                  <dd className="t-meta text-ink-dim">{usage.tokensTotal.toLocaleString()}</dd>
-                </div>
-                <div className="contents">
-                  <dt className="t-body text-ink-faint">cost</dt>
-                  <dd className="t-meta text-ink-dim">{spend.value}</dd>
-                </div>
+              <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
+                <dt className="t-body text-ink-faint">Tokens</dt>
+                <dd className="t-meta text-ink-dim">{usage.tokensTotal.toLocaleString()}</dd>
                 {usage.unpricedTokens > 0 && c.residence !== "local" && (
-                  <div className="contents">
-                    <dt className="t-body text-ink-faint">unpriced</dt>
-                    <dd className="t-meta" style={{ color: "var(--warn)" }}>
-                      {usage.unpricedTokens.toLocaleString()} tokens billed at an unknown rate — not
-                      included above, so this total may understate real spend
+                  <>
+                    <dt className="t-body text-ink-faint">Unpriced</dt>
+                    <dd className="t-meta text-warn">
+                      {usage.unpricedTokens.toLocaleString()} tokens billed at an unknown rate — not included
+                      in the spend above, so it may understate real spend
                     </dd>
-                  </div>
+                  </>
                 )}
               </dl>
             )}
           </Block>
 
           {c.facts.length > 0 && (
-            <Block
-              title="Account"
-              lede="Read back from the vendor on the last successful probe. Not stored, not cached."
-            >
-              <dl className="grid grid-cols-[128px_1fr] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
+            <Block title="Account" lede="Read back from the vendor on the last successful probe. Not stored, not cached.">
+              <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
                 {c.facts.map((f) => (
                   <div key={f.k} className="contents">
                     <dt className="t-body text-ink-faint">{f.k}</dt>
                     <dd
-                      className="t-meta truncate"
-                      style={{
-                        color:
-                          f.tone === "warn"
-                            ? "var(--warn)"
-                            : f.tone === "fault"
-                              ? "var(--fault)"
-                              : f.tone === "signal"
-                                ? "var(--signal)"
-                                : "var(--ink-dim)",
-                      }}
+                      className={[
+                        "t-meta [overflow-wrap:anywhere]",
+                        f.tone === "warn"
+                          ? "text-warn"
+                          : f.tone === "fault"
+                            ? "text-fault"
+                            : f.tone === "signal"
+                              ? "text-signal"
+                              : "text-ink-dim",
+                      ].join(" ")}
                     >
                       {f.v}
                     </dd>

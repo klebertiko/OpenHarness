@@ -22,7 +22,7 @@ const ok = (over = {}) => ({ summary: "Done.", ops: [], source: "model" as const
 const conn = (over: Partial<Connection>): Connection =>
   ({
     id: "c1", provider: "anthropic", label: "Claude", residence: "cloud", endpoint: "", secret: null, health: "live",
-    detail: "", probes: [], facts: [], models: [], route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "", ...over,
+    detail: "", probes: [], facts: [], models: [], defaultModel: "", route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "", ...over,
   }) as Connection;
 
 const initial = { providers: useProviderStore.getState(), chat: useChatProviderStore.getState(), setup: useChatSetupRequestStore.getState() };
@@ -62,7 +62,7 @@ describe("CopilotPanel with a ready provider", () => {
   });
 
   it("uses local mode for an on-device connection", async () => {
-    useProviderStore.setState({ connections: [conn({ id: "ol", provider: "ollama", residence: "local", label: "Ollama" })] });
+    useProviderStore.setState({ connections: [conn({ id: "ol", provider: "ollama", residence: "local", label: "Ollama", endpoint: "http://127.0.0.1:11434/v1", defaultModel: "llama3" })] });
     mockPlan.mockResolvedValue(ok());
     const user = userEvent.setup();
     renderPanel();

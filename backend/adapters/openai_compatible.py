@@ -11,6 +11,12 @@ DEFAULT_ENDPOINTS = {
     "lmstudio": "http://host.docker.internal:1234/v1",
 }
 
+# An endpoint is untrusted input: bound what a `GET /models` probe will read
+# and what it will hand back to the UI.
+MAX_PROBE_BODY_BYTES = 2 * 1024 * 1024
+MAX_PROBE_MODELS = 2000
+MAX_MODEL_ID_LEN = 200
+
 
 class OpenAICompatibleAdapter(AgentAdapter):
     def __init__(self, *, transport: httpx.BaseTransport | None = None) -> None:
@@ -79,7 +85,20 @@ class OpenAICompatibleAdapter(AgentAdapter):
         started = time.monotonic()
         try:
             async with httpx.AsyncClient(timeout=10, transport=self._transport) as client:
-                resp = await client.get(f"{endpoint}/models", headers=headers)
+                async with client.stream("GET", f"{endpoint}/models", headers=headers) as resp:
+                    status_code = resp.status_code
+                    body: bytes | None = b""
+                    if status_code < 400:
+                        chunks: list[bytes] = []
+                        size = 0
+                        async for chunk in resp.aiter_bytes():
+                            size += len(chunk)
+                            if size > MAX_PROBE_BODY_BYTES:
+                                body = None
+                                break
+                            chunks.append(chunk)
+                        if body is not None:
+                            body = b"".join(chunks)
         except httpx.ConnectError:
             return ProbeResult(ok=False, health="fault", detail=f"Could not reach {endpoint}.")
         except httpx.TimeoutException:
@@ -88,24 +107,42 @@ class OpenAICompatibleAdapter(AgentAdapter):
             return ProbeResult(ok=False, health="fault", detail=str(exc))
         latency_ms = int((time.monotonic() - started) * 1000)
 
-        if resp.status_code == 401:
+        if status_code == 401:
             return ProbeResult(
                 ok=False, health="fault", latency_ms=latency_ms,
                 detail="401 unauthorized — the key was rejected or has been revoked.",
             )
-        if resp.status_code >= 400:
+        if status_code >= 400:
             return ProbeResult(
                 ok=False, health="fault", latency_ms=latency_ms,
-                detail=f"HTTP {resp.status_code} from {endpoint}.",
+                detail=f"HTTP {status_code} from {endpoint}.",
+            )
+        if body is None:
+            return ProbeResult(
+                ok=False, health="fault", latency_ms=latency_ms,
+                detail=f"{endpoint} sent a model list larger than 2 MB.",
             )
 
-        count = None
         try:
-            count = len(resp.json().get("data", []))
+            data = json.loads(body).get("data", [])
         except (ValueError, AttributeError):
-            pass
-        detail = f"{count} models available." if count is not None else "Reachable."
-        return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail=detail)
+            # A 2xx whose body is not the OpenAI list shape: the endpoint is up
+            # but exposes no usable model list — report that, not a fault.
+            data = None
+        if not isinstance(data, list):
+            return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail="Reachable.", models=[])
+
+        # Ids only — never echo the rest of the upstream body.
+        ids = sorted({
+            m["id"] for m in data
+            if isinstance(m, dict) and isinstance(m.get("id"), str) and len(m["id"]) <= MAX_MODEL_ID_LEN
+        })
+        models = ids[:MAX_PROBE_MODELS]
+        if len(ids) > len(models):
+            detail = f"Showing the first {len(models)} of {len(ids)} models."
+        else:
+            detail = f"{len(models)} models available."
+        return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail=detail, models=models)
 
 
     async def invoke(self, prompt: str, config: AdapterConfig) -> AdapterResult:

@@ -15,7 +15,7 @@ function connection(overrides: Partial<Connection>): Connection {
   return {
     id: "a", provider: "anthropic", label: "A", residence: "cloud", endpoint: "",
     secret: null, health: "live", detail: "", probes: [], facts: [], models: [],
-    route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "",
+    defaultModel: "", enabled: true, lastProbe: "",
     ...overrides,
   };
 }
@@ -55,4 +55,22 @@ it("shows only the group that has rows — an all-ready install has no empty 'Ne
   render(<ProvidersList />);
   expect(screen.getByText("Ready")).toBeTruthy();
   expect(screen.queryByText("Needs setup")).toBeNull();
+});
+
+it("tells each needs-setup row what would fix it, in the composer's words", () => {
+  useProviderStore.setState({
+    connections: [
+      connection({ id: "or", provider: "openrouter", label: "OpenRouter", enabled: false, health: "setup", secret: null }),
+      connection({ id: "ol", provider: "ollama", label: "Ollama local", residence: "local", enabled: false, health: "setup" }),
+      connection({ id: "an", provider: "anthropic", label: "Anthropic", enabled: true, health: "live" }),
+    ],
+    selectedId: "or",
+  });
+  render(<ProvidersList />);
+  const needsSetup = screen.getByText("Needs setup").closest("section")!;
+  expect(within(needsSetup).getByText(/add key/)).toBeTruthy();
+  expect(within(needsSetup).getByText(/turn on/)).toBeTruthy();
+  const ready = screen.getByText("Ready").closest("section")!;
+  expect(within(ready).queryByText(/add key|turn on|retest/)).toBeNull();
+  expect(within(ready).getByText("runs in the vendor cloud")).toBeTruthy();
 });

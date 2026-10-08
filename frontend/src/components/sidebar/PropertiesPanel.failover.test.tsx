@@ -6,6 +6,12 @@ import { useChatProviderStore } from "@/store/chatProviderStore";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import { PropertiesPanel } from "./PropertiesPanel";
 
+/** Pick from the shared Combobox (providers-recovery F9 — no native selects). */
+async function pick(user: ReturnType<typeof userEvent.setup>, trigger: RegExp, option: RegExp) {
+  await user.click(screen.getByRole("button", { name: trigger }));
+  await user.click(screen.getByRole("option", { name: option }));
+}
+
 /**
  * PROVIDER-FAILOVER story, AC#5 (Studio inspector half): the author-facing
  * counterpart to backend/engine.py's `providerIds[1:]` walk. The primary pin
@@ -55,14 +61,14 @@ it("has nothing to add a fallback to until a primary pin is chosen", () => {
     selectedNodeId: "author",
   });
   render(<PropertiesPanel />);
-  expect(screen.queryByRole("combobox", { name: /add fallback connection/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /add fallback connection/i })).toBeNull();
 });
 
 it("adds a fallback connection after the primary pin, persisted into providerIds[1:]", async () => {
   const user = userEvent.setup();
   render(<PropertiesPanel />);
 
-  await user.selectOptions(screen.getByRole("combobox", { name: /add fallback connection/i }), "ol");
+  await pick(user, /add fallback connection/i, /^Ollama local/);
   expect(providerIds()).toEqual([["an", "ol"]]);
 });
 
@@ -70,12 +76,13 @@ it("adds a second fallback in the order chosen, and never offers a connection al
   const user = userEvent.setup();
   render(<PropertiesPanel />);
 
-  await user.selectOptions(screen.getByRole("combobox", { name: /add fallback connection/i }), "ol");
-  const addSelect = screen.getByRole("combobox", { name: /add fallback connection/i }) as HTMLSelectElement;
-  expect(within(addSelect).queryByRole("option", { name: "Anthropic" })).toBeNull();
-  expect(within(addSelect).queryByRole("option", { name: "Ollama local" })).toBeNull();
+  await pick(user, /add fallback connection/i, /^Ollama local/);
+  await user.click(screen.getByRole("button", { name: /add fallback connection/i }));
+  const list = screen.getByRole("listbox", { name: /add fallback connection/i });
+  expect(within(list).queryByRole("option", { name: /^Anthropic/ })).toBeNull();
+  expect(within(list).queryByRole("option", { name: /^Ollama local/ })).toBeNull();
 
-  await user.selectOptions(addSelect, "oa");
+  await user.click(within(list).getByRole("option", { name: /^OpenAI/ }));
   expect(providerIds()).toEqual([["an", "ol", "oa"]]);
 });
 
@@ -106,7 +113,7 @@ it("clearing the primary pin drops the whole fallback chain, not just the primar
   const user = userEvent.setup();
   render(<PropertiesPanel />);
 
-  await user.selectOptions(screen.getByRole("combobox", { name: "Connection pin" }), "");
+  await pick(user, /^Connection pin:/, /^Use chat default/);
   expect(providerIds()).toEqual([[]]);
-  expect(screen.queryByRole("combobox", { name: /add fallback connection/i })).toBeNull();
+  expect(screen.queryByRole("button", { name: /add fallback connection/i })).toBeNull();
 });

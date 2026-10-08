@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OpenHarness">
+  <!-- Same brand recipe as NightwolfRGB: 64² tile, rx=12 plate, flat mark, one accent. -->
+  <rect width="64" height="64" rx="12" fill="#141820"/>
+  <!-- Orthogonal harness trace (input ’ junction ’ output) -->
+  <path
+    fill="none"
+    stroke="#c5ced9"
+    stroke-width="3"
+    stroke-linecap="square"
+    stroke-linejoin="miter"
+    d="M16 18 H32 V46 H48"
+  />
+  <!-- Input terminal  signal cyan -->
+  <rect x="11" y="13" width="10" height="10" rx="1" fill="#5eead4"/>
+  <!-- Junction  void fill, ink stroke -->
+  <rect x="27" y="27" width="10" height="10" rx="1" fill="#141820" stroke="#9aa6b5" stroke-width="2"/>
+  <!-- Output terminal -->
+  <rect x="43" y="41" width="10" height="10" rx="1" fill="#9aa6b5"/>
+</svg>

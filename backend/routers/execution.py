@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 import uuid
 
 import anyio
@@ -143,13 +144,20 @@ async def _enforce_node_budget(model: str | None, residence: str | None) -> None
         )
 
 
-def _reply_only_events(run_id: str, mode: str, routed) -> list[dict]:
+def _reply_only_events(run_id: str, mode: str, routed, elapsed_ms: int = 0) -> list[dict]:
     """The full SSE event sequence for a routed-direct reply — same shape a
     real one-node harness run would produce (run_start/node_start/
     node_phase/node_stream/node_done/harness_done), so the frontend needs no
     special case: `Transcript`/`HistoricalRunDetail` render this exactly
     like any other run. No second adapter call — `routed.reply` already IS
-    the answer (triage.route_message's whole point)."""
+    the answer (triage.route_message's whole point).
+
+    The durations are the real ones: the node's `latency_ms` is the timed
+    adapter call (`routed.latency_ms`) and `elapsed_ms` is the whole routing
+    step as the handler timed it. A literal 0 here used to reach the UI as
+    "0ms" / "— elapsed" for every plain chat answer; an unmeasured value is
+    now simply 0 only when nothing was timed, which the UI reads as "not
+    captured" rather than as a measurement."""
     node_view = {
         "node_id": "reply",
         "type": "agent",
@@ -170,12 +178,15 @@ def _reply_only_events(run_id: str, mode: str, routed) -> list[dict]:
         {
             "event": "node_done",
             "data": {"node_id": "reply", "output": routed.reply, "tokens": routed.tokens,
-                     "latency_ms": 0, "connection_id": routed.connection_id,
+                     "tokens_estimated": routed.tokens_estimated,
+                     "latency_ms": routed.latency_ms, "connection_id": routed.connection_id,
                      "provider_verified": bool(routed.connection_id)},
         },
         {
             "event": "harness_done",
-            "data": {"status": "complete", "total_tokens": routed.tokens, "elapsed_ms": 0, "nodes_run": 1},
+            "data": {"status": "complete", "total_tokens": routed.tokens,
+                     "tokens_estimated": routed.tokens_estimated,
+                     "elapsed_ms": max(elapsed_ms, routed.latency_ms), "nodes_run": 1},
         },
     ]
 
@@ -326,7 +337,9 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
     # contains the final answer — see triage.route_message's module
     # docstring for why this isn't a separate classify-then-reply round trip.
     routed = None
+    routed_elapsed_ms = 0
     if body.mode in ("live", "local") and body.instruction:
+        routing_started = time.perf_counter()
         try:
             routed = await route_message(
                 body.instruction,
@@ -346,6 +359,7 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
             )
         except BudgetExceededError as exc:
             raise HTTPException(402, str(exc)) from exc
+        routed_elapsed_ms = max(1, round((time.perf_counter() - routing_started) * 1000))
         if not routed.engage_harness:
             name = "Nilo reply (no harness)"
 
@@ -381,7 +395,7 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
                 events.append(route_evt)
                 yield _sse(route_evt["event"], route_evt["data"])
             if routed is not None and not routed.engage_harness:
-                for evt in _reply_only_events(run_id, body.mode, routed):
+                for evt in _reply_only_events(run_id, body.mode, routed, routed_elapsed_ms):
                     events.append(evt)
                     if evt["event"] == "harness_done":
                         status = evt["data"]["status"]
@@ -480,7 +494,6 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
     same SSE dialect the agent-run panel already understands (including stop
     via /execute/{run_id}/control).
     """
-    import time
 
     prompt = (body.instruction or "").strip()
     try:
@@ -556,6 +569,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
         status = STATUS_COMPLETE
         total_tokens = 0
         node_tokens = 0
+        tokens_estimated = False
         collected: list[str] = []
         nodes_run = 0
         started = time.time()
@@ -641,8 +655,12 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                             node_tokens = int(ev.get("tokens", 0))
 
                     output = "".join(collected)
+                    # Provenance travels with the count: a usage event means the
+                    # provider reported it; the length-based fallback is an estimate.
+                    tokens_estimated = False
                     if not node_tokens and (not broker or broker.provider_called):
                         node_tokens = max(1, len(output) // 4)
+                        tokens_estimated = True
                     total_tokens = node_tokens
                     nodes_run = 1 if not control.stop.is_set() else 0
                     latency = int((time.time() - node_start) * 1000)
@@ -655,6 +673,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                                 "node_id": node_id,
                                 "output": output,
                                 "tokens": node_tokens,
+                                "tokens_estimated": tokens_estimated,
                                 "latency_ms": latency,
                             },
                         )
@@ -666,6 +685,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                                 "node_id": node_id,
                                 "output": output,
                                 "tokens": node_tokens,
+                                "tokens_estimated": tokens_estimated,
                                 "latency_ms": latency,
                                 "connection_id": connection_id,
                                 "provider_verified": connection_id is not None and (not broker or broker.provider_called),
@@ -685,6 +705,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                 {
                     "status": status,
                     "total_tokens": total_tokens,
+                    "tokens_estimated": tokens_estimated,
                     "elapsed_ms": int((time.time() - started) * 1000),
                     "nodes_run": nodes_run,
                 },
@@ -693,9 +714,11 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
             control.stop.set()
             status = STATUS_STOPPED
             total_tokens = node_tokens or len("".join(collected)) // 4
+            tokens_estimated = not node_tokens
             # There is no client left to receive these terminal replay events.
             emit("run_stopped", {"at_node": node_id})
             emit("harness_done", {"status": status, "total_tokens": total_tokens,
+                                  "tokens_estimated": tokens_estimated,
                                   "elapsed_ms": int((time.time() - started) * 1000), "nodes_run": 0})
             raise
         except Exception as exc:  # noqa: BLE001

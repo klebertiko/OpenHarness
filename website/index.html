@@ -50,11 +50,11 @@
   </defs></svg>
   <header class="site-header">
     <a class="brand" href="#" aria-label="OpenHarness, início"><img src="./assets/mark.svg" width="38" height="22" alt="">OpenHarness<span class="brand-dot">.</span></a>
-    <nav aria-label="Navegação principal"><a href="#produto">Produto</a><a href="#modelo">O modelo</a><a href="#manifesto">Manifesto</a></nav>
+    <nav aria-label="Navegação principal"><a href="#produto">Produto</a><a href="#modelo">O modelo</a><a class="manifesto-nav-link" href="./manifesto.html"><span aria-hidden="true"></span>Manifesto</a></nav>
     <div class="header-actions"><a class="header-link" href="#comece">Explore o projeto <svg class="icon" aria-hidden="true"><use href="#external"/></svg></a>
     <a class="language-switch" href="./en/index.html" lang="en-US" hreflang="en-US" aria-label="Read in American English" title="English (US)">EN</a><button class="theme-toggle" type="button" aria-label="Ativar tema escuro" title="Ativar tema escuro" hidden><svg class="icon moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.9 13A9 9 0 0 1 11 3.1 9 9 0 1 0 20.9 13Z"/></svg><svg class="icon sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div>
     <button class="menu-toggle" aria-expanded="false" aria-controls="mobile-nav">Menu <span aria-hidden="true">+</span></button>
-    <nav id="mobile-nav" class="mobile-nav" aria-label="Navegação móvel" hidden><a href="#produto">Produto</a><a href="#modelo">O modelo</a><a href="#manifesto">Manifesto</a><a href="#comece">Explore o projeto</a></nav>
+    <nav id="mobile-nav" class="mobile-nav" aria-label="Navegação móvel" hidden><a href="#produto">Produto</a><a href="#modelo">O modelo</a><a class="manifesto-nav-link" href="./manifesto.html"><span aria-hidden="true"></span>Manifesto</a><a href="#comece">Explore o projeto</a></nav>
   </header>
   <main id="conteudo">
     <section class="hero wrap" aria-labelledby="hero-title">
@@ -62,7 +62,7 @@
         <p class="release"><span class="release-mark" aria-hidden="true"></span>Um novo espaço para trabalhar com agentes</p>
         <h1 id="hero-title">Agentes livres.<br> Método seu.</h1>
         <p class="hero-description">A inteligência muda. Seu jeito de trabalhar pode continuar sendo seu. Converse com agentes, desenhe seus harnesses e dê forma ao que vem depois.</p>
-        <div class="actions"><a class="button primary" href="#produto">Conheça o OpenHarness <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a><a class="text-link" href="#manifesto">Leia o manifesto <span aria-hidden="true">↗</span></a></div>
+        <div class="actions"><a class="button primary" href="#produto">Conheça o OpenHarness <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a><a class="button manifesto-cta" href="./manifesto.html">Leia o manifesto <span aria-hidden="true">↗</span></a></div>
         <p class="hero-note">Desktop em desenvolvimento <span aria-hidden="true">/</span> Modelo aberto por princípio</p>
       </div>
       <div class="harness-map" aria-label="Diagrama interativo de um harness">
@@ -106,7 +106,7 @@
     </section>
 
     <section id="manifesto" class="manifesto-section dark" aria-labelledby="manifesto-title"><div class="wrap manifesto-layout">
-      <div class="manifesto-statement"><p class="overline">Manifesto OpenHarness</p><h2 id="manifesto-title">O futuro dos agentes merece um método <span class="underlined">aberto.</span></h2><p>Estamos construindo o OpenHarness a partir de uma convicção: a forma de trabalhar com inteligência artificial deve poder ser compreendida, discutida e levada adiante por quem a usa.</p><a class="text-link" href="./manifesto.html">Leia o manifesto completo <svg class="icon" aria-hidden="true"><use href="#external"/></svg></a><div class="manifesto-sign"><img src="./assets/nilo.svg" width="48" height="39" alt=""><span>Uma proposta em construção.<br> Um convite para construirmos juntos.</span></div></div>
+      <div class="manifesto-statement"><p class="overline">Manifesto OpenHarness</p><h2 id="manifesto-title">O futuro dos agentes merece um método <span class="underlined">aberto.</span></h2><p>Estamos construindo o OpenHarness a partir de uma convicção: a forma de trabalhar com inteligência artificial deve poder ser compreendida, discutida e levada adiante por quem a usa.</p><a class="button manifesto-section-cta" href="./manifesto.html">Leia o manifesto completo <svg class="icon" aria-hidden="true"><use href="#external"/></svg></a><div class="manifesto-sign"><img src="./assets/nilo.svg" width="48" height="39" alt=""><span>Uma proposta em construção.<br> Um convite para construirmos juntos.</span></div></div>
       <ol class="principles"><li><span class="principle-number">01</span><div><h3>O método pertence a quem trabalha.</h3><p>Seu conhecimento merece existir além da ferramenta que você escolheu hoje.</p></div></li><li><span class="principle-number">02</span><div><h3>O que orienta deve estar à vista.</h3><p>Papéis, instruções e critérios precisam ser legíveis, revisáveis e discutíveis.</p></div></li><li><span class="principle-number">03</span><div><h3>Conexões abertas ampliam escolhas.</h3><p>Provedores e ferramentas podem mudar. A intenção do trabalho deve continuar compreensível.</p></div></li><li><span class="principle-number">04</span><div><h3>Autonomia pede limites claros.</h3><p>Permissões explícitas, checkpoints e autoridade humana fazem parte do método.</p></div></li><li><span class="principle-number">05</span><div><h3>Qualidade precisa de evidência.</h3><p>Um resultado deve poder ser inspecionado. Confiança se constrói com critérios e registros.</p></div></li><li><span class="principle-number">06</span><div><h3>Um modelo aberto evolui em público.</h3><p>Exemplos, críticas e implementações diferentes ajudam a melhorar o que todos podem usar.</p></div></li></ol>
       <p class="manifesto-context">Estes são princípios que orientam o projeto, não garantias de funcionalidades já concluídas.</p>
     </div></section>
@@ -140,7 +140,7 @@
 
     <section id="comece" class="start-section wrap" aria-labelledby="start-title"><div><p class="overline">Comece pelo que é seu</p><h2 id="start-title">Abra o modelo.<br> Imagine o próximo harness.</h2></div><div class="start-actions"><a class="button primary" href="./model.html">Explore o Open Harness Model <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a><a class="text-link" href="./examples/hello.ohm" download="hello.ohm">Baixar um exemplo .ohm <svg class="icon" aria-hidden="true"><use href="#download"/></svg></a><p>O desktop está em desenvolvimento.<br> Por enquanto, explore o modelo e a proposta.</p></div></section>
   </main>
-  <footer class="site-footer wrap"><a class="brand" href="#"><img src="./assets/mark.svg" width="32" height="18" alt="">OpenHarness</a><span>O conhecimento fica. As possibilidades se abrem.</span><a href="./manifesto.html">Manifesto <span aria-hidden="true">↗</span></a></footer>
+  <footer class="site-footer wrap"><a class="brand" href="#"><img src="./assets/mark.svg" width="32" height="18" alt="">OpenHarness</a><span>O conhecimento fica. As possibilidades se abrem.</span><a class="manifesto-footer-link" href="./manifesto.html"><span aria-hidden="true"></span>Manifesto <span aria-hidden="true">↗</span></a></footer>
   <dialog id="screenshot-dialog" aria-labelledby="screenshot-title"><div class="dialog-head"><h2 id="screenshot-title">OpenHarness desktop</h2><button class="dialog-close" aria-label="Fechar captura ampliada">Fechar <span aria-hidden="true">×</span></button></div><img id="screenshot-full" alt=""><p>Captura real da versão em desenvolvimento, com estado de demonstração.</p></dialog>
 </body>
 </html>

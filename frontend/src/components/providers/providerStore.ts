@@ -52,11 +52,13 @@ export interface Connection {
   probes: Probe[];
   facts: AccountFact[];
   models: ModelInfo[];
-  /** Routed providers only: the ordered preference the harness sends. */
-  route: string[];
-  routeSort: "price" | "throughput" | "latency";
-  /** Which models a non-routed provider is allowed to serve. */
-  allowed: string[];
+  /** The model a run on this connection uses when its node pins none — the
+      sidecar's `defaultModel`, the one model setting a run actually reads
+      (backend/providers/resolution.py). Empty means "none chosen". */
+  defaultModel: string;
+  /** True once a probe replaced the catalog list with the ids the endpoint
+      itself serves; false/absent means `models` is the static catalog. */
+  modelsFromEndpoint?: boolean;
   enabled: boolean;
   lastProbe: string;
 }
@@ -101,9 +103,7 @@ const seed: Connection[] = [
       { id: "claude-fable-5-1", ctx: 200000, price: [1, 5] },
       { id: "claude-haiku-4-5", ctx: 200000, price: [0.8, 4] },
     ],
-    route: [],
-    routeSort: "price",
-    allowed: ["claude-opus-5", "claude-sonnet-5", "claude-fable-5-1"],
+    defaultModel: "",
     enabled: true,
     lastProbe: now,
   } as unknown as Connection,
@@ -127,9 +127,7 @@ const seed: Connection[] = [
       { id: "claude-opus-5", ctx: 200000 },
       { id: "gpt-5-6-sol", ctx: 400000 },
     ],
-    route: [],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: true,
     lastProbe: now,
   } as unknown as Connection,
@@ -158,9 +156,7 @@ const seed: Connection[] = [
       { k: "failed since", v: "8 consecutive probes", tone: "fault" },
     ],
     models: [],
-    route: [],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: true,
     lastProbe: now,
   } as unknown as Connection,
@@ -170,7 +166,7 @@ const seed: Connection[] = [
     provider: "ollama",
     label: "Ollama local",
     residence: "local",
-    endpoint: "http://127.0.0.1:11434",
+    endpoint: "http://127.0.0.1:11434/v1",
     secret: null,
     health: "live",
     detail: "Daemon answering. 5 models pulled, 41.2 GB on disk.",
@@ -187,9 +183,7 @@ const seed: Connection[] = [
       { id: "nomic-embed-text", ctx: 8192, size: "274 MB" },
       { id: "deepseek-r2:14b", ctx: 160000, size: "13.6 GB" },
     ],
-    route: [],
-    routeSort: "price",
-    allowed: ["qwen3.5:9b", "gpt-oss:20b", "deepseek-r2:14b"],
+    defaultModel: "",
     enabled: true,
     lastProbe: now,
   } as unknown as Connection,
@@ -206,9 +200,7 @@ const seed: Connection[] = [
     probes: [],
     facts: [],
     models: [],
-    route: [],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: false,
     lastProbe: "",
   } as unknown as Connection,
@@ -246,9 +238,7 @@ const seed: Connection[] = [
       { id: "mistralai/mistral-large-3", ctx: 128000, price: [2, 6], via: "Mistral" },
       { id: "x-ai/grok-4-6", ctx: 256000, price: [5, 15], via: "xAI" },
     ],
-    route: ["anthropic/claude-opus-5", "openai/gpt-5-6-sol", "deepseek/deepseek-v4"],
-    routeSort: "price",
-    allowed: [],
+    defaultModel: "",
     enabled: true,
     lastProbe: now,
   } as unknown as Connection,
@@ -259,6 +249,14 @@ function credentialDetail(c: Connection): string {
   if (cred.kind === "cli") return `Not connected. ${cred.where}`;
   if (cred.kind === "none") return "Not connected. Nothing to add — turn it on when ready.";
   return `Not connected. Add a key from ${cred.where}.`;
+}
+
+/** What the dossier header says about a connection right after hydrate. Only
+    the rows the sidecar reports as on get a new sentence; everything else
+    keeps the offline template's own wording. */
+function hydratedDetail(c: Connection, row: BackendConnectionRow): string {
+  if (!row.enabled) return c.detail;
+  return c.health === "live" ? c.detail : "Turned on. Not tested yet — press Test to verify it.";
 }
 
 /** Every status field neutralised to "nothing has happened yet". Vendor facts
@@ -284,6 +282,7 @@ type BackendConnectionRow = {
   endpoint: string;
   enabled: boolean;
   secretRef: string | null;
+  defaultModel?: string;
 };
 
 /** Create-if-missing so /probe and /secret never 404 on a connection this
@@ -300,6 +299,7 @@ async function ensureBackendRow(c: Connection): Promise<void> {
         residence: c.residence,
         endpoint: c.endpoint,
         enabled: false,
+        defaultModel: c.defaultModel,
       }),
     });
   } catch {
@@ -313,7 +313,33 @@ type ProbeResponse = {
   detail: string;
   latencyMs: number;
   facts: AccountFact[];
+  /** Ids the endpoint itself serves; absent/empty for CLI adapters. */
+  models?: string[];
 };
+
+/** Replace the catalog list with what the endpoint reported serving, keeping
+    the catalog's context/price facts for ids it already knows. No list (a CLI
+    adapter, or an empty answer) leaves the catalog — marked as such — alone. */
+function servedModels(c: Connection, ids: string[] | undefined): Pick<Connection, "models" | "modelsFromEndpoint"> {
+  if (!ids || ids.length === 0) return { models: c.models, modelsFromEndpoint: c.modelsFromEndpoint };
+  const known = new Map(c.models.map((m) => [m.id, m]));
+  return { models: ids.map((id) => known.get(id) ?? { id, ctx: 0 }), modelsFromEndpoint: true };
+}
+
+/** PUT a partial update to the sidecar's connection row; true when it took. */
+async function putConnection(c: Connection, body: Record<string, unknown>): Promise<boolean> {
+  await ensureBackendRow(c);
+  try {
+    const res = await fetch(apiUrl(`/providers/connections/${encodeURIComponent(c.id)}`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 /** The one real reachability check — no fixture, no fake delay. */
 async function runProbe(id: string, set: (partial: Partial<ProviderState>) => void, get: () => ProviderState) {
@@ -330,6 +356,7 @@ async function runProbe(id: string, set: (partial: Partial<ProviderState>) => vo
         health: body.health,
         detail: body.detail,
         facts: body.facts,
+        ...servedModels(c, body.models),
         probes: [...c.probes.slice(-11), { ms: body.latencyMs, ok: body.ok }],
         lastProbe: new Date().toISOString(),
       })),
@@ -422,14 +449,13 @@ interface ProviderState {
       — never a bad prompt, an HITL rejection, or a Stop. */
   reportRunOutcome: (id: string, outcome: { ok: true } | { ok: false; detail: string }) => void;
   attachSecret: (id: string, plaintext: string) => Promise<void>;
-  revokeSecret: (id: string) => Promise<void>;
-  setEndpoint: (id: string, endpoint: string) => void;
+  /** Deletes the key from the sidecar's SecretsStore; false when it could not. */
+  revokeSecret: (id: string) => Promise<boolean>;
+  /** Persist the endpoint the next probe/run uses; false (and unchanged) on refusal. */
+  saveEndpoint: (id: string, endpoint: string) => Promise<boolean>;
+  /** Persist the model a run uses when its node pins none; false (and unchanged) on refusal. */
+  setDefaultModel: (id: string, model: string) => Promise<boolean>;
   toggleEnabled: (id: string) => Promise<void>;
-  toggleAllowed: (id: string, model: string) => void;
-  setRouteSort: (id: string, s: Connection["routeSort"]) => void;
-  addToRoute: (id: string, model: string) => void;
-  removeFromRoute: (id: string, model: string) => void;
-  moveInRoute: (id: string, model: string, dir: -1 | 1) => void;
   bindToggle: (id: string) => void;
   bindMove: (id: string, dir: -1 | 1) => void;
 }
@@ -450,9 +476,13 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
   hydrate: async () => {
     if (get().hydrated) return;
     set({ hydrated: true }); // claim it before the await — one hydrate in flight, not one per mounted consumer
+    // The claim is only kept on success: a sidecar that is still booting (or a
+    // 5xx) must not leave every connection on the offline template for the
+    // whole session - release it so the next mounted consumer retries.
+    const release = () => set({ hydrated: false });
     try {
       const res = await fetch(apiUrl("/providers/connections"));
-      if (!res.ok) return;
+      if (!res.ok) return release();
       const body = (await res.json()) as { connections: BackendConnectionRow[] };
       const byId = new Map(body.connections.map((row) => [row.id, row]));
       set({
@@ -465,6 +495,10 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
             residence: row.residence,
             endpoint: row.endpoint,
             enabled: row.enabled,
+            defaultModel: row.defaultModel ?? "",
+            // The offline template's "Not connected. Add a key..." sentence
+            // would contradict a row the sidecar says is on.
+            detail: hydratedDetail(c, row),
             secret: row.secretRef
               ? {
                   service: row.secretRef,
@@ -481,6 +515,7 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     } catch {
       // Sidecar unreachable at mount — connections stay in the honest
       // "not connected" state from offlineTemplate() rather than lying live.
+      release();
     }
   },
 
@@ -536,11 +571,20 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     await runProbe(id, set, get);
   },
 
-  /** Clears the local reference. NOTE: there is no DELETE-just-the-secret
-      route yet — the key stays in the sidecar's
-      SecretsStore until the whole connection is deleted. Disabling here at
-      least stops it from being picked for a run. */
+  /** Removes the key where it actually lives — the sidecar's SecretsStore
+      (DELETE /providers/{id}/secret also switches the connection off). Only
+      after the sidecar confirms does the dossier stop showing the seal, so
+      "Credential removed" is never said about a key that is still stored. */
   revokeSecret: async (id) => {
+    let removed = false;
+    try {
+      const res = await fetch(apiUrl(`/providers/${encodeURIComponent(id)}/secret`), { method: "DELETE" });
+      // 404: the sidecar has no row (nothing stored there) — nothing left to remove.
+      removed = res.ok || res.status === 404;
+    } catch {
+      removed = false;
+    }
+    if (!removed) return false;
     await forgetSecret(`openharness/${id}`);
     set({
       connections: patch(get().connections, id, (c) => ({
@@ -553,20 +597,33 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
       })),
       binding: get().binding.filter((b) => b !== id),
     });
-    try {
-      await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: false }),
-      });
-    } catch {
-      // Best effort — resolve_node_provider still refuses a disabled
-      // connection locally the next time a graph tries to use it.
-    }
+    return true;
   },
 
-  setEndpoint: (id, endpoint) =>
-    set({ connections: patch(get().connections, id, (c) => ({ ...c, endpoint })) }),
+  saveEndpoint: async (id, endpoint) => {
+    const c = get().connections.find((x) => x.id === id);
+    if (!c) return false;
+    const value = endpoint.trim();
+    if (value === c.endpoint) return true;
+    const ok = await putConnection({ ...c, endpoint: value }, { endpoint: value });
+    if (ok) set({ connections: patch(get().connections, id, (x) => ({ ...x, endpoint: value })) });
+    return ok;
+  },
+
+  setDefaultModel: async (id, model) => {
+    const c = get().connections.find((x) => x.id === id);
+    if (!c) return false;
+    const value = model.trim();
+    const previous = c.defaultModel;
+    set({ connections: patch(get().connections, id, (x) => ({ ...x, defaultModel: value })) });
+    const ok = await putConnection(c, { defaultModel: value });
+    if (!ok) {
+      set({
+        connections: patch(get().connections, id, (x) => (x.defaultModel === value ? { ...x, defaultModel: previous } : x)),
+      });
+    }
+    return ok;
+  },
 
   toggleEnabled: async (id) => {
     const c = get().connections.find((x) => x.id === id);
@@ -574,56 +631,22 @@ export const useProviderStore = create<ProviderState>((set, get) => ({
     const enabled = !c.enabled;
     set({ connections: patch(get().connections, id, (x) => ({ ...x, enabled })) });
     await ensureBackendRow(c);
+    // Runs are gated by the sidecar's flag, not this optimistic one - if it
+    // refuses (or is unreachable) put the switch back so the list never shows
+    // a connection as on that a run would still treat as off.
+    const rollback = () =>
+      set({ connections: patch(get().connections, id, (x) => (x.enabled === enabled ? { ...x, enabled: c.enabled } : x)) });
     try {
-      await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
+      const res = await fetch(apiUrl(`/providers/connections/${encodeURIComponent(id)}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       });
+      if (!res.ok) rollback();
     } catch {
-      // Best effort — a probe or chat send will surface a stale toggle honestly.
+      rollback();
     }
   },
-
-  toggleAllowed: (id, model) =>
-    set({
-      connections: patch(get().connections, id, (c) => ({
-        ...c,
-        allowed: c.allowed.includes(model)
-          ? c.allowed.filter((m) => m !== model)
-          : [...c.allowed, model],
-      })),
-    }),
-
-  setRouteSort: (id, routeSort) =>
-    set({ connections: patch(get().connections, id, (c) => ({ ...c, routeSort })) }),
-
-  addToRoute: (id, model) =>
-    set({
-      connections: patch(get().connections, id, (c) =>
-        c.route.includes(model) ? c : { ...c, route: [...c.route, model] }
-      ),
-    }),
-
-  removeFromRoute: (id, model) =>
-    set({
-      connections: patch(get().connections, id, (c) => ({
-        ...c,
-        route: c.route.filter((m) => m !== model),
-      })),
-    }),
-
-  moveInRoute: (id, model, dir) =>
-    set({
-      connections: patch(get().connections, id, (c) => {
-        const i = c.route.indexOf(model);
-        const j = i + dir;
-        if (i < 0 || j < 0 || j >= c.route.length) return c;
-        const route = [...c.route];
-        [route[i], route[j]] = [route[j], route[i]];
-        return { ...c, route };
-      }),
-    }),
 
   bindToggle: (id) =>
     set({

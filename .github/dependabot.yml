@@ -43,6 +43,9 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Vite 8 swaps esbuild for rolldown/oxc; vitest.config.ts uses esbuild.jsx.
+      - dependency-name: vite
+        update-types: ["version-update:semver-major"]
     groups:
       frontend-npm:
         patterns: ["*"]

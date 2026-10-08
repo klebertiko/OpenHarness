@@ -182,3 +182,177 @@ def test_probe_returns_honest_not_implemented_for_an_adapter_without_one(client:
     assert body["ok"] is False
     assert body["health"] == "setup"
     assert "mystery-vendor" in body["detail"]
+
+
+def test_delete_secret_removes_it_from_the_store_and_disables_the_connection(client: TestClient) -> None:
+    # "Remove key" must actually remove the key — not just forget the
+    # renderer's reference while the sidecar keeps it (providers-recovery F10).
+    client.post(
+        "/providers/connections",
+        json={"id": "openrouter", "provider": "openrouter", "label": "OpenRouter", "residence": "cloud"},
+    )
+    client.post("/providers/openrouter/secret", json={"key": RAW_KEY})
+    store: MemorySecrets = app.state.secrets_store
+    assert store.exists("openharness/openrouter")
+
+    r = client.delete("/providers/openrouter/secret")
+    assert r.status_code == 204
+    assert not store.exists("openharness/openrouter")
+    row = client.get("/providers/connections/openrouter").json()
+    assert row["secretRef"] is None
+    assert row["enabled"] is False
+
+
+def test_delete_secret_unknown_connection_404(client: TestClient) -> None:
+    r = client.delete("/providers/missing/secret")
+    assert r.status_code == 404
+
+
+def test_probe_returns_the_model_ids_the_endpoint_serves(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    # The dossier must list what the daemon really serves, not a seed list
+    # (providers-recovery F4). Model ids only — never the raw upstream body.
+    from adapters.base import ProbeResult
+    import routers.providers as providers_router
+
+    class FakeAdapter:
+        async def probe(self, config):  # noqa: ANN001
+            return ProbeResult(ok=True, health="live", detail="2 models available.", models=["gemma4:26b", "nomic-embed-text:latest"])
+
+    monkeypatch.setattr(providers_router, "get_adapter", lambda name: FakeAdapter())
+    client.post(
+        "/providers/connections",
+        json={"id": "ollama-local", "provider": "ollama", "label": "Ollama local", "residence": "local"},
+    )
+    body = client.post("/providers/ollama-local/probe").json()
+    assert body["models"] == ["gemma4:26b", "nomic-embed-text:latest"]
+
+
+def test_put_connection_rejects_an_endpoint_change_for_a_non_editable_provider(client: TestClient) -> None:
+    # SEC follow-up: a stored key must never be sent to a caller-chosen host.
+    client.post(
+        "/providers/connections",
+        json={"id": "openrouter", "provider": "openrouter", "label": "OpenRouter", "endpoint": "https://openrouter.ai/api/v1"},
+    )
+    r = client.put("/providers/connections/openrouter", json={"endpoint": "https://evil.example/v1"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "This provider's endpoint is fixed and cannot be changed."
+    assert client.get("/providers/connections/openrouter").json()["endpoint"] == "https://openrouter.ai/api/v1"
+
+    # Re-sending the current endpoint (or other fields) is not a change.
+    ok = client.put(
+        "/providers/connections/openrouter",
+        json={"endpoint": "https://openrouter.ai/api/v1", "label": "Routed"},
+    )
+    assert ok.status_code == 200
+    assert ok.json()["label"] == "Routed"
+
+
+def test_put_connection_allows_an_endpoint_change_for_an_editable_provider(client: TestClient) -> None:
+    client.post(
+        "/providers/connections",
+        json={"id": "ollama-local", "provider": "ollama", "label": "Ollama", "residence": "local"},
+    )
+    r = client.put("/providers/connections/ollama-local", json={"endpoint": "http://127.0.0.1:1234/v1"})
+    assert r.status_code == 200
+    assert r.json()["endpoint"] == "http://127.0.0.1:1234/v1"
+
+
+def test_delete_secret_keeps_db_and_memory_consistent_when_the_commit_fails(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import routers.providers as providers_router
+
+    client.post(
+        "/providers/connections",
+        json={"id": "openrouter", "provider": "openrouter", "label": "OpenRouter", "residence": "cloud"},
+    )
+    client.post("/providers/openrouter/secret", json={"key": RAW_KEY})
+    store: MemorySecrets = app.state.secrets_store
+
+    async def boom(db, conn):  # noqa: ANN001
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(providers_router.connection_store, "upsert", boom)
+    with pytest.raises(RuntimeError):
+        client.delete("/providers/openrouter/secret")
+
+    # Nothing changed: the key is still stored and the row still points at it.
+    assert store.exists("openharness/openrouter")
+    row = app.state.provider_connections["openrouter"]
+    assert row["secretRef"] == "openharness/openrouter"
+    assert row["enabled"] is True
+
+
+def test_post_connection_rejects_a_non_default_endpoint_for_a_non_editable_provider(client: TestClient) -> None:
+    # Same SEC class as PUT: a key stored later must not be sendable to a host
+    # the caller picked at create time.
+    r = client.post(
+        "/providers/connections",
+        json={"id": "openrouter", "provider": "openrouter", "label": "OpenRouter", "endpoint": "https://evil.example/v1"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == "This provider's endpoint is fixed and cannot be changed."
+    assert "openrouter" not in app.state.provider_connections
+
+
+def test_post_connection_accepts_the_default_or_empty_endpoint_for_a_non_editable_provider(client: TestClient) -> None:
+    default = client.post(
+        "/providers/connections",
+        json={"id": "openrouter", "provider": "openrouter", "label": "OpenRouter", "endpoint": "https://openrouter.ai/api/v1"},
+    )
+    assert default.status_code == 201
+    empty = client.post(
+        "/providers/connections",
+        json={"id": "anthropic", "provider": "anthropic", "label": "Anthropic"},
+    )
+    assert empty.status_code == 201
+
+
+def test_post_connection_allows_any_endpoint_for_an_editable_provider(client: TestClient) -> None:
+    r = client.post(
+        "/providers/connections",
+        json={"id": "ollama-lan", "provider": "ollama", "label": "Ollama", "endpoint": "http://10.0.0.5:11434/v1"},
+    )
+    assert r.status_code == 201
+    assert r.json()["endpoint"] == "http://10.0.0.5:11434/v1"
+
+
+def test_put_connection_keeps_memory_unchanged_when_the_commit_fails(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import routers.providers as providers_router
+
+    client.post(
+        "/providers/connections",
+        json={"id": "ollama-local", "provider": "ollama", "label": "Ollama", "residence": "local", "endpoint": "http://127.0.0.1:11434/v1"},
+    )
+
+    async def boom(db, conn):  # noqa: ANN001
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(providers_router.connection_store, "upsert", boom)
+    with pytest.raises(RuntimeError):
+        client.put(
+            "/providers/connections/ollama-local",
+            json={"label": "Changed", "endpoint": "http://127.0.0.1:9/v1", "enabled": True, "defaultModel": "m"},
+        )
+
+    row = app.state.provider_connections["ollama-local"]
+    assert row["label"] == "Ollama"
+    assert row["endpoint"] == "http://127.0.0.1:11434/v1"
+    assert row["enabled"] is False
+    assert row["defaultModel"] == ""
+
+
+def test_post_connection_leaves_no_ghost_row_when_the_commit_fails(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import routers.providers as providers_router
+
+    async def boom(db, conn):  # noqa: ANN001
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(providers_router.connection_store, "upsert", boom)
+    with pytest.raises(RuntimeError):
+        client.post("/providers/connections", json={"id": "x", "provider": "ollama", "label": "X"})
+    assert "x" not in app.state.provider_connections

@@ -19,7 +19,7 @@ const mockPlan = vi.mocked(planGraphEdit);
 // The panel answers with the chat's provider (S7), so these tests give it a ready one.
 const ready = {
   id: "c1", provider: "anthropic", label: "Claude", residence: "cloud", endpoint: "", secret: null, health: "live",
-  detail: "", probes: [], facts: [], models: [], route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "",
+  detail: "", probes: [], facts: [], models: [], defaultModel: "", route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "",
 } as Connection;
 const initialProviders = useProviderStore.getState();
 const initialChat = useChatProviderStore.getState();

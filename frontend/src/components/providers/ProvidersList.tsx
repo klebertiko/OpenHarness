@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
-import { rowStatus, rowTone, type ChatProviderTone } from "@/components/agent/chatProvider";
+import { providerReadiness } from "@/components/agent/chatProvider";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { type ConnectionUsage } from "@/lib/usageApi";
-import { ResidenceMark } from "./atoms";
+import { RESIDENCE_SR, ResidenceMark, ToneDot } from "./atoms";
+import { nextStep } from "./nextStep";
 import { useProviderStore, type Connection } from "./providerStore";
 import { usageCostLabel, useUsageStore } from "./usageStore";
 
@@ -35,20 +35,6 @@ const GROUPS: { key: "ready" | "needsSetup"; label: string }[] = [
   { key: "needsSetup", label: "Needs setup" },
 ];
 
-/** Same six-way split the chat combo's dot uses (`ChatProviderPicker.tsx`'s
-    `toneDotClass`), mapped onto this list's plainer four-tone vocabulary —
-    this panel has never carried the "checking" vs "never probed" pulse
-    distinction, and introducing it here would be a new promise this list
-    doesn't otherwise keep. */
-const TONE: Record<ChatProviderTone, Tone> = {
-  verified: "ok",
-  attention: "warn",
-  checking: "idle",
-  failing: "fault",
-  unverified: "idle",
-  unconfigured: "idle",
-};
-
 /** Cost badge text for one connection's row — undefined (render nothing)
     when it has never actually been used, a genuinely different state from
     "used, but free" or "used, but unpriced" (both of which formatCost
@@ -70,22 +56,26 @@ function ProviderRow({
   onSelect: () => void;
 }) {
   const costLabel = rowCostLabel(c, usage);
+  const readiness = providerReadiness(c);
+  const step = nextStep(c);
   return (
     <ListRow
       title={c.label}
-      subtitle={rowStatus(c)}
-      leading={<StatusDot tone={TONE[rowTone(c)]} pulse={c.health === "probing"} />}
+      subtitle={
+        <>
+          <span>{readiness.label}</span>
+          {step && <span className="text-ink-faint"> · {step.hint}</span>}
+        </>
+      }
+      hint={step ? `${readiness.label} — ${step.label}` : readiness.label}
+      leading={<ToneDot tone={readiness.tone} />}
       selected={selected}
       onSelect={onSelect}
       trailing={
         <span className="flex items-center gap-2">
           <ResidenceMark residence={c.residence} />
+          <span className="sr-only">{RESIDENCE_SR[c.residence]}</span>
           {costLabel && <span className="t-meta text-ink-faint">{costLabel}</span>}
-          <ChevronRight
-            size={14}
-            strokeWidth={1.8}
-            className="text-ink-faint opacity-0 transition-opacity group-hover:opacity-100"
-          />
         </span>
       }
     />
@@ -135,14 +125,14 @@ function BudgetStrip() {
   return (
     <div className="mx-1.5 mt-2 rounded-[8px] border border-line-soft bg-sub-100 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="t-label text-ink-faint">spend</span>
+        <span className="t-body text-ink-mute">Spend</span>
         <span className={`t-meta flex items-center gap-1.5 ${BUDGET_TONE_CLASS[tone]}`}>
           <StatusDot tone={tone} />
           {summary ? usageCostLabel(summary) : "—"}
         </span>
       </div>
       {loading && <p role="status" className="t-body text-ink-dim">Loading usage...</p>}
-      {error && <p role="alert" className="t-body text-warn">Usage may be stale: {error}</p>}
+      {error && <p role="alert" className="t-body mt-1 text-warn [overflow-wrap:anywhere]">Usage may be stale: {error}</p>}
       {editing ? (
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
@@ -155,28 +145,28 @@ function BudgetStrip() {
               if (e.key === "Escape") setEditing(false);
             }}
             placeholder="no limit"
-            className="t-meta h-[22px] w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
+            className="t-meta h-7 w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
           />
-          <button type="button" onClick={() => void save()} className="t-meta flex-none text-ink-dim hover:text-ink">
-            save
+          <button type="button" onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
+            Save
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="t-meta flex-none text-ink-faint hover:text-ink-dim"
+            className="t-body flex-none rounded-control px-1 text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
           >
-            cancel
+            Cancel
           </button>
         </div>
       ) : (
         <button
           type="button"
           onClick={startEdit}
-          className="t-meta mt-0.5 block truncate text-left text-ink-faint hover:text-ink-dim"
+          className="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
         >
           {budget?.limitUsd != null
             ? `of $${budget.limitUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} budget`
-            : "no budget set — click to set one"}
+            : "No budget — set one"}
         </button>
       )}
     </div>
@@ -198,7 +188,7 @@ export function ProvidersList() {
     <div className="h-full min-h-0 overflow-y-auto pb-3">
       <BudgetStrip />
       {GROUPS.map((g) => {
-        const ready = (c: Connection) => c.enabled && c.health !== "fault";
+        const ready = (c: Connection) => providerReadiness(c).ready;
         const rows = connections.filter((c) => (g.key === "ready" ? ready(c) : !ready(c)));
         if (!rows.length) return null;
         return (

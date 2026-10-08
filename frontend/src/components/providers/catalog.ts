@@ -179,9 +179,9 @@ export const PROVIDERS: Record<ProviderId, ProviderSpec> = {
     },
     endpoint: { default: "https://openrouter.ai/api/v1", editable: false },
     summary:
-      "One key, many vendors. You pick a route — an ordered model preference — not a model.",
+      "One key, many vendors. Pick the model this connection runs; OpenRouter routes it to a vendor that serves it.",
     caveat:
-      "Prices and availability are set by the upstream vendor and move without notice. A route with no fallback will fail when its first choice is down.",
+      "Prices and availability are set by the upstream vendor and move without notice.",
     docs: "https://openrouter.ai/docs",
   },
 };
@@ -246,3 +246,13 @@ export const HEALTH_INK: Record<Health, string> = {
   fault: "var(--fault)",
   probing: "var(--ink-dim)",
 };
+
+/**
+ * Does a run on this provider need a model named up front? Mirrors the
+ * sidecar's `_HTTP_ADAPTERS_REQUIRE_MODEL` (backend/providers/resolution.py):
+ * the HTTP adapters (Ollama local/Cloud, OpenRouter) refuse a run with no
+ * model, while the CLI adapters (Claude, Codex) fall back to their own default.
+ */
+export function requiresModel(spec: ProviderSpec): boolean {
+  return spec.catalogue === "installed" || spec.catalogue === "hosted" || spec.catalogue === "routed";
+}
