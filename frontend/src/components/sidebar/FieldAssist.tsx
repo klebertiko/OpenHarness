@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PenLine } from "lucide-react";
 import { assistField } from "@/lib/copilot/api";
-import type { AssistAction, AssistField, AssistNeighbour, AssistRequest, AssistResponse } from "@/lib/copilot/contract";
+import type { AssistAction, AssistField, AssistNeighbour, AssistRequest, AssistResponse, RequestMode } from "@/lib/copilot/contract";
 import { describeFailure } from "@/lib/copilot/errors";
 import { findPort } from "@/lib/ports";
+import { useAssistProvider } from "@/lib/copilot/useAssistProvider";
 import { useCanvasStore } from "@/store/canvasStore";
 
 /* Field assist (spec §3.3): draft, improve or review one free-text field —
@@ -43,7 +44,14 @@ export interface AssistController {
   use: () => void;
 }
 
-function buildRequest(nodeId: string, field: AssistField, action: AssistAction, intent: string, focus?: string): AssistRequest | null {
+function buildRequest(
+  nodeId: string,
+  field: AssistField,
+  action: AssistAction,
+  intent: string,
+  route: { mode: RequestMode; connectionId: string | null },
+  focus?: string,
+): AssistRequest | null {
   const { nodes, edges, harnessMeta } = useCanvasStore.getState();
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return null;
@@ -77,13 +85,15 @@ function buildRequest(nodeId: string, field: AssistField, action: AssistAction, 
     ...(action === "improve" && focus ? { focus: clip(focus, FOCUS_MAX) } : {}),
     neighbours,
     harnessName: clip(harnessMeta.name ?? "", 80),
-    mode: "mock",
-    connection_id: null,
+    mode: route.mode,
+    connection_id: route.connectionId,
   };
 }
 
 export function useFieldAssist(nodeId: string, field: AssistField): AssistController {
   const isRunning = useCanvasStore((s) => s.isRunning);
+  // No provider quietly means the offline assistant; the backend tags the result with its source.
+  const { mode, connectionId } = useAssistProvider();
   const hasText = useCanvasStore((s) => {
     const v = s.nodes.find((n) => n.id === nodeId)?.data[field];
     return typeof v === "string" && v.trim() !== "";
@@ -106,7 +116,7 @@ export function useFieldAssist(nodeId: string, field: AssistField): AssistContro
 
   const run = useCallback(
     (action: AssistAction, focus?: string) => {
-      const req = buildRequest(nodeId, field, action, intent, focus);
+      const req = buildRequest(nodeId, field, action, intent, { mode, connectionId }, focus);
       if (!req) return;
       controller.current?.abort();
       const ctl = new AbortController();
@@ -127,7 +137,7 @@ export function useFieldAssist(nodeId: string, field: AssistField): AssistContro
         },
       );
     },
-    [nodeId, field, intent],
+    [nodeId, field, intent, mode, connectionId],
   );
 
   const cancel = () => {

@@ -4,8 +4,10 @@ import { X } from "lucide-react";
 import { Panel } from "@/components/shell/Panel";
 import { useShellStore } from "@/components/shell/shellStore";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useAssistProvider } from "@/lib/copilot/useAssistProvider";
 import { useCopilotStore, type Turn } from "@/store/copilotStore";
 import { ProposalCard } from "./ProposalCard";
+import { ProviderLine } from "./ProviderLine";
 
 const MAX_PROMPT = 2000;
 const COUNTER_FROM = 1800;
@@ -25,6 +27,7 @@ function useElapsed(active: boolean) {
 function TurnView({ turn }: { turn: Turn }) {
   const send = useCopilotStore((s) => s.send);
   const setSection = useShellStore((s) => s.setSection);
+  const { mode, connectionId } = useAssistProvider();
 
   if (turn.role === "user") {
     return (
@@ -44,7 +47,7 @@ function TurnView({ turn }: { turn: Turn }) {
             {turn.error.retry && (
               <button
                 type="button"
-                onClick={() => void send(turn.error!.retry!, { mode: "mock" })}
+                onClick={() => void send(turn.error!.retry!, { mode, connectionId })}
                 className="h-7 rounded-control border border-line px-2.5 text-[12px] font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
               >
                 Try again
@@ -70,6 +73,7 @@ export function CopilotPanel() {
   const cancel = useCopilotStore((s) => s.cancel);
   const close = useCopilotStore((s) => s.close);
   const isRunning = useCanvasStore((s) => s.isRunning);
+  const { mode, connectionId, provider, missing, requestSetup } = useAssistProvider();
   const [draft, setDraft] = useState("");
   const working = status === "working";
   const seconds = useElapsed(working);
@@ -90,11 +94,12 @@ export function CopilotPanel() {
   }, [draft]);
 
   const blocked = working || isRunning;
-  const submit = (text: string) => {
+  /** `offline` forces the rule-based draft; otherwise the chat's provider answers. */
+  const submit = (text: string, offline = false) => {
     const message = text.trim();
-    if (!message || blocked) return;
+    if (!message || blocked || (!provider && !offline)) return;
     setDraft("");
-    void send(message, { mode: "mock" });
+    void send(message, offline ? { mode: "mock", connectionId: null } : { mode, connectionId });
   };
 
   return (
@@ -113,6 +118,7 @@ export function CopilotPanel() {
       }
     >
       <div className="flex h-full min-h-0 flex-col">
+        <ProviderLine onUseOffline={() => submit(draft, true)} canUseOffline={!blocked && draft.trim() !== ""} />
         <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {turns.length === 0 && (
             <div className="space-y-3">
@@ -123,7 +129,7 @@ export function CopilotPanel() {
                     key={s}
                     type="button"
                     disabled={blocked}
-                    onClick={() => submit(s)}
+                    onClick={() => (provider ? submit(s) : setDraft(s))}
                     className="rounded-control border border-line px-2.5 py-1.5 text-left text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40"
                   >
                     {s}
@@ -176,14 +182,24 @@ export function CopilotPanel() {
           />
           <div className="mt-1.5 flex items-center justify-between">
             <span className="t-meta text-ink-faint">{draft.length > COUNTER_FROM ? `${draft.length} / ${MAX_PROMPT}` : "Enter to send · Shift+Enter for a new line"}</span>
-            <button
-              type="button"
-              disabled={blocked || draft.trim() === ""}
-              onClick={() => submit(draft)}
-              className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Send
-            </button>
+            {provider ? (
+              <button
+                type="button"
+                disabled={blocked || draft.trim() === ""}
+                onClick={() => submit(draft)}
+                className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Send
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={requestSetup}
+                className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+              >
+                {missing?.text ?? "Connect a provider to send"}
+              </button>
+            )}
           </div>
         </div>
       </div>

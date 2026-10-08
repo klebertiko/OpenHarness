@@ -9,22 +9,37 @@ vi.mock("@/lib/copilot/api", async (importOriginal) => {
 });
 
 import { planGraphEdit, CopilotApiError } from "@/lib/copilot/api";
+import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useChatProviderStore } from "@/store/chatProviderStore";
 import { useCopilotStore } from "@/store/copilotStore";
 import { CopilotPanel } from "./CopilotPanel";
 
 const mockPlan = vi.mocked(planGraphEdit);
+// The panel answers with the chat's provider (S7), so these tests give it a ready one.
+const ready = {
+  id: "c1", provider: "anthropic", label: "Claude", residence: "cloud", endpoint: "", secret: null, health: "live",
+  detail: "", probes: [], facts: [], models: [], route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "",
+} as Connection;
+const initialProviders = useProviderStore.getState();
+const initialChat = useChatProviderStore.getState();
 const ok = (over = {}) => ({ summary: "Done.", ops: [], source: "offline" as const, tokens: 0, ...over });
 const renderPanel = () => render(<ReactFlowProvider><CopilotPanel /></ReactFlowProvider>);
 const composer = () => screen.getByRole("textbox", { name: /ask copilot|describe/i }) as HTMLTextAreaElement;
 
 beforeEach(() => {
+  useProviderStore.setState({ connections: [ready] });
+  useChatProviderStore.setState({ chosenId: null });
   mockPlan.mockReset();
   useCanvasStore.setState({ isRunning: false, _history: [], _historyIndex: -1 });
   useCanvasStore.getState().loadGraph([], []);
   useCopilotStore.getState().reset();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  useProviderStore.setState(initialProviders);
+  useChatProviderStore.setState(initialChat);
+});
 
 describe("CopilotPanel", () => {
   it("shows the empty state with three starter prompts", () => {
