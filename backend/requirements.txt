@@ -1,15 +1,15 @@
-fastapi==0.141.1
-uvicorn[standard]==0.53.0
-sqlalchemy==2.0.54
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+sqlalchemy==2.1.1
 aiosqlite==0.22.1
 pydantic==2.13.5
 httpx==0.28.1
-anthropic==1.8.0
-openai==3.19.2
-python-dotenv==1.2.3
+anthropic==1.11.0
+openai==3.22.1
+python-dotenv==1.2.4
 anyio==4.15.1
 jsonschema==4.26.0
-cryptography==50.0.1
+cryptography==50.0.2
 # OHM .ohm restricted YAML 1.2 profile (oharness/codec.py, ADR 0003). Pinned
 # after proving it rejects duplicate keys/tags/anchors/aliases/merge keys and
 # supports the low-level event-stream API codec.py relies on for the
