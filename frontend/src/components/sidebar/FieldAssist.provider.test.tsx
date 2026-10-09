@@ -17,7 +17,7 @@ const mockAssist = vi.mocked(assistField);
 const conn = (over: Partial<Connection>): Connection =>
   ({
     id: "c1", provider: "anthropic", label: "Claude", residence: "cloud", endpoint: "", secret: null, health: "live",
-    detail: "", probes: [], facts: [], models: [], route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "", ...over,
+    detail: "", probes: [], facts: [], models: [], defaultModel: "", route: [], routeSort: "price", allowed: [], enabled: true, lastProbe: "", ...over,
   }) as Connection;
 const initial = { providers: useProviderStore.getState(), chat: useChatProviderStore.getState() };
 
@@ -52,7 +52,7 @@ describe("FieldAssist provider wiring", () => {
   });
 
   it("passes local mode for an on-device provider", async () => {
-    useProviderStore.setState({ connections: [conn({ id: "ol", provider: "ollama", residence: "local" })] });
+    useProviderStore.setState({ connections: [conn({ id: "ol", provider: "ollama", residence: "local", endpoint: "http://127.0.0.1:11434/v1", defaultModel: "llama3" })] });
     mockAssist.mockResolvedValue({ text: "t", notes: [], source: "model", tokens: 3 });
     await draft();
     expect(mockAssist.mock.calls[0][0]).toMatchObject({ mode: "local", connection_id: "ol" });

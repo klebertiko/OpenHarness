@@ -20,6 +20,7 @@ const conn = (over: Partial<Connection>): Connection =>
     probes: [],
     facts: [],
     models: [],
+    defaultModel: "",
     route: [],
     routeSort: "price",
     allowed: [],
@@ -54,7 +55,7 @@ describe("useAssistProvider", () => {
   });
 
   it("a local connection means local mode", () => {
-    useProviderStore.setState({ connections: [conn({ id: "ol", provider: "ollama", residence: "local", label: "Ollama" })] });
+    useProviderStore.setState({ connections: [conn({ id: "ol", provider: "ollama", residence: "local", label: "Ollama", endpoint: "http://127.0.0.1:11434/v1", defaultModel: "llama3" })] });
     const { result } = renderHook(() => useAssistProvider());
     expect(result.current).toMatchObject({ mode: "local", connectionId: "ol" });
   });
