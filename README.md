@@ -62,6 +62,10 @@ Nilo is the front door — a small presence who greets you, answers what she can
 | **Providers** | Wallet of connections — cloud, local, CLI adapters |
 | **Cowork** | Authorized workspace context for tool use |
 
+### Studio Copilot
+
+In Studio, **Ask Copilot** (or `Mod+I`) opens a side panel where you describe a flow in plain language and Copilot proposes graph edits: nodes added, wired and configured. The proposal appears as a list of changes you **Keep** or **Undo**; applying it is one undoable step, and every change is validated against the graph rules before it reaches the canvas. With a connected provider the request goes to that model (one repair attempt on an invalid reply). With none, a deterministic offline planner answers instead, and the result is tagged *Offline draft*. In the Inspector, **Assist** drafts, improves or reviews the free-text fields of agents, skills and gates, also offline when no provider is ready. Secrets, endpoints, commands and provider ids are never sent. The transcript is session-only and replies are not streamed.
+
 ---
 
 ## Architecture
