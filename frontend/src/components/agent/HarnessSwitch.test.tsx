@@ -99,6 +99,14 @@ describe("HarnessSwitch (harness picker)", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
+  it("keeps provider management out of the harness menu", async () => {
+    const user = userEvent.setup();
+    render(<HarnessSwitch />);
+    await user.click(screen.getByRole("button", { name: /^Harness:/ }));
+    expect(screen.queryByText("Providers")).toBeNull();
+    expect(screen.queryByText("Manage providers")).toBeNull();
+  });
+
   it("keyboard: the focused element announces the active option (F9)", async () => {
     const user = userEvent.setup();
     render(<HarnessSwitch />);

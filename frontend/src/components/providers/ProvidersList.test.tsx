@@ -74,3 +74,20 @@ it("tells each needs-setup row what would fix it, in the composer's words", () =
   expect(within(ready).queryByText(/add key|turn on|retest/)).toBeNull();
   expect(within(ready).getByText("runs in the vendor cloud")).toBeTruthy();
 });
+
+it("lists a delegation-only connection that is not set up under its own group, not as a chat setup problem", () => {
+  useProviderStore.setState({
+    connections: [
+      connection({ id: "a", label: "Anthropic", enabled: true, health: "live" }),
+      connection({ id: "o", provider: "openai", label: "OpenAI", enabled: false, health: "setup" }),
+      connection({ id: "c", provider: "cursor", label: "Cursor", enabled: false, health: "setup" }),
+    ],
+    selectedId: "a",
+  });
+  render(<ProvidersList />);
+  const needsSetup = screen.getByText("Needs setup").closest("section")!;
+  const agentsOnly = screen.getByText("Agents only").closest("section")!;
+  expect(within(needsSetup).getByText("OpenAI")).toBeTruthy();
+  expect(within(needsSetup).queryByText("Cursor")).toBeNull();
+  expect(within(agentsOnly).getByText("Cursor")).toBeTruthy();
+});

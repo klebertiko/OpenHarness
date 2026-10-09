@@ -9,14 +9,13 @@ import { bundleGraphToCanvas } from "@/lib/bundleGraph";
 
 export type HarnessBarProps = {
   onOpenStudio?: () => void;
-  onOpenProviders?: () => void;
 };
 
 /** The harness picker in the composer toolbar, wired to Studio and Providers.
     `section` (shellStore) is the single source of truth for what's on screen;
     modeStore only mirrors it (see page.tsx), so navigation must go through
     setSection — setting modeStore directly is a no-op nothing renders from. */
-export function HarnessBar({ onOpenStudio, onOpenProviders }: HarnessBarProps) {
+export function HarnessBar({ onOpenStudio }: HarnessBarProps) {
   const setSection = useShellStore((s) => s.setSection);
 
   /* Switching to Studio alone leaves the canvas showing whatever was last on
@@ -46,7 +45,6 @@ export function HarnessBar({ onOpenStudio, onOpenProviders }: HarnessBarProps) {
       <HarnessSwitch
         embedded
         onOpenStudio={onOpenStudio ?? openStudioWithActiveGraph}
-        onOpenProviders={onOpenProviders ?? (() => setSection("providers"))}
       />
     </div>
   );
