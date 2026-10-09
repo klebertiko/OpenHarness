@@ -74,7 +74,7 @@ describe("CopilotPanel with a ready provider", () => {
   it("a starter prompt goes to the live provider", async () => {
     mockPlan.mockResolvedValue(ok());
     renderPanel();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Add a security gate after QA" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add a skill with a clear outcome and a human approval gate" }));
     await waitFor(() => expect(mockPlan).toHaveBeenCalled());
     expect(mockPlan.mock.calls[0][0]).toMatchObject({ mode: "live", connection_id: "claude-1" });
   });
@@ -142,8 +142,8 @@ describe("CopilotPanel with no provider", () => {
   it("a starter prompt fills the composer instead of sending", async () => {
     const user = userEvent.setup();
     renderPanel();
-    await user.click(screen.getByRole("button", { name: "Add a review step before approval" }));
-    expect(composer().value).toBe("Add a review step before approval");
+    await user.click(screen.getByRole("button", { name: "Add an agent and help me define how it should behave" }));
+    expect(composer().value).toBe("Add an agent and help me define how it should behave");
     expect(mockPlan).not.toHaveBeenCalled();
   });
 });

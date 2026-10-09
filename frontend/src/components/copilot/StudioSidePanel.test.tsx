@@ -32,7 +32,7 @@ describe("StudioSidePanel", () => {
     await user.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Copilot" }).getAttribute("aria-selected")).toBe("true");
     expect(useCopilotStore.getState().tab).toBe("copilot");
-    expect(screen.getByText(/Describe the flow you want/)).toBeTruthy();
+    expect(screen.getByText("Build the graph in plain language")).toBeTruthy();
     await user.keyboard("{ArrowLeft}");
     expect(useCopilotStore.getState().tab).toBe("inspector");
   });

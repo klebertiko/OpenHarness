@@ -10,4 +10,4 @@
  * `startCopilotFromOverview` (lib/copilotEntry.ts). Copilot slice S3 turns this on
  * in the same change that implements that entry point.
  */
-export const COPILOT_ENABLED = false;
+export const COPILOT_ENABLED = true;

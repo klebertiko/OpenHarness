@@ -11,7 +11,11 @@ import { ProviderLine } from "./ProviderLine";
 
 const MAX_PROMPT = 2000;
 const COUNTER_FROM = 1800;
-const STARTERS = ["Add a review step before approval", "Research → write → review flow", "Add a security gate after QA"];
+const STARTERS = [
+  "Build a research → writing → review workflow",
+  "Add an agent and help me define how it should behave",
+  "Add a skill with a clear outcome and a human approval gate",
+];
 
 function useElapsed(active: boolean) {
   const [seconds, setSeconds] = useState(0);
@@ -122,7 +126,10 @@ export function CopilotPanel() {
         <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
           {turns.length === 0 && (
             <div className="space-y-3">
-              <p className="t-body text-ink-mute">Describe the flow you want. Copilot proposes changes you can keep or undo.</p>
+              <div>
+                <p className="t-body font-medium text-ink">Build the graph in plain language</p>
+                <p className="t-body mt-1 text-ink-mute">Describe the outcome, who should act, and where a person must review. Copilot proposes one reversible graph change at a time.</p>
+              </div>
               <div className="flex flex-col items-start gap-1.5">
                 {STARTERS.map((s) => (
                   <button
