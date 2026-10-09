@@ -43,5 +43,6 @@ run([
   "--specpath", join(root, "backend", "build"),
   "--add-data", `${join(root, "backend", "oharness", "fixtures", "default-agile.ohm")}${separator}oharness/fixtures`,
   "--add-data", `${join(root, "backend", "oharness", "schema", "oharness.schema.json")}${separator}oharness/schema`,
+  "--add-data", `${join(root, "backend", "studio_copilot", "catalog.json")}${separator}studio_copilot`,
   join(root, "backend", "sidecar_entry.py"),
 ]);
