@@ -46,11 +46,15 @@ const svg = (rows, cell, title) => {
 // silhouette competing with the mascot.
 function renderIcon(size) {
   const px = new Uint8Array(size * size * 4);
-  const w = GRID[0].length, h = GRID.length;
-  const cell = Math.max(1, Math.floor((size * (size <= 32 ? 0.94 : 0.86)) / Math.max(w, h)));
+  // Small Windows surfaces need an adaptive mark, not a uniformly shrunken
+  // desktop illustration. Use Nilo's face at 16/32 px so the eyes and beak
+  // remain identifiable; keep the complete mascot at larger sizes.
+  const rows = size <= 32 ? FACE : GRID;
+  const w = rows[0].length, h = rows.length;
+  const cell = Math.max(1, Math.floor((size * (size <= 32 ? 1 : 0.86)) / Math.max(w, h)));
   const ox = Math.floor((size - w * cell) / 2);
   const oy = Math.floor((size - h * cell) / 2);
-  GRID.forEach((row, gy) => [...row].forEach((symbol, gx) => {
+  rows.forEach((row, gy) => [...row].forEach((symbol, gx) => {
     if (symbol === ".") return;
     const colour = rgb(FILL[symbol]);
     for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) {
@@ -170,5 +174,7 @@ out("brand/icon.png", png(1024));
 out("src-tauri/icons/32x32.png", png(32));
 out("src-tauri/icons/128x128.png", png(128));
 out("src-tauri/icons/128x128@2x.png", png(256));
-out("src-tauri/icons/icon.ico", ico([16, 24, 32, 48, 64, 256]));
+// Do not include a native 24 px frame: a 16-cell sprite can only occupy 16 px
+// there without uneven pixels. Windows scales the crisp 32 px face instead.
+out("src-tauri/icons/icon.ico", ico([16, 32, 48, 64, 256]));
 out("src-tauri/icons/icon.icns", icns([["ic07", 128], ["ic08", 256], ["ic09", 512], ["ic10", 1024]]));
