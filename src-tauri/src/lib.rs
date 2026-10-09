@@ -228,7 +228,15 @@ pub fn run() {
             let popup_app = app.handle().clone();
             let throttle = Throttle::default();
             let origins = token_origins(dev_url.as_ref());
-            WebviewWindowBuilder::from_config(app.handle(), &config)?
+            let window_builder = WebviewWindowBuilder::from_config(app.handle(), &config)?;
+            // Windows uses the runtime window icon for the taskbar. Load it from
+            // the executable resource explicitly so a stale generated Tauri
+            // default cannot diverge from the Start menu / installed app icon.
+            #[cfg(windows)]
+            let window_builder =
+                window_builder.icon(tauri::image::Image::from_app_icon_resource(256)?)?;
+
+            window_builder
                 .initialization_script(initialization_script(&api, &token, &origins))
                 // Navigation isn't governed by CSP. Refused URLs are dropped, never
                 // re-opened elsewhere. (tauri-runtime-wry allows URIs it can't parse
