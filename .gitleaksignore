@@ -4,3 +4,7 @@
 
 # Synthetic AKIA-shaped example quoted in a SEC gate record (prose, not a key).
 35116a3657d92c69e4d08c9d56530b2a36715add:.harness/sprint-2026-09-18/gates/sec-2026-09-24.md:aws-access-token:19
+
+# Synthetic high-entropy value used to prove Studio field serialization drops
+# apiKey. It is test data only and never leaves the in-memory test graph.
+b87f20e4f73841a3c570152e2cf1e350fb9c4ea9:frontend/src/components/sidebar/FieldAssist.test.tsx:generic-api-key:71

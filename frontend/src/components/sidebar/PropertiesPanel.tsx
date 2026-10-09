@@ -7,6 +7,9 @@ import { Panel } from "@/components/shell/Panel";
 import { chordCaps, useIsMac } from "@/components/shell/keys";
 import { ROLE_CODE, ROLE_ICON, ROLE_VAR } from "@/lib/roles";
 import { PORTS } from "@/lib/ports";
+import { ASSISTABLE } from "@/lib/copilot/catalog";
+import type { AssistField } from "@/lib/copilot/contract";
+import { AssistRow, AssistToggle, useFieldAssist } from "./FieldAssist";
 import type { NodeData, AdapterType, NodeType } from "@/lib/types";
 import { PROVIDERS_BIND_NONE } from "@/components/providers/copy";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
@@ -51,18 +54,50 @@ function SectionHead({ label, note }: { label: string; note?: string }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  action,
+  below,
+  children,
+}: {
+  label: string;
+  /** Right-aligned control in the label row (e.g. Assist). */
+  action?: React.ReactNode;
+  /** Content under the control (e.g. the Assist row). */
+  below?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   const id = useId();
+  const labelEl = <label htmlFor={id} className="t-title block text-ink-dim">{label}</label>;
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="t-title block text-ink-dim">{label}</label>
+      {action ? (
+        <div className="flex items-center justify-between gap-2">
+          {labelEl}
+          {action}
+        </div>
+      ) : (
+        labelEl
+      )}
       {Children.map(children, (child) =>
         isValidElement<{ id?: string }>(child) &&
         ["input", "select", "textarea"].includes(String(child.type))
           ? cloneElement(child, { id })
           : child
       )}
+      {below}
     </div>
+  );
+}
+
+/** A Field that offers inline assist when the catalogue says this field is assistable. */
+function AssistedField({ nodeId, nodeType, field, label, children }: { nodeId: string; nodeType: NodeType; field: AssistField; label: string; children: React.ReactNode }) {
+  const ctl = useFieldAssist(nodeId, field);
+  if (!ASSISTABLE[nodeType]?.includes(field)) return <Field label={label}>{children}</Field>;
+  return (
+    <Field label={label} action={<AssistToggle ctl={ctl} />} below={<AssistRow ctl={ctl} />}>
+      {children}
+    </Field>
   );
 }
 
@@ -348,14 +383,14 @@ export function PropertiesPanel() {
                 placeholder="stl, qa, arch, sec…"
               />
             </Field>
-            <Field label="Checklist">
+            <AssistedField key={`${node.id}:checklist`} nodeId={node.id} nodeType={type} field="checklist" label="Checklist">
               <textarea
                 className={textareaCls}
                 value={d.checklist ?? ""}
                 onChange={(e) => update({ checklist: e.target.value })}
                 placeholder="AC · DoD · points"
               />
-            </Field>
+            </AssistedField>
           </>
         )}
 
@@ -535,14 +570,14 @@ export function PropertiesPanel() {
               </div>
             </details>
 
-            <Field label="System Prompt">
+            <AssistedField key={`${node.id}:systemPrompt`} nodeId={node.id} nodeType={type} field="systemPrompt" label="System Prompt">
               <textarea
                 className={textareaCls}
                 value={d.systemPrompt ?? ""}
                 onChange={(e) => update({ systemPrompt: e.target.value })}
                 placeholder="You are a helpful assistant..."
               />
-            </Field>
+            </AssistedField>
 
             <Field label={`Temperature — ${d.temperature ?? 0.7}`}>
               <input

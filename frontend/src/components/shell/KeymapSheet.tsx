@@ -38,6 +38,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Mod+B", "Toggle left panel"],
       ["Mod+Alt+B", "Toggle inspector (Studio)"],
+      ["Mod+I", "Ask Copilot (Studio)"],
     ],
   },
   {
