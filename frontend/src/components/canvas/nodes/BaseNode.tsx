@@ -4,6 +4,7 @@ import { Handle, Position, NodeToolbar } from "@xyflow/react";
 import { Copy, Unlink, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCanvasStore } from "@/store/canvasStore";
+import { useCopilotStore } from "@/store/copilotStore";
 import { useHarnessActions } from "@/lib/actions";
 import styles from "../canvas.module.css";
 import { PORTS, portRows } from "@/lib/ports";
@@ -46,11 +47,13 @@ const STATE_BORDER: Record<string, string> = {
 };
 
 /** The mono slot in the header, when there is something machine-true to say. */
-function StateSlot({ data, type }: { data: NodeData; type: NodeType }) {
+export function StateSlot({ data, type, mark }: { data: NodeData; type: NodeType; mark?: "added" | "changed" }) {
   const status = (data.status as string) ?? "idle";
   if (status === "running") return <span className="t-meta text-signal">running</span>;
   if (status === "error") return <span className="t-meta text-fault">error</span>;
   if (status === "paused") return <span className="t-meta text-warn">held</span>;
+  // A pending Copilot proposal is live state: it wins over a stale "done".
+  if (mark) return <span className="t-meta text-signal">{mark === "added" ? "+ new" : "~ edited"}</span>;
   if (status === "complete")
     return (
       <span className="t-meta text-ink-dim">
@@ -104,6 +107,7 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
   const detachNode = useCanvasStore((s) => s.detachNode);
   const removeNode = useCanvasStore((s) => s.removeNode);
   const awaitingHuman = useCanvasStore((s) => s.awaitingHuman);
+  const mark = useCopilotStore((s) => s.marks[id]);
   const { resolveHitl } = useHarnessActions();
 
   const Icon = ROLE_ICON[type];
@@ -187,7 +191,7 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
             <Icon size={10} strokeWidth={1.9} absoluteStrokeWidth />
           </span>
           <span className="t-title min-w-0 flex-1 truncate text-ink">{data.label as string}</span>
-          <StateSlot data={data} type={type} />
+          <StateSlot data={data} type={type} mark={mark} />
         </div>
 
         {/* ── Spec / note — machine facts in mono, human copy in prose ────── */}
