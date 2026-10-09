@@ -143,7 +143,6 @@ def _parse_laya_decision(payload: object, observed_latency_ms: float) -> LayaRou
         latency_ms=latency_ms,
     )
 
-
 async def decide_with_laya(instruction: str) -> LayaRouteDecision:
     """Ask the local Laya loopback for an advisory routing prediction.
 
