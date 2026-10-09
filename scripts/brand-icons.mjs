@@ -47,16 +47,28 @@ const svg = (rows, cell, title) => {
 function renderIcon(size) {
   const px = new Uint8Array(size * size * 4);
   const w = GRID[0].length, h = GRID.length;
-  const cell = Math.max(1, Math.floor((size * (size <= 32 ? 0.94 : 0.86)) / Math.max(w, h)));
-  const ox = Math.floor((size - w * cell) / 2);
-  const oy = Math.floor((size - h * cell) / 2);
-  GRID.forEach((row, gy) => [...row].forEach((symbol, gx) => {
-    if (symbol === ".") return;
-    const colour = rgb(FILL[symbol]);
-    for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) {
-      px.set([...colour, 255], ((oy + gy * cell + y) * size + ox + gx * cell + x) * 4);
+  // Nilo is wider than tall, so width is the limit. Small slots (taskbar,
+  // Start, desktop) use the full width; large ones keep a ~6% margin. Prefer an
+  // integer cell (crisp, even pixels); fall back to nearest-neighbour when an
+  // integer cell would leave Nilo at less than 90% of the target width.
+  const target = size * (size <= 64 ? 1 : 0.94);
+  const intCell = Math.floor(target / w);
+  const drawW = intCell * w >= 0.9 * target ? intCell * w : Math.round(target);
+  const drawH = Math.round((drawW * h) / w);
+  const ox = Math.floor((size - drawW) / 2);
+  const oy = Math.floor((size - drawH) / 2);
+  for (let y = 0; y < drawH; y++) {
+    const gy = Math.min(h - 1, Math.floor((y * h) / drawH));
+    for (let x = 0; x < drawW; x++) {
+      // Map columns from the nearer edge so a non-integer scale stays
+      // left/right symmetric (both eyes get the same pixel widths).
+      const col = (i) => Math.min(w - 1, Math.floor((i * w) / drawW));
+      const gx = x < drawW / 2 ? col(x) : w - 1 - col(drawW - 1 - x);
+      const symbol = GRID[gy][gx];
+      if (symbol === ".") continue;
+      px.set([...rgb(FILL[symbol]), 255], ((oy + y) * size + ox + x) * 4);
     }
-  }));
+  }
   return px;
 }
 
