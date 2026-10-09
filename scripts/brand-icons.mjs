@@ -38,71 +38,25 @@ const svg = (rows, cell, title) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w * cell}" height="${h * cell}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges"><title>${title}</title>${svgPaths(rows)}</svg>\n`;
 };
 
-// ── Raster: the "H graph" desktop mark ──────────────────────────────────────
-// The desktop/installer icon is a vector monogram, not the pixel owl: an H
-// built as a graph (four nodes, three edges, one amber hub) on a graphite
-// plate. It is drawn with analytic shapes at every size, 4×4 supersampled, so
-// edges stay clean. Below 64px the ring outlines and gradient are dropped and
-// the strokes thicken so the silhouette survives a 16px taskbar slot.
-// Geometry is on a 512 box; brand/app-icon.svg is the same drawing.
-const TILE = "#101816", NODE = "#D7FFFA", HUB = "#F4B942";
-const EDGE_A = rgb("#25C9C3"), EDGE_B = rgb("#168E9B");
-
-const dist = (px, py, ax, ay) => Math.hypot(px - ax, py - ay);
-const segDist = (px, py, ax, ay, bx, by) => {
-  const dx = bx - ax, dy = by - ay;
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
-  return dist(px, py, ax + t * dx, ay + t * dy);
-};
-const inRoundRect = (px, py, x, y, w, h, r) => {
-  const dx = Math.max(x + r - px, 0, px - (x + w - r));
-  const dy = Math.max(y + r - py, 0, py - (y + h - r));
-  return dx * dx + dy * dy <= r * r;
-};
-
-/** Colour (or null) of the mark at one point of the 512 box. */
-function sample(px, py, small) {
-  const plate = small ? [8, 8, 496, 496, 120] : [32, 32, 448, 448, 112];
-  if (!inRoundRect(px, py, ...plate)) return null;
-  const sw = small ? 68 : 44; // edge stroke width
-  const nr = small ? 62 : 42; // node radius
-  const ring = small ? 0 : 7; // dark outline either side of a node edge
-  const lo = small ? 140 : 154, hi = 512 - lo;
-  const nodes = [[lo, lo], [hi, lo], [lo, hi], [hi, hi]];
-  const hub = [256, 256], hr = small ? 52 : 34;
-
-  for (const [cx, cy, r, c] of [[...hub, hr, HUB], ...nodes.map(([x, y]) => [x, y, nr, NODE])]) {
-    const d = dist(px, py, cx, cy);
-    if (d <= r) return rgb(c);
-    if (d <= r + ring) return rgb(TILE);
-  }
-  const edges = [[lo, lo, lo, hi], [hi, lo, hi, hi], [lo, 256, hi, 256]];
-  for (const [ax, ay, bx, by] of edges) {
-    if (segDist(px, py, ax, ay, bx, by) <= sw / 2) {
-      const t = Math.max(0, Math.min(1, ((px - 96) + (py - 72)) / 640));
-      return small ? EDGE_A : EDGE_A.map((v, i) => Math.round(v + (EDGE_B[i] - v) * t));
-    }
-  }
-  return rgb(TILE);
-}
-
+// ── Raster: Nilo without a background plate ─────────────────────────────────
+// Nilo is the product icon. The previous dark rounded plate became a thick,
+// irregular border after Windows applied its own taskbar/shortcut treatment.
+// Keep the canvas transparent and draw the original pixel grid directly at
+// every target size: no resampling blur, no artificial outline, no second
+// silhouette competing with the mascot.
 function renderIcon(size) {
   const px = new Uint8Array(size * size * 4);
-  const small = size < 64;
-  const SS = 4, k = 512 / size;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let r = 0, g = 0, b = 0, hit = 0;
-      for (let sy = 0; sy < SS; sy++) {
-        for (let sx = 0; sx < SS; sx++) {
-          const c = sample((x + (sx + 0.5) / SS) * k, (y + (sy + 0.5) / SS) * k, small);
-          if (!c) continue;
-          r += c[0]; g += c[1]; b += c[2]; hit++;
-        }
-      }
-      if (hit) px.set([Math.round(r / hit), Math.round(g / hit), Math.round(b / hit), Math.round((hit / (SS * SS)) * 255)], (y * size + x) * 4);
+  const w = GRID[0].length, h = GRID.length;
+  const cell = Math.max(1, Math.floor((size * (size <= 32 ? 0.94 : 0.86)) / Math.max(w, h)));
+  const ox = Math.floor((size - w * cell) / 2);
+  const oy = Math.floor((size - h * cell) / 2);
+  GRID.forEach((row, gy) => [...row].forEach((symbol, gx) => {
+    if (symbol === ".") return;
+    const colour = rgb(FILL[symbol]);
+    for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) {
+      px.set([...colour, 255], ((oy + gy * cell + y) * size + ox + gx * cell + x) * 4);
     }
-  }
+  }));
   return px;
 }
 
@@ -211,6 +165,7 @@ function out(rel, data) {
 
 out("brand/nilo.svg", svg(GRID, 8, "Nilo, the OpenHarness owl"));
 out("brand/mark.svg", svg(FACE, 2, "OpenHarness"));
+out("brand/app-icon.svg", svg(GRID, 8, "Nilo, the OpenHarness app icon"));
 out("brand/icon.png", png(1024));
 out("src-tauri/icons/32x32.png", png(32));
 out("src-tauri/icons/128x128.png", png(128));
