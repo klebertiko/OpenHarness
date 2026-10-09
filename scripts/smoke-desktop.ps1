@@ -12,12 +12,12 @@ $resolvedApp = (Resolve-Path -LiteralPath $AppPath).Path
 $appDirectory = Split-Path -Parent $resolvedApp
 $sidecarPath = (Resolve-Path -LiteralPath (Join-Path $appDirectory "openharness-sidecar.exe")).Path
 
-$existingApp = @(Get-CimInstance Win32_Process -Filter "Name = 'openharness.exe'" |
-  Where-Object { $_.ExecutablePath -eq $resolvedApp })
+$existingApp = @(Get-CimInstance Win32_Process -Filter "Name = 'openharness.exe'")
 $existingSidecars = @(Get-CimInstance Win32_Process -Filter "Name = 'openharness-sidecar.exe'" |
   Where-Object { $_.ExecutablePath -eq $sidecarPath })
 if ($existingApp.Count -gt 0 -or $existingSidecars.Count -gt 0) {
-  throw "Desktop smoke requires no existing OpenHarness process from $appDirectory"
+  $runningPaths = @($existingApp | ForEach-Object { $_.ExecutablePath } | Where-Object { $_ }) -join ", "
+  throw "Desktop smoke requires no existing OpenHarness process because the app is single-instance. Close: $runningPaths"
 }
 
 $debugListener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
