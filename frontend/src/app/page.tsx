@@ -16,6 +16,7 @@ import {
   Shuffle,
   LayoutTemplate,
   ArrowLeft,
+  Sparkles,
 } from "lucide-react";
 
 import { StudioOverview } from "@/components/studio/StudioOverview";
@@ -29,7 +30,8 @@ import { apiUrl } from "@/lib/apiBase";
 
 import { Toolbar } from "@/components/toolbar/Toolbar";
 import { NodePalette } from "@/components/sidebar/NodePalette";
-import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
+import { StudioSidePanel } from "@/components/copilot/StudioSidePanel";
+import { useCopilotStore } from "@/store/copilotStore";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
@@ -74,6 +76,8 @@ export default function Home() {
   const connectionCount = useProviderStore((s) => s.connections.length);
   const [backendOk, setBackendOk] = useState(false);
   const isStudio = section === "studio";
+  const copilotOpen = useCopilotStore((s) => s.open);
+  const openCopilot = useCopilotStore((s) => s.openCopilot);
 
   // `section` is the single source of truth for what's on screen; keep the
   // legacy modeStore in step so TitleBar and canvas hooks stay coherent.
@@ -210,6 +214,16 @@ export default function Home() {
             icon: Upload,
             run: actions.importJson,
           },
+          {
+            id: "copilot",
+            label: "Ask Copilot",
+            group: "Studio",
+            icon: Sparkles,
+            chord: "Mod+I",
+            keywords: "assistant ai build graph",
+            disabled: studioView !== "editor",
+            run: openCopilot,
+          },
           { id: "undo", label: "Undo", group: "Edit", icon: Undo2, chord: "Mod+Z", run: undo },
           { id: "redo", label: "Redo", group: "Edit", icon: Redo2, chord: "Mod+Shift+Z", run: redo },
           {
@@ -252,7 +266,7 @@ export default function Home() {
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes.length, executionMode, isRunning, selectedNodeId, actions, isStudio]);
+  }, [nodes.length, executionMode, isRunning, selectedNodeId, actions, isStudio, studioView, openCopilot]);
 
   const providersLeft = (
     <Panel title={PROVIDERS_PANEL_TITLE} meta={`${connectionCount}`} className="h-full">
@@ -278,6 +292,7 @@ export default function Home() {
           <ArrowLeft size={14} aria-hidden /> Back to Studio
         </button>
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink">{harnessMeta.name}</span>
+        <button type="button" onClick={openCopilot} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">Ask Copilot</button>
         <button type="button" onClick={useStudioInChat} disabled={nodes.length === 0 || isRunning} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40">Use in chat</button>
       </div>
       <div className="relative min-h-0 flex-1">
@@ -324,7 +339,7 @@ export default function Home() {
         }
         left={left}
         stage={stage}
-        right={isStudio && studioView === "editor" && selectedNodeId ? <PropertiesPanel /> : null}
+        right={isStudio && studioView === "editor" && (selectedNodeId || copilotOpen) ? <StudioSidePanel /> : null}
       />
     </ReactFlowProvider>
   );
