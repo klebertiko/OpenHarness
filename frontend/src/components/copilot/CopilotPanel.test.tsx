@@ -44,18 +44,18 @@ afterEach(() => {
 describe("CopilotPanel", () => {
   it("shows the empty state with three starter prompts", () => {
     renderPanel();
-    expect(screen.getByText(/Describe the flow you want/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add a review step before approval" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Research → write → review flow" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add a security gate after QA" })).toBeTruthy();
+    expect(screen.getByText("Build the graph in plain language")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Build a research → writing → review workflow" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add an agent and help me define how it should behave" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add a skill with a clear outcome and a human approval gate" })).toBeTruthy();
   });
 
   it("a starter prompt sends it", async () => {
     mockPlan.mockResolvedValue(ok());
     renderPanel();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Add a security gate after QA" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Add a skill with a clear outcome and a human approval gate" }));
     await waitFor(() => expect(mockPlan).toHaveBeenCalled());
-    expect(mockPlan.mock.calls[0][0].message).toBe("Add a security gate after QA");
+    expect(mockPlan.mock.calls[0][0].message).toBe("Add a skill with a clear outcome and a human approval gate");
   });
 
   it("Enter sends and Shift+Enter inserts a newline", async () => {

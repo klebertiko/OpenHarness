@@ -10,7 +10,6 @@ import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PLATE = "#191714"; // ≈ dark-theme --sub-100
 // Exported files can't read CSS variables: fixed stand-ins for the --nilo-* tokens.
 const FILL = { B: "#3AB3AD", W: "#F4EFE6", P: "#161412", K: "#D9A441", R: "#93E4DE" };
 
@@ -20,6 +19,8 @@ const faceRows = src.match(/NILO_FACE = NILO_GRID\.slice\(0, (\d+)\)/);
 if (!block || !faceRows) throw new Error("NILO_GRID / NILO_FACE not found in niloGrid.ts");
 const GRID = [...block[1].matchAll(/"([.A-Z]+)"/g)].map((m) => m[1]);
 const FACE = GRID.slice(0, Number(faceRows[1]));
+
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 // ── SVG ─────────────────────────────────────────────────────────────────────
 const svgPaths = (rows) => {
@@ -37,46 +38,71 @@ const svg = (rows, cell, title) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w * cell}" height="${h * cell}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges"><title>${title}</title>${svgPaths(rows)}</svg>\n`;
 };
 
-// ── Raster: owl on a rounded graphite plate ─────────────────────────────────
-const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+// ── Raster: the "H graph" desktop mark ──────────────────────────────────────
+// The desktop/installer icon is a vector monogram, not the pixel owl: an H
+// built as a graph (four nodes, three edges, one amber hub) on a graphite
+// plate. It is drawn with analytic shapes at every size, 4×4 supersampled, so
+// edges stay clean. Below 64px the ring outlines and gradient are dropped and
+// the strokes thicken so the silhouette survives a 16px taskbar slot.
+// Geometry is on a 512 box; brand/app-icon.svg is the same drawing.
+const TILE = "#101816", NODE = "#D7FFFA", HUB = "#F4B942";
+const EDGE_A = rgb("#25C9C3"), EDGE_B = rgb("#168E9B");
+
+const dist = (px, py, ax, ay) => Math.hypot(px - ax, py - ay);
+const segDist = (px, py, ax, ay, bx, by) => {
+  const dx = bx - ax, dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
+  return dist(px, py, ax + t * dx, ay + t * dy);
+};
+const inRoundRect = (px, py, x, y, w, h, r) => {
+  const dx = Math.max(x + r - px, 0, px - (x + w - r));
+  const dy = Math.max(y + r - py, 0, py - (y + h - r));
+  return dx * dx + dy * dy <= r * r;
+};
+
+/** Colour (or null) of the mark at one point of the 512 box. */
+function sample(px, py, small) {
+  const plate = small ? [8, 8, 496, 496, 120] : [32, 32, 448, 448, 112];
+  if (!inRoundRect(px, py, ...plate)) return null;
+  const sw = small ? 68 : 44; // edge stroke width
+  const nr = small ? 62 : 42; // node radius
+  const ring = small ? 0 : 7; // dark outline either side of a node edge
+  const lo = small ? 140 : 154, hi = 512 - lo;
+  const nodes = [[lo, lo], [hi, lo], [lo, hi], [hi, hi]];
+  const hub = [256, 256], hr = small ? 52 : 34;
+
+  for (const [cx, cy, r, c] of [[...hub, hr, HUB], ...nodes.map(([x, y]) => [x, y, nr, NODE])]) {
+    const d = dist(px, py, cx, cy);
+    if (d <= r) return rgb(c);
+    if (d <= r + ring) return rgb(TILE);
+  }
+  const edges = [[lo, lo, lo, hi], [hi, lo, hi, hi], [lo, 256, hi, 256]];
+  for (const [ax, ay, bx, by] of edges) {
+    if (segDist(px, py, ax, ay, bx, by) <= sw / 2) {
+      const t = Math.max(0, Math.min(1, ((px - 96) + (py - 72)) / 640));
+      return small ? EDGE_A : EDGE_A.map((v, i) => Math.round(v + (EDGE_B[i] - v) * t));
+    }
+  }
+  return rgb(TILE);
+}
 
 function renderIcon(size) {
   const px = new Uint8Array(size * size * 4);
-  const plate = rgb(PLATE);
-  const r = size * 0.1875; // rx=12 on a 64 tile, same plate as the old icon
-
-  // Plate, with 4×4 supersampled corners.
+  const small = size < 64;
+  const SS = 4, k = 512 / size;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      let hit = 0;
-      for (let sy = 0; sy < 4; sy++) {
-        for (let sx = 0; sx < 4; sx++) {
-          const fx = x + (sx + 0.5) / 4, fy = y + (sy + 0.5) / 4;
-          const dx = Math.max(r - fx, 0, fx - (size - r));
-          const dy = Math.max(r - fy, 0, fy - (size - r));
-          if (dx * dx + dy * dy <= r * r) hit++;
+      let r = 0, g = 0, b = 0, hit = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const c = sample((x + (sx + 0.5) / SS) * k, (y + (sy + 0.5) / SS) * k, small);
+          if (!c) continue;
+          r += c[0]; g += c[1]; b += c[2]; hit++;
         }
       }
-      px.set([...plate, Math.round((hit / 16) * 255)], (y * size + x) * 4);
+      if (hit) px.set([Math.round(r / hit), Math.round(g / hit), Math.round(b / hit), Math.round((hit / (SS * SS)) * 255)], (y * size + x) * 4);
     }
   }
-
-  // Owl at the largest integer cell that still leaves a margin.
-  const w = GRID[0].length, h = GRID.length;
-  // Small icons fill the plate edge to edge; large ones keep a margin.
-  const cell = size <= 64 ? Math.max(1, Math.floor(size / w)) : Math.floor((size * 0.86) / w);
-  const ox = Math.floor((size - w * cell) / 2), oy = Math.floor((size - h * cell) / 2);
-  GRID.forEach((row, gy) =>
-    [...row].forEach((c, gx) => {
-      if (c === ".") return;
-      const col = rgb(FILL[c]);
-      for (let y = 0; y < cell; y++) {
-        for (let x = 0; x < cell; x++) {
-          px.set([...col, 255], ((oy + gy * cell + y) * size + ox + gx * cell + x) * 4);
-        }
-      }
-    }),
-  );
   return px;
 }
 

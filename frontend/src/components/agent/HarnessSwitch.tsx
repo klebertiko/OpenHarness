@@ -12,7 +12,6 @@ export type HarnessSwitchProps = {
   /** Kept for existing callers; the picker is always inline now. */
   embedded?: boolean;
   onOpenStudio?: () => void;
-  onOpenProviders?: () => void;
 };
 
 /** Option id for "No harness" — no harness id can be empty. */
@@ -24,7 +23,7 @@ const NONE_ID = "";
  * switch, so choosing and enabling are one gesture. Built on the shared
  * Combobox (portalled, viewport-clamped, keyboard-first).
  */
-export function HarnessSwitch({ onOpenStudio, onOpenProviders }: HarnessSwitchProps) {
+export function HarnessSwitch({ onOpenStudio }: HarnessSwitchProps) {
   const enabled = useHarnessSessionStore((s) => s.enabled);
   const activeBundle = useHarnessSessionStore((s) => s.activeBundle);
   const hydrated = useHarnessSessionStore((s) => s.hydrated);
@@ -87,7 +86,7 @@ export function HarnessSwitch({ onOpenStudio, onOpenProviders }: HarnessSwitchPr
           </>
         }
         footer={
-          onOpenStudio || onOpenProviders
+          onOpenStudio
             ? ({ close }) => (
                 <>
                   {onOpenStudio && (
@@ -98,16 +97,6 @@ export function HarnessSwitch({ onOpenStudio, onOpenProviders }: HarnessSwitchPr
                       }}
                     >
                       Edit in Studio
-                    </ComboAction>
-                  )}
-                  {onOpenProviders && (
-                    <ComboAction
-                      onClick={() => {
-                        close(false);
-                        onOpenProviders();
-                      }}
-                    >
-                      Providers
                     </ComboAction>
                   )}
                 </>

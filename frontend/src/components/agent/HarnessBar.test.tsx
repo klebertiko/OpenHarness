@@ -9,13 +9,10 @@ import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 import { HarnessBar } from "./HarnessBar";
 
 vi.mock("./HarnessSwitch", () => ({
-  HarnessSwitch: (p: { onOpenStudio?: () => void; onOpenProviders?: () => void }) => (
+  HarnessSwitch: (p: { onOpenStudio?: () => void }) => (
     <div data-testid="harness-switch-stub">
       <button type="button" onClick={p.onOpenStudio}>
         stub studio
-      </button>
-      <button type="button" onClick={p.onOpenProviders}>
-        stub providers
       </button>
     </div>
   ),
@@ -67,13 +64,6 @@ describe("HarnessBar", () => {
     // A bundle id is not a saved harness record: it opens as a new, unsaved harness.
     expect(useCanvasStore.getState().harnessMeta.id).toBeNull();
     expect(useCanvasStore.getState().harnessMeta.name).toBe("test.bundle");
-  });
-
-  it("Providers from the picker opens the Providers section", async () => {
-    const user = userEvent.setup();
-    render(<HarnessBar />);
-    await user.click(screen.getByRole("button", { name: "stub providers" }));
-    expect(useShellStore.getState().section).toBe("providers");
   });
 
   it("opens the authored graph and its metadata without execution-only defaults", async () => {

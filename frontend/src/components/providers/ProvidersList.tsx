@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { providerReadiness } from "@/components/agent/chatProvider";
+import { isChatCapable, providerReadiness } from "@/components/agent/chatProvider";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { type ConnectionUsage } from "@/lib/usageApi";
 import { RESIDENCE_SR, ResidenceMark, ToneDot } from "./atoms";
@@ -30,10 +30,17 @@ import { usageCostLabel, useUsageStore } from "./usageStore";
  * Endpoints, probes and billing live in the dossier, one click away.
  */
 
-const GROUPS: { key: "ready" | "needsSetup"; label: string }[] = [
+/* "Agents only" holds delegation-only connections (Cursor) that are not set
+   up: they have no chat adapter, so listing them under "Needs setup" next to
+   the chat providers would read as a chat connection that failed to connect. */
+const GROUPS: { key: "ready" | "needsSetup" | "agentsOnly"; label: string }[] = [
   { key: "ready", label: "Ready" },
   { key: "needsSetup", label: "Needs setup" },
+  { key: "agentsOnly", label: "Agents only" },
 ];
+
+const groupOf = (c: Connection): "ready" | "needsSetup" | "agentsOnly" =>
+  providerReadiness(c).ready ? "ready" : isChatCapable(c) ? "needsSetup" : "agentsOnly";
 
 /** Cost badge text for one connection's row — undefined (render nothing)
     when it has never actually been used, a genuinely different state from
@@ -188,8 +195,7 @@ export function ProvidersList() {
     <div className="h-full min-h-0 overflow-y-auto pb-3">
       <BudgetStrip />
       {GROUPS.map((g) => {
-        const ready = (c: Connection) => providerReadiness(c).ready;
-        const rows = connections.filter((c) => (g.key === "ready" ? ready(c) : !ready(c)));
+        const rows = connections.filter((c) => groupOf(c) === g.key);
         if (!rows.length) return null;
         return (
           <ListGroup key={g.key} label={g.label}>
