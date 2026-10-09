@@ -229,12 +229,13 @@ pub fn run() {
             let throttle = Throttle::default();
             let origins = token_origins(dev_url.as_ref());
             let window_builder = WebviewWindowBuilder::from_config(app.handle(), &config)?;
-            // Windows uses the runtime window icon for the taskbar. Load it from
-            // the executable resource explicitly so a stale generated Tauri
-            // default cannot diverge from the Start menu / installed app icon.
+            // Windows uses the runtime window icon for the taskbar. Embed the
+            // adaptive 32 px asset directly so Cargo tracks icon changes and a
+            // stale executable resource cannot diverge from the installed icon.
             #[cfg(windows)]
-            let window_builder =
-                window_builder.icon(tauri::image::Image::from_app_icon_resource(32)?)?;
+            let window_builder = window_builder.icon(tauri::image::Image::from_bytes(
+                include_bytes!("../icons/32x32.png"),
+            )?)?;
 
             window_builder
                 .initialization_script(initialization_script(&api, &token, &origins))
