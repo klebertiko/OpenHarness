@@ -234,7 +234,7 @@ pub fn run() {
             // default cannot diverge from the Start menu / installed app icon.
             #[cfg(windows)]
             let window_builder =
-                window_builder.icon(tauri::image::Image::from_app_icon_resource(256)?)?;
+                window_builder.icon(tauri::image::Image::from_app_icon_resource(32)?)?;
 
             window_builder
                 .initialization_script(initialization_script(&api, &token, &origins))
