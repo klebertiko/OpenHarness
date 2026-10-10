@@ -16,11 +16,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("StudioSidePanel", () => {
-  it("exposes Inspector and Copilot as a tablist with the active tab selected", () => {
+  it("exposes Inspector and Nilo as a tablist with the active tab selected", () => {
     renderPanel();
     const tabs = screen.getAllByRole("tab");
     expect(screen.getByRole("tablist")).toBeTruthy();
-    expect(tabs.map((t) => t.textContent?.startsWith("Inspector") || t.textContent === "Copilot")).toEqual([true, true]);
+    expect(tabs.map((t) => t.textContent?.startsWith("Inspector") || t.textContent === "Nilo")).toEqual([true, true]);
     expect(screen.getByRole("tab", { name: /Inspector/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel")).toBeTruthy();
   });
@@ -30,7 +30,7 @@ describe("StudioSidePanel", () => {
     renderPanel();
     screen.getByRole("tab", { name: /Inspector/ }).focus();
     await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("tab", { name: "Copilot" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Nilo" }).getAttribute("aria-selected")).toBe("true");
     expect(useCopilotStore.getState().tab).toBe("copilot");
     expect(screen.getByText("Build the graph in plain language")).toBeTruthy();
     await user.keyboard("{ArrowLeft}");

@@ -80,6 +80,16 @@ export const useHarnessSessionStore = create<HarnessSessionState>((set, get) => 
     const enabled =
       typeof persisted.enabled === "boolean" ? persisted.enabled : get().enabled;
 
+    // A harness already put in use (Studio's "Use in chat" runs before the chat
+    // ever mounts) is the person's choice; the packaged default must not
+    // replace it just because the chat hydrates lazily afterwards.
+    const current = get().activeBundle;
+    if (current?.manifest?.id) {
+      set({ enabled, hydrated: true });
+      writePersisted(enabled, current.manifest.id);
+      return;
+    }
+
     const res = await fetch(apiUrl("/bundles/default"));
     if (!res.ok) {
       throw new Error(`Failed to load default harness: ${res.status}`);

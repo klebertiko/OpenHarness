@@ -15,7 +15,7 @@ export function StudioSidePanel() {
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const label = (t: (typeof TABS)[number]) =>
-    t === "copilot" ? "Copilot" : tab === "copilot" && hasSelection ? "Inspector · 1 selected" : "Inspector";
+    t === "copilot" ? "Nilo" : tab === "copilot" && hasSelection ? "Inspector · 1 selected" : "Inspector";
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const i = TABS.indexOf(tab);

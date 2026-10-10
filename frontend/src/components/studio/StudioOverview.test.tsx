@@ -3,7 +3,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useShellStore } from "@/components/shell/shellStore";
-import { openBundledHarness, newStudioHarness, openStudioPreset } from "@/lib/studio";
+import { openBundledHarness, newStudioHarness, openStudioPreset, openStudioExample } from "@/lib/studio";
+import { fetchStudioExamples } from "@/lib/studioExamples";
 import { api } from "@/lib/api";
 import { useStudioDocsStore } from "@/lib/studioDocuments";
 import { startCopilotFromOverview } from "@/lib/copilotEntry";
@@ -13,7 +14,8 @@ const flags = vi.hoisted(() => ({ copilot: false }));
 vi.mock("@/lib/features", () => ({ get COPILOT_ENABLED() { return flags.copilot; } }));
 vi.mock("@/lib/copilotEntry", () => ({ startCopilotFromOverview: vi.fn() }));
 
-vi.mock("@/lib/studio", () => ({ openBundledHarness: vi.fn(), newStudioHarness: vi.fn(), openStudioPreset: vi.fn() }));
+vi.mock("@/lib/studio", () => ({ openBundledHarness: vi.fn(), newStudioHarness: vi.fn(), openStudioPreset: vi.fn(), openStudioExample: vi.fn() }));
+vi.mock("@/lib/studioExamples", async (original) => ({ ...(await original<typeof import("@/lib/studioExamples")>()), fetchStudioExamples: vi.fn() }));
 vi.mock("@/lib/api", () => ({
   api: { harnesses: { list: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() } },
 }));
@@ -25,6 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   flags.copilot = false;
   h.list.mockResolvedValue([]);
+  vi.mocked(fetchStudioExamples).mockResolvedValue([]);
   h.delete.mockResolvedValue(new Response(null, { status: 204 }));
   useCanvasStore.setState({ isRunning: false, nodes: [], edges: [], harnessMeta: { id: null, name: "Untitled harness", description: "" } });
   useShellStore.setState({ section: "studio", studioView: "overview", libraryOpen: false });
@@ -154,7 +157,7 @@ it("Escape cancels a delete confirmation and returns focus to the row", async ()
 it("with Copilot off, the hero offers New harness as the primary start and renders no composer", async () => {
   render(<StudioOverview />);
   expect(screen.queryByRole("textbox", { name: /Describe the harness/ })).toBeNull();
-  expect(screen.queryByRole("button", { name: /Draft with Copilot/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Draft with Nilo/ })).toBeNull();
   expect(screen.getByRole("button", { name: "New harness" }).className).toMatch(/bg-signal/);
   expect(screen.getByRole("button", { name: "Open .ohm" })).toBeTruthy();
 });
@@ -165,7 +168,7 @@ it("with Copilot on, the composer hands the description to the Copilot entry poi
   render(<StudioOverview />);
   const user = userEvent.setup();
   const box = screen.getByRole("textbox", { name: /Describe the harness/ });
-  const send = screen.getByRole("button", { name: "Draft with Copilot" }) as HTMLButtonElement;
+  const send = screen.getByRole("button", { name: "Draft with Nilo" }) as HTMLButtonElement;
   expect(send.disabled).toBe(true);
   await user.type(box, "  Research, write, then review  ");
   expect(send.disabled).toBe(false);
@@ -177,7 +180,7 @@ it("with Copilot on, the composer hands the description to the Copilot entry poi
 
 it("with Copilot on, Ctrl+Enter submits and an unavailable Copilot is reported, keeping the text", async () => {
   flags.copilot = true;
-  vi.mocked(startCopilotFromOverview).mockRejectedValue(new Error("Copilot isn't available yet."));
+  vi.mocked(startCopilotFromOverview).mockRejectedValue(new Error("Nilo isn't available yet."));
   render(<StudioOverview />);
   const user = userEvent.setup();
   const box = screen.getByRole("textbox", { name: /Describe the harness/ }) as HTMLTextAreaElement;
@@ -192,7 +195,7 @@ it("with Copilot on, drafting is blocked while a run is in progress", async () =
   useCanvasStore.setState({ isRunning: true });
   render(<StudioOverview />);
   await userEvent.setup().type(screen.getByRole("textbox", { name: /Describe the harness/ }), "anything");
-  expect((screen.getByRole("button", { name: "Draft with Copilot" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByRole("button", { name: "Draft with Nilo" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
 it("shows a loading line until the harness list arrives", async () => {
@@ -215,4 +218,32 @@ it("an unsaved draft is listed with the saved harnesses and can be continued by 
   expect(list.querySelectorAll("li")).toHaveLength(2);
   await userEvent.setup().click(screen.getByRole("button", { name: "Continue editing Mine" }));
   expect(useShellStore.getState().studioView).toBe("editor");
+});
+
+it("an unsaved draft can be deleted after confirming, and nothing is saved", async () => {
+  useCanvasStore.setState({ nodes: [{ id: "a", type: "agent", position: { x: 0, y: 0 }, data: { label: "a" } } as never], harnessMeta: { id: null, name: "My draft", description: "" } });
+  render(<StudioOverview />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Delete My draft" }));
+  expect(useCanvasStore.getState().nodes).toHaveLength(1);
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(useCanvasStore.getState().nodes).toHaveLength(1);
+  await user.click(screen.getByRole("button", { name: "Delete My draft" }));
+  await user.click(screen.getByRole("button", { name: "Delete" }));
+  await waitFor(() => expect(useCanvasStore.getState().nodes).toHaveLength(0));
+  expect(h.create).not.toHaveBeenCalled();
+});
+
+it("lists every extra example the catalog returns and opens it as a copy", async () => {
+  const deepseek = { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness", description: "Plan, code, review", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } };
+  vi.mocked(fetchStudioExamples).mockResolvedValue([
+    { id: "openharness.default.agile", name: "OpenHarness Agile", description: "", bundle: { manifest: { id: "openharness.default.agile" } } },
+    { id: "sample:minimal-gate", name: "Sample: Agent + review", description: "", bundle: null, presetId: "minimal-gate" },
+    deepseek,
+  ] as never);
+  render(<StudioOverview />);
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Open DeepSeek Harness" }));
+  expect(openStudioExample).toHaveBeenCalledWith(expect.objectContaining({ id: deepseek.id }));
+  // The two fixed cards already cover Agile and the sample; they are not listed twice.
+  expect(screen.queryByRole("button", { name: "Open OpenHarness Agile" })).toBeNull();
 });

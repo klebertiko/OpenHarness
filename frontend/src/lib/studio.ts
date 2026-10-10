@@ -3,9 +3,9 @@ import { useCanvasStore } from "@/store/canvasStore";
 import { useCopilotStore } from "@/store/copilotStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
 import { bundleGraphToCanvas } from "./bundleGraph";
-import { composeBundleFromCanvas, fetchDefault, isOHarnessBundle } from "./bundlesApi";
+import { composeBundleFromCanvas, fetchDefault, isOHarnessBundle, validateBundle } from "./bundlesApi";
 import { replaceStudioCanvas } from "./studioDocuments";
-import type { HARNESS_PRESETS } from "./templates";
+import { HARNESS_PRESETS } from "./templates";
 
 export function openStudioBundle(bundle: HarnessBundle): void {
   if (useCanvasStore.getState().isRunning) throw new Error("Stop the current run before opening another harness.");
@@ -53,11 +53,41 @@ export function newStudioHarness(): void {
   useCanvasStore.getState().setExecutionMode("mock");
 }
 
-export function useStudioInChat(): void {
+/** The open canvas as an exportable bundle (content and runtime kept from the active one). */
+export function composeStudioBundle() {
   const session = useHarnessSessionStore.getState();
   const { nodes, edges, harnessMeta } = useCanvasStore.getState();
   const base = isOHarnessBundle(session.activeBundle) ? session.activeBundle : null;
-  const bundle = composeBundleFromCanvas(base, { nodes, edges, harnessMeta });
+  return composeBundleFromCanvas(base, { nodes, edges, harnessMeta });
+}
+
+/** Open a bundle file's text as a new harness. Nothing changes unless it validates. */
+export async function importOhmText(text: string): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const result = await validateBundle(parsed);
+    if (!result.ok) return { ok: false, error: result.errors?.[0] || "Import failed validation" };
+    if (!isOHarnessBundle(parsed)) return { ok: false, error: "Not a recognizable .ohm bundle" };
+    openStudioBundle(parsed as unknown as HarnessBundle);
+    return { ok: true, name: parsed.manifest.name || parsed.manifest.id };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message || "Import failed" };
+  }
+}
+
+/** Open a bundled example as an editable copy; the original is never written. */
+export function openStudioExample(example: { bundle: HarnessBundle | null; presetId?: string }): void {
+  if (example.presetId) {
+    const preset = HARNESS_PRESETS.find((p) => p.id === example.presetId);
+    if (preset) openStudioPreset(preset);
+    return;
+  }
+  if (example.bundle) openStudioBundle(example.bundle);
+}
+
+export function useStudioInChat(): void {
+  const session = useHarnessSessionStore.getState();
+  const bundle = composeStudioBundle();
   session.replaceBundle(bundle as unknown as HarnessBundle);
   session.setEnabled(true);
   useShellStore.getState().setSection("chats");

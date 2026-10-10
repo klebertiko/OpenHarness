@@ -306,3 +306,83 @@ export async function removeSavedHarness(id: string): Promise<void> {
     useShellStore.getState().setStudioView("overview");
   }
 }
+
+/**
+ * Explicit Save. A harness that has no record yet (an opened bundled example,
+ * or a draft) is written as a new editable copy; the bundled original is never
+ * touched. An already saved harness is just flushed.
+ */
+export async function saveHarnessNow(): Promise<void> {
+  guardRun();
+  clearTimer();
+  await queue;
+  const s = useCanvasStore.getState();
+  if (!s.harnessMeta.id && !docIds.get(doc)) {
+    if (!hasStudioDraft(s)) return;
+    // markClean() recorded the loaded content as "on disk"; it is not.
+    savedKey.delete(doc);
+    useStudioDocsStore.setState({ dirty: true });
+    await enqueue(snapshot());
+    return;
+  }
+  await flushAutosave();
+}
+
+/**
+ * Save as: always writes a new record and makes it the open harness. A harness
+ * that was never saved is superseded by the copy (no second record from
+ * autosave); a saved one keeps its record and its own pending edits.
+ */
+export async function saveHarnessAs(name: string): Promise<void> {
+  const title = name.trim();
+  if (!title) throw new Error("Give the copy a name.");
+  guardRun();
+  clearTimer();
+  await queue;
+  const open = useCanvasStore.getState();
+  const saved = Boolean(open.harnessMeta.id || docIds.get(doc));
+  const session = doc;
+  if (saved) await flushAutosave();
+  else deleting.add(session);
+  const graph = stripRuntime(useCanvasStore.getState());
+  const description = useCanvasStore.getState().harnessMeta.description;
+  let res: { id: string };
+  try {
+    res = await api.harnesses.create(title, description, graph);
+  } catch {
+    if (!saved) deleting.delete(session);
+    throw new Error("The local engine couldn't save the copy. Try again.");
+  }
+  loadIntoCanvas(graph, { id: res.id, name: title, description });
+  void useStudioDocsStore.getState().refresh();
+}
+
+/**
+ * Discard: throw away what is not on disk. A harness that was never saved
+ * goes back to an empty Untitled harness and the overview; a saved one is
+ * reloaded from its record. Nothing pending may be saved afterwards.
+ */
+export async function discardStudioChanges(): Promise<void> {
+  guardRun();
+  clearTimer();
+  const session = doc;
+  deleting.add(session);
+  failed.delete(session);
+  latest.delete(session);
+  await queue;
+  const id = useCanvasStore.getState().harnessMeta.id ?? docIds.get(session) ?? null;
+  if (!id) {
+    loadIntoCanvas({ nodes: [], edges: [] }, { id: null, name: "Untitled harness", description: "" });
+    useShellStore.getState().setStudioView("overview");
+    return;
+  }
+  try {
+    const record = await api.harnesses.get(id);
+    const raw = record.graph_json ?? { nodes: [], edges: [] };
+    if (!Array.isArray(raw.nodes) || !Array.isArray(raw.edges)) throw new Error("no graph");
+    loadIntoCanvas(stripRuntime(raw), { id: record.id, name: record.name, description: record.description ?? "" });
+  } catch {
+    deleting.delete(session);
+    throw new Error("Couldn't reload the saved version. Your changes are kept.");
+  }
+}
