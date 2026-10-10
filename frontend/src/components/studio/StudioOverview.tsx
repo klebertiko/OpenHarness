@@ -12,12 +12,16 @@ import { discardStudioChanges, flushAutosave, hasStudioDraft, openSavedHarness, 
 import { formatRelativeTime } from "@/lib/time";
 import { COPILOT_ENABLED } from "@/lib/features";
 import { startCopilotFromOverview } from "@/lib/copilotEntry";
+import { ScrollRail } from "./ScrollRail";
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
 const control = `inline-flex h-9 flex-none items-center justify-center gap-2 whitespace-nowrap rounded-control px-3 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`;
 const primary = `${control} bg-signal text-signal-ink hover:bg-signal-deep`;
 const secondary = `${control} border border-line bg-sub-100 text-ink hover:bg-sub-200`;
 const quiet = `${control} text-ink-dim hover:bg-sub-200 hover:text-ink`;
+// One card for every rail in the overview: fixed width so a row of them reads as a rhythm,
+// equal height from the rail's stretch, long text wrapped or clamped instead of overflowing.
+const railCard = "flex w-[17rem] flex-none flex-col items-start gap-3 rounded-[10px] border border-line bg-sub-100 p-4 [&_h3]:line-clamp-2 [&_h3]:[overflow-wrap:anywhere] [&_p]:[overflow-wrap:anywhere] [&_h3+p]:line-clamp-3";
 const PROMPT_LIMIT = 2000;
 const DRAFT_ROW = "__draft__";
 
@@ -31,13 +35,13 @@ function edited(iso: string | null | undefined): string {
 /** A row in "Your harnesses": a document name with one line of state beneath it. */
 function DocumentLine({ name, status, live }: { name: string; status: string; live?: boolean }) {
   return (
-    <div className="flex min-w-[min(100%,12rem)] flex-1 items-start gap-3">
+    <div className="flex w-full min-w-0 items-start gap-3">
       <FileText size={16} strokeWidth={1.6} aria-hidden className="mt-0.5 flex-none text-ink-faint" />
       <div className="min-w-0 flex-1">
-        <h3 className="t-title text-ink [overflow-wrap:anywhere]">{name}</h3>
-        <div className="mt-1 flex items-center gap-1.5 text-[12px] leading-5 text-ink-mute">
-          {live && <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-signal" />}
-          <p className="min-w-0">{status}</p>
+        <h3 title={name} className="t-title text-ink [overflow-wrap:anywhere]">{name}</h3>
+        <div className="mt-1 flex items-start gap-1.5 text-[12px] leading-5 text-ink-mute">
+          {live && <span aria-hidden className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full bg-signal" />}
+          <p title={status} className="min-w-0 line-clamp-3 [overflow-wrap:anywhere]">{status}</p>
         </div>
       </div>
     </div>
@@ -185,8 +189,8 @@ export function StudioOverview() {
 
         {isRunning && <p role="status" className="mt-5 text-[13px] leading-6 text-ink-mute">A run is in progress. Continue editing to inspect or stop it before opening another harness.</p>}
 
-        <div className="mt-8 grid grid-cols-1 gap-10 border-t border-line pt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,288px)] lg:gap-12">
-          <section aria-labelledby="your-harnesses" className="min-w-0">
+        <div className="mt-8 grid grid-cols-1 gap-10 border-t border-line pt-8">
+          <section aria-labelledby="your-harnesses" className="relative min-w-0 [&>p]:pr-20">
             <div className="flex items-baseline gap-2">
               <h2 id="your-harnesses" className="text-[14px] font-semibold text-ink">Your harnesses</h2>
               {items.length > 0 && <span className="t-meta text-ink-faint">{items.length}</span>}
@@ -203,11 +207,11 @@ export function StudioOverview() {
               <p className="mt-4 rounded-[10px] border border-dashed border-line px-4 py-5 text-[13px] leading-6 text-ink-mute">Nothing saved yet. A new harness is saved here as soon as you edit it.</p>
             )}
             {hasRows && (
-              <ul aria-labelledby="your-harnesses" className="mt-4 divide-y divide-line overflow-hidden rounded-[10px] border border-line">
+              <ScrollRail as="ul" labelledBy="your-harnesses" className="mt-4">
                 {unsavedDraft && (
-                  <li className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-sub-100 px-4 py-3">
+                  <li className={`${railCard} border-ink-faint`}>
                     {confirmId === DRAFT_ROW ? (
-                      <div role="group" aria-label={`Delete ${harnessMeta.name}`} className="flex w-full flex-wrap items-center justify-between gap-3"
+                      <div role="group" aria-label={`Delete ${harnessMeta.name}`} className="flex w-full flex-col gap-3"
                         onKeyDown={(e) => { if (e.key === "Escape") cancelDelete(DRAFT_ROW); }}>
                         <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">Delete the draft “{harnessMeta.name}”? It hasn’t been saved, so it’s gone for good.</p>
                         <div className="flex gap-2">
@@ -222,7 +226,7 @@ export function StudioOverview() {
                           live
                           status={!dirty ? "Open now · it's saved here once you change it." : saveState === "error" ? "Not saved yet — the local engine is unreachable. It saves as soon as it can." : "Saving…"}
                         />
-                        <div className="ml-auto flex flex-none gap-2">
+                        <div className="mt-auto flex w-full items-center justify-between gap-2">
                           <button type="button" aria-label={`Continue editing ${harnessMeta.name}`} onClick={() => setStudioView("editor")} className={secondary}>
                             Continue editing <ArrowRight size={14} aria-hidden />
                           </button>
@@ -238,9 +242,9 @@ export function StudioOverview() {
                 {items.map((item) => {
                   const open = item.id === harnessMeta.id;
                   return (
-                    <li key={item.id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors ${open ? "bg-sub-100" : "hover:bg-sub-100"}`}>
+                    <li key={item.id} className={`${railCard} transition-colors ${open ? "border-ink-faint" : "hover:bg-sub-200"}`}>
                       {confirmId === item.id ? (
-                        <div role="group" aria-label={`Delete ${item.name}`} className="flex w-full flex-wrap items-center justify-between gap-3"
+                        <div role="group" aria-label={`Delete ${item.name}`} className="flex w-full flex-col gap-3"
                           onKeyDown={(e) => { if (e.key === "Escape") cancelDelete(item.id); }}>
                           <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">Delete “{item.name}” from this device? This can’t be undone.</p>
                           <div className="flex gap-2">
@@ -255,7 +259,7 @@ export function StudioOverview() {
                             live={open}
                             status={open ? (saveState === "saving" ? "Open · saving…" : saveState === "error" ? "Open · last changes not saved" : "Open now") : edited(item.updated_at)}
                           />
-                          <div className="ml-auto flex flex-none gap-2">
+                          <div className="mt-auto flex w-full items-center justify-between gap-2">
                             <button type="button" aria-label={`${open ? "Continue editing" : "Open"} ${item.name}`} disabled={isRunning && !open} onClick={() => (open ? setStudioView("editor") : void openSaved(item.id))} className={secondary}>
                               {open ? "Continue editing" : "Open"} <ArrowRight size={14} aria-hidden />
                             </button>
@@ -269,15 +273,16 @@ export function StudioOverview() {
                     </li>
                   );
                 })}
-              </ul>
+              </ScrollRail>
             )}
           </section>
 
-          <aside aria-labelledby="starting-points" className="min-w-0">
+          <aside aria-labelledby="starting-points" className="relative min-w-0 [&>p]:pr-20">
             <h2 id="starting-points" className="text-[14px] font-semibold text-ink">Starting points</h2>
             <p className="mt-1 text-[12px] leading-5 text-ink-mute">Open an example harness or the Agile Harness as an editable copy. Your work stays saved.</p>
-            <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-1">
-              <article className="flex flex-col items-start gap-3 border-t border-line pt-4">
+            <ScrollRail labelledBy="starting-points" className="mt-4">
+              <article className={railCard}>
+
                 <div className="flex items-center gap-2">
                   <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
                   <p className="text-[11px] text-ink-faint">Example harness</p>
@@ -291,7 +296,7 @@ export function StudioOverview() {
                   if (sample) void startFresh(() => openStudioPreset(sample));
                 }}>Open harness <ArrowRight size={14} aria-hidden /></button>
               </article>
-              <article className="flex flex-col items-start gap-3 border-t border-line pt-4">
+              <article className={railCard}>
                 <div className="flex items-center gap-2">
                   <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
                   <p className="text-[11px] text-ink-faint">Bundled harness</p>
@@ -305,14 +310,14 @@ export function StudioOverview() {
                 </button>
               </article>
               {extraExamples.map((ex) => (
-                <article key={ex.id} className="flex flex-col items-start gap-3 border-t border-line pt-4">
+                <article key={ex.id} className={railCard}>
                   <div className="flex items-center gap-2">
                     <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
                     <p className="text-[11px] text-ink-faint">Example harness</p>
                   </div>
                   <div className="min-w-0">
-                    <h3 className="t-title text-ink">{ex.name}</h3>
-                    {ex.description && <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
+                    <h3 title={ex.name} className="t-title text-ink">{ex.name}</h3>
+                    {ex.description && <p title={ex.description} className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
                   </div>
                   <button type="button" disabled={startDisabled} aria-label={`Open harness: ${ex.name}`} className={`${secondary} mt-auto`}
                     onClick={() => void startFresh(() => openStudioExample(ex))}>
@@ -320,7 +325,7 @@ export function StudioOverview() {
                   </button>
                 </article>
               ))}
-            </div>
+            </ScrollRail>
             {error && <p role="alert" className="mt-3 text-[13px] leading-6 text-fault">{error}</p>}
           </aside>
         </div>
