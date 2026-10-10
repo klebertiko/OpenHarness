@@ -2,10 +2,11 @@ name: Release
 
 # Desktop installers for Windows, Linux and macOS.
 #
-# - push of a vX.Y.Z tag: quality + security gates, version check, build every
-#   platform in the protected `release` environment (signing when its secrets
-#   exist), then a DRAFT GitHub Release with checksums, SBOM and attestations.
-#   A human reviews and publishes the draft.
+# - push of a vX.Y.Z or vX.Y.Z-pre tag (SemVer, e.g. v0.0.1-alpha): quality +
+#   security gates, version check, build every platform in the protected
+#   `release` environment (signing when its secrets exist), then a DRAFT GitHub
+#   Release with checksums, SBOM and attestations, marked as pre-release when
+#   the tag has a SemVer pre-release suffix. A human reviews and publishes it.
 # - pull_request touching the desktop build: build-only check on all 3 OSes,
 #   never signs, never releases.
 # - workflow_dispatch: build-only dry run (workflow artifacts, no release).
@@ -18,7 +19,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*.*.*"]
+    tags: ["v*.*.*"] # also matches pre-releases such as v0.0.1-alpha
   pull_request:
     paths:
       - .github/workflows/release.yml
@@ -85,8 +86,11 @@ jobs:
           python - <<'PY'
           import json, os, re, sys
           from pathlib import Path
-          if not re.fullmatch(r"v\d+\.\d+\.\d+", os.environ["TAG"]):
-              print(f"Release tag must be strict SemVer vX.Y.Z: {os.environ['TAG']}", file=sys.stderr)
+          # SemVer 2.0.0 core plus optional pre-release (no build metadata).
+          ident = r"(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+          semver = rf"v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-{ident}(\.{ident})*)?"
+          if not re.fullmatch(semver, os.environ["TAG"]):
+              print(f"Release tag must be SemVer vX.Y.Z or vX.Y.Z-pre: {os.environ['TAG']}", file=sys.stderr)
               sys.exit(1)
           expected = os.environ["TAG"].removeprefix("v")
           versions = {
@@ -215,37 +219,57 @@ jobs:
           timestamp-digest: SHA256
           cache-dependencies: false
 
+      # Windows Server images ship Edge but not necessarily the Evergreen
+      # WebView2 Runtime the app renders with (Windows 10/11 desktops have it).
+      # Install it only when missing, and only a Microsoft-signed bootstrapper.
+      - name: Ensure WebView2 Runtime
+        run: |
+          $key = 'SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $pv = (Get-ItemProperty -Path "HKLM:\$key" -ErrorAction SilentlyContinue).pv
+          if ($pv -and $pv -ne '0.0.0.0') { Write-Host "WebView2 Runtime $pv present"; exit 0 }
+          Write-Host "::notice::WebView2 Runtime missing on this runner image; installing the Evergreen Bootstrapper"
+          $setup = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebview2Setup.exe'
+          # Evergreen Bootstrapper link from https://developer.microsoft.com/microsoft-edge/webview2/
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $setup -UseBasicParsing
+          $sig = Get-AuthenticodeSignature -FilePath $setup
+          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw "WebView2 bootstrapper signature rejected: $($sig.Status) $($sig.SignerCertificate.Subject)"
+          }
+          $proc = Start-Process -FilePath $setup -ArgumentList '/silent','/install' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "WebView2 bootstrapper exited with $($proc.ExitCode)" }
+          $pv = (Get-ItemProperty -Path "HKLM:\$key" -ErrorAction SilentlyContinue).pv
+          if (-not $pv) { throw "WebView2 Runtime still missing after install" }
+          Write-Host "WebView2 Runtime $pv installed"
       - name: Smoke desktop app (sidecar health, WebView, clean exit)
         run: npm run desktop:smoke
 
-      - name: Bundle NSIS and MSI
-        run: npm exec -- tauri bundle --bundles nsis,msi --ci
-      - name: Locate installers
+      # NSIS only, no MSI: WiX needs a numeric MSI version (major.minor.patch.build,
+      # https://v2.tauri.app/reference/config/#wixconfig) and cannot carry the
+      # SemVer pre-release of 0.0.1-alpha. NSIS is how the app is distributed.
+      - name: Bundle NSIS
+        run: npm exec -- tauri bundle --bundles nsis --ci
+      - name: Locate installer
         id: bundles
         run: |
           $nsis = @(Get-ChildItem src-tauri\target\release\bundle\nsis\*-setup.exe)
-          $msi = @(Get-ChildItem src-tauri\target\release\bundle\msi\*.msi)
-          if ($nsis.Count -ne 1 -or $msi.Count -ne 1) { throw "Expected exactly one NSIS and one MSI installer, got $($nsis.Count) and $($msi.Count)" }
+          if ($nsis.Count -ne 1) { throw "Expected exactly one NSIS installer, got $($nsis.Count)" }
           "nsis=$($nsis[0].FullName)" >> $env:GITHUB_OUTPUT
-          "msi=$($msi[0].FullName)" >> $env:GITHUB_OUTPUT
 
-      - name: Azure login (installers)
+      - name: Azure login (installer)
         if: steps.signing.outputs.enabled == 'true'
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Sign installers
+      - name: Sign installer
         if: steps.signing.outputs.enabled == 'true'
         uses: Azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
           signing-account-name: ${{ vars.AZURE_TRUSTED_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ vars.AZURE_TRUSTED_SIGNING_PROFILE }}
-          files: |
-            ${{ steps.bundles.outputs.nsis }}
-            ${{ steps.bundles.outputs.msi }}
+          files: ${{ steps.bundles.outputs.nsis }}
           file-digest: SHA256
           timestamp-digest: SHA256
           cache-dependencies: false
@@ -253,13 +277,11 @@ jobs:
         if: steps.signing.outputs.enabled == 'true'
         env:
           NSIS: ${{ steps.bundles.outputs.nsis }}
-          MSI: ${{ steps.bundles.outputs.msi }}
         run: |
           $files = @(
             'src-tauri\binaries\openharness-sidecar-x86_64-pc-windows-msvc.exe',
             'src-tauri\target\release\openharness.exe',
-            $env:NSIS,
-            $env:MSI
+            $env:NSIS
           )
           foreach ($f in $files) {
             $sig = Get-AuthenticodeSignature -FilePath $f
@@ -270,16 +292,15 @@ jobs:
       - name: Stage assets with stable names
         env:
           NSIS: ${{ steps.bundles.outputs.nsis }}
-          MSI: ${{ steps.bundles.outputs.msi }}
           SIGNED: ${{ steps.signing.outputs.enabled }}
         run: |
           New-Item -ItemType Directory -Force dist-release, dist-status | Out-Null
           Copy-Item -LiteralPath $env:NSIS dist-release\OpenHarness-windows-x64-setup.exe
-          Copy-Item -LiteralPath $env:MSI dist-release\OpenHarness-windows-x64.msi
           if ($env:SIGNED -eq 'true') {
-            $line = '- **Windows x64** (`OpenHarness-windows-x64-setup.exe`, `OpenHarness-windows-x64.msi`): **signed** with Authenticode (Azure Trusted Signing): app, sidecar and installers.'
+            $line = '- **Windows x64** (`OpenHarness-windows-x64-setup.exe`): **signed** with Authenticode (Azure Trusted Signing): app, sidecar and installer.'
           } else {
-            $line = '- **Windows x64** (`OpenHarness-windows-x64-setup.exe`, `OpenHarness-windows-x64.msi`): **UNSIGNED**. Microsoft Defender SmartScreen shows "Windows protected your PC" / "Unknown publisher"; choose *More info* then *Run anyway*. Verify the file with `SHA256SUMS` and `gh attestation verify` first.'
+            Write-Host "::warning title=Unsigned Windows build::Azure Trusted Signing is not configured; OpenHarness-windows-x64-setup.exe is UNSIGNED (SmartScreen will warn)."
+            $line = '- **Windows x64** (`OpenHarness-windows-x64-setup.exe`): **UNSIGNED**. Microsoft Defender SmartScreen shows "Windows protected your PC" / "Unknown publisher"; choose *More info* then *Run anyway*. Verify the file with `SHA256SUMS` and `gh attestation verify` first.'
           }
           Set-Content -Path dist-status\windows-x64.md -Value $line -Encoding utf8
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Signing status`n`n$line"
@@ -517,6 +538,7 @@ jobs:
                   || { echo "::error::AppImage has no embedded GPG signature"; exit 1; }
                 line="- **Linux x86_64** (\`OpenHarness-linux-x86_64.AppImage\`, \`OpenHarness-linux-amd64.deb\`): AppImage **signed** with an embedded GPG signature; the .deb is verified through \`SHA256SUMS\` and the attestation."
               else
+                echo "::warning title=Unsigned Linux build::AppImage GPG signing is not configured; OpenHarness-linux-x86_64.AppImage is UNSIGNED."
                 line="- **Linux x86_64** (\`OpenHarness-linux-x86_64.AppImage\`, \`OpenHarness-linux-amd64.deb\`): **UNSIGNED** (no embedded AppImage GPG signature). Linux shows no warning; verify the file with \`SHA256SUMS\` and \`gh attestation verify\`."
               fi
               ;;
@@ -533,6 +555,7 @@ jobs:
                 xcrun stapler validate "$app"
                 line="- **macOS ${label}** (\`OpenHarness-macos-${arch}.dmg\`): **signed** with Developer ID and **notarized** by Apple."
               else
+                echo "::warning title=Unsigned macOS build::Developer ID signing and notarization are not configured; OpenHarness-macos-${arch}.dmg is ad-hoc signed only (Gatekeeper blocks the first launch)."
                 line="- **macOS ${label}** (\`OpenHarness-macos-${arch}.dmg\`): **UNSIGNED** (ad-hoc signature only, not notarized). Gatekeeper blocks the first launch (\"Apple could not verify OpenHarness is free of malware\"); open *System Settings > Privacy & Security* and choose *Open Anyway*, or run \`xattr -dr com.apple.quarantine /Applications/OpenHarness.app\` after verifying the file."
               fi
               ;;
@@ -584,7 +607,6 @@ jobs:
           set -euo pipefail
           expected=(
             OpenHarness-windows-x64-setup.exe
-            OpenHarness-windows-x64.msi
             OpenHarness-linux-x86_64.AppImage
             OpenHarness-linux-amd64.deb
             OpenHarness-macos-arm64.dmg
@@ -628,7 +650,7 @@ jobs:
             echo
             echo "| Platform | File |"
             echo "| --- | --- |"
-            echo "| Windows 10/11 x64 | \`OpenHarness-windows-x64-setup.exe\` (per-user installer) or \`OpenHarness-windows-x64.msi\` |"
+            echo "| Windows 10/11 x64 | \`OpenHarness-windows-x64-setup.exe\` (per-user installer) |"
             echo "| macOS Apple silicon | \`OpenHarness-macos-arm64.dmg\` |"
             echo "| macOS Intel | \`OpenHarness-macos-x64.dmg\` |"
             echo "| Linux x86_64 | \`OpenHarness-linux-x86_64.AppImage\` or \`OpenHarness-linux-amd64.deb\` (Ubuntu 22.04+ / Debian 12+) |"
@@ -653,7 +675,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # SemVer pre-release (hyphen, e.g. v0.0.1-alpha) => GitHub pre-release,
+          # which GitHub never serves from /releases/latest.
+          prerelease=()
+          case "${GITHUB_REF_NAME}" in *-*) prerelease=(--prerelease) ;; esac
           gh release create "${GITHUB_REF_NAME}" release-assets/* \
             --draft --verify-tag --generate-notes --notes-file release-notes.md \
-            --title "OpenHarness ${GITHUB_REF_NAME}"
+            --title "OpenHarness ${GITHUB_REF_NAME}" ${prerelease[@]+"${prerelease[@]}"}
           echo "Draft release created for ${GITHUB_REF_NAME}. A maintainer must review and publish it." >> "$GITHUB_STEP_SUMMARY"

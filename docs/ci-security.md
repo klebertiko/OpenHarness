@@ -34,7 +34,7 @@ Package installation in CI passes through Aikido Safe Chain 1.5.15. The versione
 
 ## Releases
 
-Create an annotated `vX.Y.Z` tag only after synchronizing the version in:
+Create an annotated SemVer tag, `vX.Y.Z` or a pre-release such as `v0.0.1-alpha`, only after synchronizing the version (without the `v`) in:
 
 - `package.json`
 - `frontend/package.json`
@@ -46,14 +46,16 @@ The tag runs the Quality and Security gates, checks the versions, then builds ev
 
 | Runner | Target | Assets |
 | --- | --- | --- |
-| `windows-2025` | `x86_64-pc-windows-msvc` | `OpenHarness-windows-x64-setup.exe` (NSIS, per-user), `OpenHarness-windows-x64.msi` |
+| `windows-2025` | `x86_64-pc-windows-msvc` | `OpenHarness-windows-x64-setup.exe` (NSIS, per-user) |
 | `ubuntu-22.04` | `x86_64-unknown-linux-gnu` | `OpenHarness-linux-x86_64.AppImage`, `OpenHarness-linux-amd64.deb` |
 | `macos-15` | `aarch64-apple-darwin` | `OpenHarness-macos-arm64.dmg` |
 | `macos-15-intel` | `x86_64-apple-darwin` | `OpenHarness-macos-x64.dmg` |
 
+Windows ships NSIS only. WiX needs a numeric MSI version (`major.minor.patch.build`, see [`bundle.windows.wix.version`](https://v2.tauri.app/reference/config/#wixconfig)), so an MSI cannot carry a SemVer pre-release such as `0.0.1-alpha`; overriding it with `0.0.1` would give the alpha and the final 0.0.1 the same MSI version, and Windows Installer would not treat the final as an upgrade. If the runner image lacks the Evergreen WebView2 Runtime, the workflow installs it (Microsoft-signed bootstrapper only) before the desktop smoke.
+
 Linux builds on the oldest supported Ubuntu runner, so they need glibc 2.35 or newer. macOS ships two native DMGs instead of a universal one: a PyInstaller `--onefile` sidecar can only be universal2 if Python and every native wheel are universal2, and a onefile binary cannot be merged with `lipo`.
 
-The last job adds `SHA256SUMS` and the CycloneDX SBOM `OpenHarness-sbom.cdx.json` (from the source lockfiles), attests build provenance for every asset and the SBOM for every installer, and creates a **draft** GitHub Release. A maintainer reviews the draft and publishes it. Asset names never contain the version, so `https://github.com/klebertiko/OpenHarness/releases/latest/download/<asset>` always points at the newest published release.
+The last job adds `SHA256SUMS` and the CycloneDX SBOM `OpenHarness-sbom.cdx.json` (from the source lockfiles), attests build provenance for every asset and the SBOM for every installer, and creates a **draft** GitHub Release. A tag with a SemVer pre-release suffix (a hyphen, e.g. `v0.0.1-alpha`) makes it a GitHub **pre-release**. A maintainer reviews the draft and publishes it. Asset names never contain the version, so `https://github.com/klebertiko/OpenHarness/releases/latest/download/<asset>` points at the newest published *stable* release. GitHub never serves a pre-release from `releases/latest`, so while only pre-releases exist, link the tag instead: `https://github.com/klebertiko/OpenHarness/releases/tag/v0.0.1-alpha` or `https://github.com/klebertiko/OpenHarness/releases/download/v0.0.1-alpha/<asset>`.
 
 Pull requests that touch the desktop build (`src-tauri/**`, the release workflow, sidecar scripts, root `package*.json`) run the same matrix as a build-only check: no signing, no attestations, no release. `workflow_dispatch` is a dry run that uploads workflow artifacts only; its `sign` input also runs signing through the `release` environment, so a new certificate can be tested before tagging.
 
@@ -66,7 +68,7 @@ gh attestation verify OpenHarness-windows-x64-setup.exe --repo klebertiko/OpenHa
 
 ### Code signing
 
-Each platform signs only when the `release` environment holds its complete set of secrets. With none of them, it builds **unsigned**, and the job summary and the release notes say so, including the warning that users will see. With only part of a set, the build fails rather than shipping a half-configured signature. Set the repository variable `REQUIRE_SIGNING=true` to make a tag build fail whenever any platform would be unsigned. Pull requests never sign.
+Each platform signs only when the `release` environment holds its complete set of secrets. With none of them, it builds **unsigned**, and a `::warning::` annotation in the log, the job summary and the release notes say so, including the warning that users will see. With only part of a set, the build fails rather than shipping a half-configured signature. Set the repository variable `REQUIRE_SIGNING=true` to make a tag build fail whenever any platform would be unsigned. Pull requests never sign.
 
 Create these as **environment secrets of `release`**, not as repository secrets, so pull-request builds can never read them.
 
@@ -80,7 +82,7 @@ Create these as **environment secrets of `release`**, not as repository secrets,
 | macOS notarization, option B | `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_KEY_P8` | App Store Connect API issuer ID, key ID, and the contents of the `.p8` key (the workflow writes it to `APPLE_API_KEY_PATH`) |
 | Linux | `APPIMAGE_GPG_PRIVATE_KEY`, `APPIMAGE_GPG_KEY_ID`, `APPIMAGETOOL_SIGN_PASSPHRASE` | ASCII-armored GPG private key, its key ID, and its passphrase |
 
-The names follow Tauri's own signing variables ([Windows](https://v2.tauri.app/distribute/sign/windows/), [macOS](https://v2.tauri.app/distribute/sign/macos/), [Linux](https://v2.tauri.app/distribute/sign/linux/)). On Windows the workflow signs inside out with Microsoft's `azure/artifact-signing-action` over OIDC (no client secret): first the sidecar, then `openharness.exe`, then the NSIS and MSI installers, and it verifies every signature with `Get-AuthenticodeSignature`. On macOS Tauri signs and notarizes; the workflow then checks `codesign`, `spctl` and `stapler`. Developer ID without notarization does not get past Gatekeeper, so macOS signing requires a notarization credential as well. The `.deb` carries no signature of its own (Debian signs repositories, not packages); it is covered by `SHA256SUMS` and the attestations.
+The names follow Tauri's own signing variables ([Windows](https://v2.tauri.app/distribute/sign/windows/), [macOS](https://v2.tauri.app/distribute/sign/macos/), [Linux](https://v2.tauri.app/distribute/sign/linux/)). On Windows the workflow signs inside out with Microsoft's `azure/artifact-signing-action` over OIDC (no client secret): first the sidecar, then `openharness.exe`, then the NSIS installer, and it verifies every signature with `Get-AuthenticodeSignature`. On macOS Tauri signs and notarizes; the workflow then checks `codesign`, `spctl` and `stapler`. Developer ID without notarization does not get past Gatekeeper, so macOS signing requires a notarization credential as well. The `.deb` carries no signature of its own (Debian signs repositories, not packages); it is covered by `SHA256SUMS` and the attestations.
 
 What users see while a platform is unsigned:
 

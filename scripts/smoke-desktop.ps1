@@ -61,7 +61,10 @@ try {
 
   $webView = & node (Join-Path $PSScriptRoot "check-webview.mjs") $debugPort
   if ($LASTEXITCODE -ne 0) {
-    throw "OpenHarness WebView did not render"
+    $app.Refresh()
+    $state = if ($app.HasExited) { "exited with code $($app.ExitCode)" } else { "still running" }
+    $webViews = @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'").Count
+    throw "OpenHarness WebView did not render (app $state; msedgewebview2 processes: $webViews)"
   }
 
   if (-not $app.CloseMainWindow()) {
