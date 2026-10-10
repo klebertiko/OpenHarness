@@ -131,6 +131,8 @@ jobs:
         with:
           name: frontend-e2e-evidence
           path: .harness/**/evidence/
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 7
 
   website:
