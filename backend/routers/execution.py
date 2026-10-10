@@ -27,7 +27,7 @@ from providers.outcomes import failure_details
 from sandbox.approval import ApprovalConflict
 from sandbox.broker import ToolBroker, redact_value
 from sandbox.permission import effective_mode
-from sandbox.permission_store import get_thread_mode
+from sandbox.permission_store import get_thread_mode, is_workspace_trusted
 from sandbox.schemas import ToolsRequest
 
 router = APIRouter(prefix="/execute", tags=["execution"])
@@ -557,11 +557,13 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
     RUNS[run_id] = control
     control.tool_mode = tool_options is not None
     permission_mode = None
+    workspace_trusted = False
     if tool_options:
         # The conversation's stored mode is the ceiling; the request can only tighten it.
         stored = await get_thread_mode(db, tool_options.thread_id)
         permission_mode = effective_mode(stored, tool_options.permission_mode)
-    broker = ToolBroker(cwd, adapter_name, control, tool_options, permission_mode=permission_mode) if tool_options else None
+        workspace_trusted = await is_workspace_trusted(db, cwd)
+    broker = ToolBroker(cwd, adapter_name, control, tool_options, permission_mode=permission_mode, workspace_trusted=workspace_trusted) if tool_options else None
     node_view = {
         "node_id": node_id,
         "type": "llm",
@@ -588,7 +590,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
 
         try:
             if broker:
-                yield emit('capabilities', {'node_id': node_id, **broker.capabilities, 'permission_mode': broker.permission_mode})
+                yield emit('capabilities', {'node_id': node_id, **broker.capabilities, 'permission_mode': broker.permission_mode, 'workspace_trusted': broker.workspace_trusted})
             if budget_status is not None and budget_status.state == "warning":
                 warn_evt = _budget_warning_event(budget_status)
                 yield emit(warn_evt["event"], warn_evt["data"])

@@ -13,7 +13,7 @@ from .capabilities import capabilities
 from .discover import discover
 from .exec import run, risk_hints
 from .paths import PathViolation, resolve_in_root
-from .permission import decide, effective_mode
+from .permission import decide, effective_mode, hardened_git
 from .read import ReadFailure, read_text
 from .schemas import validate_call, TOOL_SCHEMAS
 from .secrets import redact, requires_approval
@@ -37,10 +37,12 @@ def redact_value(value):
 
 
 class ToolBroker:
-    def __init__(self, root, adapter_name, control, options, permission_mode='ask'):
+    def __init__(self, root, adapter_name, control, options, permission_mode='ask', workspace_trusted=False):
         self.root = Path(root) if root else None
         # Already resolved by the caller (stored mode clamped by the request); unknown -> ask.
         self.permission_mode = effective_mode(permission_mode)
+        # Stored by the sidecar per workspace; never taken from a run request.
+        self.workspace_trusted = bool(workspace_trusted)
         self.control, self.options = control, options
         self.capabilities = capabilities(root, adapter_name)
         self.mock = adapter_name == 'mock'
@@ -64,7 +66,7 @@ class ToolBroker:
             approval_reason = None
             auto_approved = False
             if name == 'exec':
-                verdict = decide(self.permission_mode, action, self.root)
+                verdict = decide(self.permission_mode, action, self.root, trusted=self.workspace_trusted)
                 if verdict == 'deny':
                     self.last_result = PLAN_MODE_MESSAGE
                     yield {'kind': 'tool_denied', 'call_id': call_id, 'reason': 'policy', 'note': PLAN_MODE_MESSAGE}
@@ -115,7 +117,8 @@ class ToolBroker:
             if name == 'exec':
                 # Recheck cwd after the potentially long approval pause.
                 cwd = resolve_in_root(self.root, action.cwd)
-                result = await run(action.argv, cwd, action.timeout_s)
+                argv, env = hardened_git(action.argv, self.root) if auto_approved else (action.argv, {})
+                result = await run(argv, cwd, action.timeout_s, env=env or None)
             elif name == 'read':
                 value = await asyncio.to_thread(read_text, self.root, action.path, action.max_bytes, action.truncate,
                                                 approved=approval_reason is not None)

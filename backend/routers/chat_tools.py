@@ -14,7 +14,7 @@ from providers.resolution import ADAPTER_BY_PROVIDER
 from routers.execution import _validated_project_cwd
 from sandbox.capabilities import capabilities as tool_capabilities
 from sandbox.discover import discover as discover_workspace
-from sandbox.permission_store import get_thread_mode, set_thread_mode
+from sandbox.permission_store import get_thread_mode, is_workspace_trusted, set_thread_mode, set_workspace_trust
 from sandbox.read import READ_MAX_BYTES, ReadFailure, read_text
 from sandbox.schemas import THREAD_ID_PATTERN, PermissionMode
 
@@ -86,3 +86,32 @@ async def put_permission(request: Request, db: AsyncSession = Depends(get_db)):
     except (ValueError, ValidationError):
         return JSONResponse({"error": "invalid_argument"}, status_code=400)
     return {"thread_id": body.thread_id, "mode": await set_thread_mode(db, body.thread_id, body.mode)}
+
+
+class TrustUpdate(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    cwd: str = Field(min_length=1)
+    trusted: bool
+
+
+@router.get("/trust")
+async def get_trust(cwd: str, db: AsyncSession = Depends(get_db)):
+    """Whether the person trusted this workspace (false until they say so)."""
+    root = await _validated_project_cwd(db, cwd)
+    if root is None:
+        return JSONResponse({"error": "no-workspace"}, status_code=400)
+    return {"cwd": root, "trusted": await is_workspace_trusted(db, root)}
+
+
+@router.put("/trust")
+async def put_trust(request: Request, db: AsyncSession = Depends(get_db)):
+    """The UI's explicit "trust this workspace" action. Only registered Cowork projects can be trusted;
+    a run request cannot set it and a model's tool call cannot reach it."""
+    try:
+        body = TrustUpdate.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        return JSONResponse({"error": "invalid_argument"}, status_code=400)
+    root = await _validated_project_cwd(db, body.cwd)
+    if root is None:
+        return JSONResponse({"error": "no-workspace"}, status_code=400)
+    return {"cwd": root, "trusted": await set_workspace_trust(db, root, body.trusted)}

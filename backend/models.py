@@ -78,6 +78,19 @@ class ChatPermission(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class WorkspaceTrust(Base):
+    """Per-workspace trust (false unless a person said so through the UI).
+
+    A trusted workspace lets `auto_workspace` run the project's own scripts
+    (npm test, pytest...) without asking. Keyed by the resolved root of a
+    registered Cowork project. Never settable from a run request."""
+    __tablename__ = "workspace_trust"
+
+    root_path: Mapped[str] = mapped_column(String(1024), primary_key=True)
+    trusted: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class UsageRecord(Base):
     """One row per completed node/turn that actually reached a real vendor —
     the durable source of truth for tokens spent and USD cost, written once
