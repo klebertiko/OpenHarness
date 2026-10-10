@@ -250,3 +250,62 @@ def test_ollama_that_404s_the_version_route_but_serves_tags_is_live() -> None:
     probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="https://ollama.com", api_key="k")))
 
     assert probe.ok is True and probe.models == ["gpt-oss:120b"]
+
+
+# --- Ollama probe resource bounds ---------------------------------------------
+
+class _CountingStream(httpx.AsyncByteStream):
+    """A hostile endless body; records how many bytes the probe pulled."""
+
+    def __init__(self, limit: int = 200 * 1024 * 1024, chunk: int = 64 * 1024) -> None:
+        self.read = 0
+        self._limit, self._chunk = limit, chunk
+
+    async def __aiter__(self):
+        while self.read < self._limit:
+            self.read += self._chunk
+            yield b"x" * self._chunk
+
+
+def test_ollama_tags_body_is_read_with_a_byte_ceiling_not_whole() -> None:
+    from adapters.openai_compatible import MAX_PROBE_BODY_BYTES
+
+    stream = _CountingStream()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/version":
+            return httpx.Response(200, json={"version": "0.40.0"})
+        return httpx.Response(200, stream=stream)
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434")))
+
+    assert stream.read <= MAX_PROBE_BODY_BYTES + 64 * 1024
+    assert probe.ok is True and probe.models == []  # up, but the list was refused
+
+
+def test_ollama_version_body_is_never_read_unbounded() -> None:
+    from adapters.openai_compatible import MAX_PROBE_BODY_BYTES
+
+    stream = _CountingStream()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/version":
+            return httpx.Response(200, stream=stream)
+        return httpx.Response(404)
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434")))
+
+    assert stream.read <= MAX_PROBE_BODY_BYTES + 64 * 1024
+
+
+def test_ollama_model_list_is_capped_before_processing() -> None:
+    from adapters.openai_compatible import MAX_PROBE_MODELS
+
+    tags = {"models": [{"name": f"m{i:06d}"} for i in range(MAX_PROBE_MODELS + 500)]}
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(_ollama_handler([], tags=tags)))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434")))
+
+    assert len(probe.models) == MAX_PROBE_MODELS
+    assert "first" in probe.detail
