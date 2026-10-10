@@ -299,6 +299,24 @@ mod tests {
         assert_eq!(main["create"], serde_json::Value::Bool(false));
     }
 
+    #[test]
+    fn main_window_leaves_drag_and_drop_to_the_page() {
+        // With Tauri's drag-drop handler on (the default), WebView2 on Windows
+        // swallows HTML5 drag events, so palette → canvas drops never fire.
+        // setup() builds the window via from_config, which honours this flag.
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let main = config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|w| w["label"] == "main")
+            .cloned()
+            .expect("main window config");
+        let window: tauri::utils::config::WindowConfig = serde_json::from_value(main).unwrap();
+        assert!(!window.drag_drop_enabled);
+    }
+
     fn csp_directive<'a>(csp: &'a str, name: &str) -> Option<&'a str> {
         csp.split(';')
             .map(str::trim)
