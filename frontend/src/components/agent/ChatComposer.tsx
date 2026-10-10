@@ -18,6 +18,8 @@ interface Props {
   onPermissionModeChange?: (mode: PermissionMode) => void;
   /** Set when the sidecar refused to store a mode change. */
   permissionNotice?: string | null;
+  /** The selected workspace's trust. Only shown under Auto: it decides whether the project's own scripts run unasked. */
+  workspaceTrust?: { workspaceName: string; trusted: boolean; onChange: (trusted: boolean) => void; error?: string | null };
 }
 /** `/exec npm test` → preset, or a warning when the text contains shell syntax. */
 export function presetFromSlashText(value: string): { preset: ToolPreset } | { warning: string } | null {
@@ -29,12 +31,13 @@ export function presetFromSlashText(value: string): { preset: ToolPreset } | { w
   if (shellSyntax.length) return { warning: `Sem shell do outro lado: ${shellSyntax.join(" ")} seria passado literalmente. Rode um programa por vez.` };
   return { preset: { name: "exec", argv } };
 }
-export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, tools, onPreset, permissionMode, onPermissionModeChange, permissionNotice }: Props) {
+export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, tools, onPreset, permissionMode, onPermissionModeChange, permissionNotice, workspaceTrust }: Props) {
   const id = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(0);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [confirmingTrust, setConfirmingTrust] = useState(false);
   const query = /^\/([^\s/]*)$/.exec(value)?.[1] ?? null;
   const commands = useMemo(() => chatCommands(skills, tools), [skills, tools]);
   const options = useMemo(() => commands.filter(command =>
@@ -135,6 +138,22 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
       </div>
       <span className="text-[11px] text-ink-faint">{PERMISSION_SUMMARY[permissionMode]} · Shift+Tab</span>
       {permissionNotice && <p role="alert" className="w-full text-[11px] text-warn">{permissionNotice}</p>}
+      {permissionMode === "auto_workspace" && workspaceTrust && <div className="w-full text-[11px] text-ink-mute">
+        {workspaceTrust.trusted
+          ? <p className="flex flex-wrap items-center gap-2"><span>Workspace confiável: Auto roda os scripts do projeto (npm, pytest) sem perguntar.</span>
+              <button type="button" disabled={live} onClick={() => workspaceTrust.onChange(false)} className="rounded-control border border-line-soft px-2 py-0.5 text-ink hover:bg-sub-200 disabled:opacity-50">Revogar confiança</button></p>
+          : <p className="flex flex-wrap items-center gap-2"><span>Auto: só git somente leitura roda sozinho; os scripts do projeto continuam pedindo aprovação.</span>
+              <button type="button" disabled={live} onClick={() => setConfirmingTrust(true)} className="rounded-control border border-line-soft px-2 py-0.5 text-ink hover:bg-sub-200 disabled:opacity-50">Confiar neste workspace…</button></p>}
+        {confirmingTrust && !workspaceTrust.trusted && <div role="alertdialog" aria-label="Confiar neste workspace" className="mt-1.5 rounded-control border border-warn p-2.5 text-ink">
+          <p>Confiar em <strong>{workspaceTrust.workspaceName}</strong>? Em um workspace confiável, os scripts do projeto (package.json, conftest.py) rodam e podem executar código sem pedir aprovação.
+            Confie só em pastas cujo código você escreveu ou revisou; um repositório baixado de terceiros pode usar isso contra você.</p>
+          <div className="mt-2 flex gap-2">
+            <button type="button" onClick={() => { setConfirmingTrust(false); workspaceTrust.onChange(true); }} className="rounded-control bg-signal px-2.5 py-1 font-[550] text-signal-ink">Confiar</button>
+            <button type="button" onClick={() => setConfirmingTrust(false)} className="rounded-control border border-line px-2.5 py-1 font-[550]">Cancelar</button>
+          </div>
+        </div>}
+        {workspaceTrust.error && <p role="alert" className="mt-1 text-warn">{workspaceTrust.error}</p>}
+      </div>}
     </div>}
   </div>;
 }

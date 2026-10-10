@@ -14,7 +14,7 @@ vi.mock("@/components/agent-run/runClient", () => ({
   sendControl: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/chatToolsApi", () => ({
-  chatToolsApi: { getPermission: vi.fn(), setPermission: vi.fn() },
+  chatToolsApi: { getPermission: vi.fn(), setPermission: vi.fn(), getTrust: vi.fn(), setTrust: vi.fn() },
 }));
 vi.mock("@/components/agent/chatProvider", () => ({
   pickChatProvider: () => ({ id: "ollama", label: "Ollama", mode: "local", chosen: true }),
@@ -46,6 +46,8 @@ describe("AgentStage permission mode", () => {
     HTMLElement.prototype.scrollIntoView = vi.fn();
     api.setPermission.mockImplementation(async (thread_id, mode) => ({ thread_id, mode }));
     api.getPermission.mockResolvedValue({ thread_id: "x", mode: "ask" });
+    api.getTrust.mockResolvedValue({ cwd: "D:\w", trusted: false });
+    api.setTrust.mockImplementation(async (cwd, trusted) => ({ cwd, trusted }));
   });
   afterEach(cleanup);
 
@@ -102,5 +104,18 @@ describe("AgentStage permission mode", () => {
     useThreadStore.getState().selectThread(b);
     render(<AgentStage />);
     expect(checked()).toBe("Ask");
+  });
+
+  it("trust controls appear only under Auto, and trusting the workspace goes through the sidecar after a warning", async () => {
+    render(<AgentStage />);
+    expect(screen.queryByRole("button", { name: "Confiar neste workspace…" })).toBeNull();
+    expect(api.getTrust).not.toHaveBeenCalled();
+    fireEvent.keyDown(input(), { key: "Tab", shiftKey: true });
+    await waitFor(() => expect(api.getTrust).toHaveBeenCalledWith("D:\w"));
+    fireEvent.click(await screen.findByRole("button", { name: "Confiar neste workspace…" }));
+    expect(api.setTrust).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confiar" }));
+    await waitFor(() => expect(api.setTrust).toHaveBeenCalledWith("D:\w", true));
+    expect(await screen.findByRole("button", { name: "Revogar confiança" })).toBeTruthy();
   });
 });

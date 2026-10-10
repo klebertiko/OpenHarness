@@ -26,13 +26,14 @@ export const PERMISSION_LABEL: Record<PermissionMode, string> = {
 
 export const PERMISSION_HINT: Record<PermissionMode, string> = {
   ask: "Ask: every command waits for your approval",
-  auto_workspace: "Auto: safe commands inside the workspace run without asking; everything else still asks",
+  auto_workspace:
+    "Auto: read-only git and listings run without asking. In a trusted workspace it also runs the project's own scripts (npm, pytest) without asking. Everything else asks",
   plan: "Plan: read-only. Commands are refused; files can still be read",
 };
 
 /** The always-visible one-liner beside the selector. */
 export const PERMISSION_SUMMARY: Record<PermissionMode, string> = {
   ask: "pede aprovação",
-  auto_workspace: "comandos seguros no workspace rodam sozinhos",
+  auto_workspace: "comandos de leitura rodam sozinhos",
   plan: "somente leitura",
 };

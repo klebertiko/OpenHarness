@@ -7,6 +7,7 @@ import { HarnessBar } from "@/components/agent/HarnessBar";
 import { ChatComposer } from "@/components/agent/ChatComposer";
 import { useChatTools } from "@/components/agent/useChatTools";
 import { usePermissionMode } from "@/components/agent/usePermissionMode";
+import { useWorkspaceTrust } from "@/components/agent/useWorkspaceTrust";
 import type { ToolPreset } from "@/components/agent/chatCommands";
 import { ChatProviderPicker } from "@/components/agent/ChatProviderPicker";
 import { WorkspacePicker } from "@/components/agent/WorkspacePicker";
@@ -72,6 +73,8 @@ export function AgentStage() {
 
   // Permission mode of this conversation: selected here, enforced by the sidecar.
   const permission = usePermissionMode(activeThreadId);
+  // Workspace trust (stored by the sidecar) only matters under Auto.
+  const trust = useWorkspaceTrust(chatTools.workspace?.root ?? null, permission.mode === "auto_workspace");
 
   const [instruction, setInstruction] = useState("");
   const [showRunDetail, setShowRunDetail] = useState(false);
@@ -385,6 +388,7 @@ export function AgentStage() {
             permissionMode={permission.mode}
             onPermissionModeChange={(mode) => void permission.setMode(mode)}
             permissionNotice={permission.error}
+            workspaceTrust={chatTools.workspace ? { workspaceName: chatTools.workspace.name, trusted: trust.trusted, onChange: (value) => void trust.setTrusted(value), error: trust.error } : undefined}
           />
           <div className="flex items-center gap-2 px-2.5 pb-2.5 pt-1">
             <HarnessBar />

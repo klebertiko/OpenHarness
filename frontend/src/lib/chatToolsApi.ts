@@ -55,6 +55,11 @@ export interface ReadResult {
   redactions: number;
 }
 
+export interface TrustState {
+  cwd: string;
+  trusted: boolean;
+}
+
 export interface PermissionState {
   thread_id: string;
   mode: PermissionMode;
@@ -103,6 +108,11 @@ export const chatToolsApi = {
   /** Stored permission mode of a conversation (enforced by the sidecar; `ask` until set). */
   getPermission: (threadId: string) =>
     request<PermissionState>(`/chat/tools/permission?${new URLSearchParams({ thread_id: threadId }).toString()}`),
+  /** Whether the person trusted this workspace (false until they say so). Enforced by the sidecar. */
+  getTrust: (cwd: string) =>
+    request<TrustState>(`/chat/tools/trust?${new URLSearchParams({ cwd }).toString()}`),
+  setTrust: (cwd: string, trusted: boolean) =>
+    request<TrustState>("/chat/tools/trust", { method: "PUT", body: JSON.stringify({ cwd, trusted }) }),
   setPermission: (threadId: string, mode: PermissionMode) =>
     request<PermissionState>("/chat/tools/permission", {
       method: "PUT",

@@ -92,3 +92,53 @@ it("renders no selector when the parent does not wire a mode (older callers)", (
   render(<Plain />);
   expect(screen.queryByRole("radiogroup")).toBeNull();
 });
+
+// -- workspace trust: what Auto does depends on it, and it says so plainly --------------------------------------
+function TrustComposer({ trusted, onChange = vi.fn(), error = null, mode = "auto_workspace" }: { trusted: boolean; onChange?: (t: boolean) => void; error?: string | null; mode?: PermissionMode }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  return <ChatComposer value="" onChange={() => {}} onSend={send} inputRef={ref} live={false} permissionMode={mode} onPermissionModeChange={() => {}}
+    workspaceTrust={{ workspaceName: "Development", trusted, onChange, error }} />;
+}
+
+it("Auto in an untrusted workspace says that only read-only git runs unasked and project scripts still ask", () => {
+  render(<TrustComposer trusted={false} />);
+  expect(screen.getByText(/só git somente leitura roda sozinho/i)).toBeTruthy();
+  expect(screen.getByText(/scripts do projeto continuam pedindo/i)).toBeTruthy();
+});
+
+it("Auto in a trusted workspace says plainly that the project's own scripts run without asking", () => {
+  render(<TrustComposer trusted />);
+  expect(screen.getByText(/roda os scripts do projeto .*sem perguntar/i)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Revogar confiança" })).toBeTruthy();
+});
+
+it("trusting needs a deliberate second step with a warning; nothing is sent by the first click", () => {
+  const onChange = vi.fn();
+  render(<TrustComposer trusted={false} onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: "Confiar neste workspace…" }));
+  expect(onChange).not.toHaveBeenCalled();
+  const dialog = screen.getByRole("alertdialog");
+  expect(dialog.textContent).toMatch(/Development/);
+  expect(dialog.textContent).toMatch(/executar código sem pedir aprovação/i);
+  expect(dialog.textContent).toMatch(/package\.json/);
+  fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+  expect(onChange).not.toHaveBeenCalled();
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Confiar neste workspace…" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confiar" }));
+  expect(onChange).toHaveBeenCalledWith(true);
+});
+
+it("revoking is one click", () => {
+  const onChange = vi.fn();
+  render(<TrustComposer trusted onChange={onChange} />);
+  fireEvent.click(screen.getByRole("button", { name: "Revogar confiança" }));
+  expect(onChange).toHaveBeenCalledWith(false);
+});
+
+it("shows no trust controls outside Auto, and reports a refused change", () => {
+  const { rerender } = render(<TrustComposer trusted={false} mode="ask" />);
+  expect(screen.queryByRole("button", { name: "Confiar neste workspace…" })).toBeNull();
+  rerender(<TrustComposer trusted={false} error="Não foi possível salvar a confiança" />);
+  expect(screen.getByRole("alert").textContent).toContain("Não foi possível salvar a confiança");
+});
