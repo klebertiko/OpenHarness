@@ -1,0 +1,405 @@
+{
+  "schemaVersion": "1.0.0",
+  "manifest": {
+    "id": "openharness.example.deepseek-harness",
+    "name": "DeepSeek Harness (dsh)",
+    "version": "0.1.0",
+    "description": "Example modelled on DeepSeek Harness desktop release dsh-v0.2.1-alpha.2: plan mode, AgentLoop turn/step loop, guarded tools, subagents and goal continuation. Source: https://github.com/deepseek-ai/deepseek-harness (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2).",
+    "license": "MIT",
+    "tags": [
+      "example",
+      "deepseek",
+      "agent-loop",
+      "plugins"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "consumes": [],
+          "emits": [
+            "exit_plan_mode"
+          ],
+          "label": "Plan mode",
+          "providerIds": [],
+          "roleId": "planner",
+          "systemPrompt": "Plan mode (plan/plan-mode, `/plan`): explore the workspace and design the change before executing. Every tool stays available; present the finished plan with `exit_plan_mode`."
+        },
+        "id": "plan",
+        "position": {
+          "x": 0,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "approvalLabel": "Approve plan",
+          "label": "Plan approval"
+        },
+        "id": "plan-approval",
+        "position": {
+          "x": 280,
+          "y": 240
+        },
+        "type": "hitl"
+      },
+      {
+        "data": {
+          "label": "goal",
+          "providerIds": [],
+          "skillId": "goal"
+        },
+        "id": "goal",
+        "position": {
+          "x": 280,
+          "y": 0
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "label": "compaction-basic",
+          "providerIds": [],
+          "skillId": "compaction"
+        },
+        "id": "compaction",
+        "position": {
+          "x": 280,
+          "y": 480
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "checklist": "claim inbox input · assemble prompt sections + tool schemas · compaction pressure · enter or reject",
+          "consumes": [],
+          "emits": [],
+          "gateId": "pre-step",
+          "label": "agent/pre-step"
+        },
+        "id": "pre-step",
+        "position": {
+          "x": 560,
+          "y": 240
+        },
+        "type": "gate"
+      },
+      {
+        "data": {
+          "consumes": [
+            "exit_plan_mode"
+          ],
+          "emits": [
+            "tool/call"
+          ],
+          "label": "AgentLoop",
+          "providerIds": [],
+          "roleId": "agent-loop",
+          "systemPrompt": "Default driver (core/agent-loop). A turn is zero or more steps; a step is one model request plus the tools it calls. Stream the answer, then emit tool calls."
+        },
+        "id": "agent-loop",
+        "position": {
+          "x": 840,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "label": "todo",
+          "providerIds": [],
+          "skillId": "todo"
+        },
+        "id": "todo",
+        "position": {
+          "x": 840,
+          "y": 0
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "label": "Shell / PTY",
+          "toolKind": "shell"
+        },
+        "id": "shell",
+        "position": {
+          "x": 560,
+          "y": 0
+        },
+        "type": "tool"
+      },
+      {
+        "data": {
+          "label": "Filesystem",
+          "toolKind": "fs"
+        },
+        "id": "fs",
+        "position": {
+          "x": 560,
+          "y": 480
+        },
+        "type": "tool"
+      },
+      {
+        "data": {
+          "label": "MCP servers",
+          "mcpCommand": "",
+          "mcpUrl": ""
+        },
+        "id": "mcp",
+        "position": {
+          "x": 840,
+          "y": 480
+        },
+        "type": "mcp"
+      },
+      {
+        "data": {
+          "checklist": "tools/pre-execute · permission preset (sandbox + approval policy) · one-shot user-approval, fails closed",
+          "consumes": [],
+          "emits": [],
+          "gateId": "tool-guard",
+          "label": "Tool guard"
+        },
+        "id": "tool-guard",
+        "position": {
+          "x": 1120,
+          "y": 240
+        },
+        "type": "gate"
+      },
+      {
+        "data": {
+          "consumes": [
+            "tool/call"
+          ],
+          "emits": [
+            "tool/result"
+          ],
+          "label": "Subagent",
+          "providerIds": [],
+          "roleId": "subagent",
+          "systemPrompt": "Child agent started by the `tool-subagent` tool in a fresh context. The tool returns a child ID immediately and the parent is notified on completion."
+        },
+        "id": "subagent",
+        "position": {
+          "x": 1400,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "checklist": "no tool owes another request · next-step inbox empty · goal complete/blocked (goal-round-driver continues active goals)",
+          "consumes": [],
+          "emits": [],
+          "gateId": "turn-stopping",
+          "label": "agent/turn-stopping"
+        },
+        "id": "turn-stop",
+        "position": {
+          "x": 1680,
+          "y": 240
+        },
+        "type": "gate"
+      },
+      {
+        "data": {
+          "approvalLabel": "Accept",
+          "label": "User review"
+        },
+        "id": "review",
+        "position": {
+          "x": 1960,
+          "y": 240
+        },
+        "type": "hitl"
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "kind": "flow",
+          "label": "exit_plan_mode",
+          "signal": "exit_plan_mode"
+        },
+        "id": "e-plan-plan-approval",
+        "source": "plan",
+        "sourceHandle": "out",
+        "target": "plan-approval",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "approve"
+        },
+        "id": "e-plan-approval-pre-step",
+        "source": "plan-approval",
+        "sourceHandle": "approve",
+        "target": "pre-step",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "goal"
+        },
+        "id": "e-goal-pre-step",
+        "source": "goal",
+        "sourceHandle": "out",
+        "target": "pre-step",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "compaction"
+        },
+        "id": "e-compaction-pre-step",
+        "source": "compaction",
+        "sourceHandle": "out",
+        "target": "pre-step",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "enter"
+        },
+        "id": "e-pre-step-agent-loop",
+        "source": "pre-step",
+        "sourceHandle": "pass",
+        "target": "agent-loop",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "todo"
+        },
+        "id": "e-todo-agent-loop",
+        "source": "todo",
+        "sourceHandle": "out",
+        "target": "agent-loop",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "call"
+        },
+        "id": "e-shell-agent-loop",
+        "source": "shell",
+        "sourceHandle": "call",
+        "target": "agent-loop",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "call"
+        },
+        "id": "e-fs-agent-loop",
+        "source": "fs",
+        "sourceHandle": "call",
+        "target": "agent-loop",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "tools"
+        },
+        "id": "e-mcp-agent-loop",
+        "source": "mcp",
+        "sourceHandle": "tools",
+        "target": "agent-loop",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "tool/call",
+          "signal": "tool/call"
+        },
+        "id": "e-agent-loop-tool-guard",
+        "source": "agent-loop",
+        "sourceHandle": "out",
+        "target": "tool-guard",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "allow"
+        },
+        "id": "e-tool-guard-subagent",
+        "source": "tool-guard",
+        "sourceHandle": "pass",
+        "target": "subagent",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "tool/result",
+          "signal": "tool/result"
+        },
+        "id": "e-subagent-turn-stop",
+        "source": "subagent",
+        "sourceHandle": "out",
+        "target": "turn-stop",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "turn/end"
+        },
+        "id": "e-turn-stop-review",
+        "source": "turn-stop",
+        "sourceHandle": "pass",
+        "target": "review",
+        "targetHandle": "in"
+      }
+    ]
+  },
+  "content": {
+    "prompts": {
+      "OVERVIEW": "# DeepSeek Harness (dsh) — example harness\n\nSource: https://github.com/deepseek-ai/deepseek-harness (MIT). Modelled on release dsh-v0.2.1-alpha.2 (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2), the\ndesktop release line (v0.2 ships desktop installers for macOS and Windows). Loop structure\nfrom https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md and https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/agent-lifecycle.md.\n\ndsh is \"everything is a plugin\" on Cordis: a profile stacks bundles (`dsh-base`, then\n`dsh-web-app` for the browser/desktop app, `dsh-headless`, `dsh-sdk-app` or `dsh-acp-app`).\nThe graph below is the turn flow of the default AgentLoop driver:\n\n1. Plan mode (optional, `/plan`): explore and design, then `exit_plan_mode` asks the user to\n   approve the plan.\n2. `agent/pre-step`: claim inbox input, assemble system-prompt sections and tool schemas;\n   `dsh-compaction-basic` relieves context pressure here (and on context-overflow errors).\n3. AgentLoop step: one model request, streamed; the assistant message is logged.\n4. Tool calls go through `tools/pre-execute` → `tools/execute` → `tools/post-execute`;\n   sensitive calls ask for one-shot user approval and fail closed without an answer.\n5. Subagents (`tool-subagent`) run delegated work in a fresh child agent.\n6. When tools owe another request or new input arrived, the loop takes another step;\n   otherwise `agent/turn-stopping` closes the turn. With `goal-round-driver` enabled an active\n   `/goal` keeps the session going in sequential Rounds.\n\nIn OpenHarness the step loop is folded into the AgentLoop node (the canvas graph stays acyclic).\nProviders are left unset: pick a connection (for example DeepSeek V4 Flash) in the app.\n"
+    },
+    "agents": {
+      "agent-loop": "# AgentLoop (default driver)\n\nRun one turn as a series of steps. Each step: assemble the system prompt and tool schemas, send one model request, stream the answer, then run the tool calls it asked for. Take another step while tools owe a request or new input arrived; otherwise stop the turn. Everything model-visible is logged to the session.\n",
+      "planner": "# Plan mode\n\nExplore the codebase and design the change before executing it. Keep every tool available; plan mode guides, it does not restrict. When the plan is complete call `exit_plan_mode` so the user can approve it or send you back to keep planning.\n",
+      "subagent": "# Subagent\n\nYou are a child agent started by the `tool-subagent` tool. Work in your own fresh context on the delegated task only, then return a concise result. The parent received your child ID when you started and is notified when you finish.\n"
+    },
+    "skills": {
+      "compaction": "# compaction-basic\n\nRelieve context pressure before request derivation (`agent/pre-step`) and on context-overflow errors: prune old tool results first, then summarize.\n",
+      "goal": "# goal\n\nOne durable completion objective per session. Tools `get_goal`, `create_goal`, `update_goal`; humans use `/goal`. With `goal-round-driver` an active goal continues in sequential Rounds until it is completed or blocked.\n",
+      "todo": "# todo\n\nKeep a short task list for the current turn with the todo tool and update it as steps complete.\n"
+    },
+    "hooks": {},
+    "commands": {
+      "compact": "Compact the session context now.",
+      "goal": "Inspect or control the session goal without spending a model turn.",
+      "plan": "Enter or leave plan mode."
+    },
+    "scripts": {}
+  },
+  "runtime": {
+    "preferred": "api",
+    "cli": null,
+    "env": [],
+    "secrets": []
+  },
+  "validation": {
+    "mockProfile": "default"
+  }
+}
