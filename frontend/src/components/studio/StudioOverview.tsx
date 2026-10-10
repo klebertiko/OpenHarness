@@ -5,9 +5,10 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { ArrowRight, FileText, FolderOpen, Plus, Trash2, Workflow } from "lucide-react";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useShellStore } from "@/components/shell/shellStore";
-import { newStudioHarness, openBundledHarness, openStudioPreset } from "@/lib/studio";
+import { newStudioHarness, openBundledHarness, openStudioExample, openStudioPreset } from "@/lib/studio";
+import { fetchStudioExamples, type StudioExample } from "@/lib/studioExamples";
 import { HARNESS_PRESETS } from "@/lib/templates";
-import { flushAutosave, hasStudioDraft, openSavedHarness, removeSavedHarness, useStudioDocsStore } from "@/lib/studioDocuments";
+import { discardStudioChanges, flushAutosave, hasStudioDraft, openSavedHarness, removeSavedHarness, useStudioDocsStore } from "@/lib/studioDocuments";
 import { formatRelativeTime } from "@/lib/time";
 import { COPILOT_ENABLED } from "@/lib/features";
 import { startCopilotFromOverview } from "@/lib/copilotEntry";
@@ -18,6 +19,7 @@ const primary = `${control} bg-signal text-signal-ink hover:bg-signal-deep`;
 const secondary = `${control} border border-line bg-sub-100 text-ink hover:bg-sub-200`;
 const quiet = `${control} text-ink-dim hover:bg-sub-200 hover:text-ink`;
 const PROMPT_LIMIT = 2000;
+const DRAFT_ROW = "__draft__";
 
 // The engine stores naive UTC timestamps; read them as UTC, not local time.
 function edited(iso: string | null | undefined): string {
@@ -50,6 +52,16 @@ export function StudioOverview() {
   const [rowError, setRowError] = useState("");
   const unsavedDraft = !harnessMeta.id && hasStudioDraft({ nodes, edges, harnessMeta });
   useEffect(() => { void refresh(); }, [refresh]);
+  // Every example the engine's catalog returns, beyond the two fixed cards below.
+  const [extraExamples, setExtraExamples] = useState<StudioExample[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void fetchStudioExamples().then(
+      (all) => { if (alive) setExtraExamples(all.filter((e) => !e.presetId && !/^openharness\.default\b/.test(e.id))); },
+      () => {},
+    );
+    return () => { alive = false; };
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -67,6 +79,10 @@ export function StudioOverview() {
     try { await removeSavedHarness(id); setConfirmId(null); } catch (e) { setRowError((e as Error).message); }
   };
   // Return focus to the row's delete button so keyboard users don't lose their place.
+  const discardDraft = async () => {
+    setRowError("");
+    try { await discardStudioChanges(); setConfirmId(null); } catch (e) { setRowError((e as Error).message); }
+  };
   const cancelDelete = (id: string) => {
     setConfirmId(null);
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-delete-for="${CSS.escape(id)}"]`)?.focus());
@@ -100,7 +116,7 @@ export function StudioOverview() {
     try {
       await startCopilotFromOverview(description);
     } catch (err) {
-      setCopilotError((err as Error).message || "Copilot could not start.");
+      setCopilotError((err as Error).message || "Nilo could not start.");
     } finally {
       setDrafting(false);
     }
@@ -131,7 +147,7 @@ export function StudioOverview() {
         {COPILOT_ENABLED ? (
           <header className="max-w-[760px]">
             <h1 id="studio-heading" className="t-display text-[24px] text-ink [overflow-wrap:anywhere]">Harness Studio</h1>
-            <p className="mt-2 text-[13px] leading-6 text-ink-mute">Say what the harness should do. Copilot drafts the graph; you review every change.</p>
+            <p className="mt-2 text-[13px] leading-6 text-ink-mute">Say what the harness should do. Nilo drafts the graph; you review every change.</p>
             <form onSubmit={(e) => void draftWithCopilot(e)} className="oh-agent-composer mt-5 has-[textarea:focus-visible]:outline has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-signal">
               <label htmlFor="studio-describe" className="sr-only">Describe the harness you want</label>
               <textarea
@@ -150,7 +166,7 @@ export function StudioOverview() {
                 <div className="ml-auto flex items-center gap-3">
                   <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to draft</span>
                   <button type="submit" disabled={!canDraft} className={primary}>
-                    {drafting ? "Drafting…" : "Draft with Copilot"} <ArrowRight size={14} aria-hidden />
+                    {drafting ? "Drafting…" : "Draft with Nilo"} <ArrowRight size={14} aria-hidden />
                   </button>
                 </div>
               </div>
@@ -190,14 +206,33 @@ export function StudioOverview() {
               <ul aria-labelledby="your-harnesses" className="mt-4 divide-y divide-line overflow-hidden rounded-[10px] border border-line">
                 {unsavedDraft && (
                   <li className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-sub-100 px-4 py-3">
-                    <DocumentLine
-                      name={harnessMeta.name}
-                      live
-                      status={!dirty ? "Open now · it's saved here once you change it." : saveState === "error" ? "Not saved yet — the local engine is unreachable. It saves as soon as it can." : "Saving…"}
-                    />
-                    <button type="button" aria-label={`Continue editing ${harnessMeta.name}`} onClick={() => setStudioView("editor")} className={secondary}>
-                      Continue editing <ArrowRight size={14} aria-hidden />
-                    </button>
+                    {confirmId === DRAFT_ROW ? (
+                      <div role="group" aria-label={`Delete ${harnessMeta.name}`} className="flex w-full flex-wrap items-center justify-between gap-3"
+                        onKeyDown={(e) => { if (e.key === "Escape") cancelDelete(DRAFT_ROW); }}>
+                        <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">Delete the draft “{harnessMeta.name}”? It hasn’t been saved, so it’s gone for good.</p>
+                        <div className="flex gap-2">
+                          <button type="button" autoFocus onClick={() => cancelDelete(DRAFT_ROW)} className={secondary}>Cancel</button>
+                          <button type="button" onClick={() => void discardDraft()} className={secondary + " text-fault"}>Delete</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <DocumentLine
+                          name={harnessMeta.name}
+                          live
+                          status={!dirty ? "Open now · it's saved here once you change it." : saveState === "error" ? "Not saved yet — the local engine is unreachable. It saves as soon as it can." : "Saving…"}
+                        />
+                        <div className="ml-auto flex flex-none gap-2">
+                          <button type="button" aria-label={`Continue editing ${harnessMeta.name}`} onClick={() => setStudioView("editor")} className={secondary}>
+                            Continue editing <ArrowRight size={14} aria-hidden />
+                          </button>
+                          <button type="button" data-delete-for={DRAFT_ROW} aria-label={`Delete ${harnessMeta.name}`} title="Delete draft" disabled={isRunning}
+                            onClick={() => setConfirmId(DRAFT_ROW)} className={`${quiet} w-9 px-0 hover:text-fault`}>
+                            <Trash2 size={14} aria-hidden />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 )}
                 {items.map((item) => {
@@ -269,6 +304,22 @@ export function StudioOverview() {
                   {loading ? "Opening…" : "Open framework"} <ArrowRight size={14} aria-hidden />
                 </button>
               </article>
+              {extraExamples.map((ex) => (
+                <article key={ex.id} className="flex flex-col items-start gap-3 border-t border-line pt-4">
+                  <div className="flex items-center gap-2">
+                    <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
+                    <p className="text-[11px] text-ink-faint">OpenHarness example</p>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="t-title text-ink">{ex.name}</h3>
+                    {ex.description && <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
+                  </div>
+                  <button type="button" disabled={startDisabled} aria-label={`Open ${ex.name}`} className={`${secondary} mt-auto`}
+                    onClick={() => void startFresh(() => openStudioExample(ex))}>
+                    Open copy <ArrowRight size={14} aria-hidden />
+                  </button>
+                </article>
+              ))}
             </div>
             {error && <p role="alert" className="mt-3 text-[13px] leading-6 text-fault">{error}</p>}
           </aside>

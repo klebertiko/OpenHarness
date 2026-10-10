@@ -393,7 +393,7 @@ it("Discard drops an unsaved draft without saving it", async () => {
 
 it("Discard on a saved harness reverts to what is on disk and does not save the edit", async () => {
   await edit(() => useCanvasStore.getState().addNode(node("a")));
-  h.get.mockResolvedValue({ id: "h1", name: "x", description: "", graph_json: { nodes: [node("a")], edges: [] } });
+  h.get.mockResolvedValue({ id: "h1", name: "x", description: "", created_at: "", updated_at: "", graph_json: { nodes: [node("a")], edges: [] } });
   useCanvasStore.getState().addNode(node("b")); // pending edit
   await discardStudioChanges();
   await vi.advanceTimersByTimeAsync(2000);

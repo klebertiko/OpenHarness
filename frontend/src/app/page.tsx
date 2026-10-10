@@ -15,12 +15,12 @@ import {
   Keyboard,
   Shuffle,
   LayoutTemplate,
-  ArrowLeft,
   Sparkles,
 } from "lucide-react";
 
 import { StudioOverview } from "@/components/studio/StudioOverview";
-import { newStudioHarness, openStudioPreset, useStudioInChat } from "@/lib/studio";
+import { StudioActionsBar } from "@/components/studio/StudioActionsBar";
+import { newStudioHarness, openStudioPreset } from "@/lib/studio";
 import { hasStudioDraft, startAutosave } from "@/lib/studioDocuments";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
@@ -216,7 +216,7 @@ export default function Home() {
           },
           {
             id: "copilot",
-            label: "Ask Copilot",
+            label: "Ask Nilo",
             group: "Studio",
             icon: Sparkles,
             chord: "Mod+I",
@@ -287,14 +287,7 @@ export default function Home() {
 
   const studioStage = studioView === "overview" ? <StudioOverview /> : (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-none items-center gap-3 border-b border-line bg-sub-100 px-3 py-2">
-        <button type="button" onClick={() => setStudioView("overview")} className="inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-control px-2 text-[12px] text-ink-mute hover:bg-sub-200 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
-          <ArrowLeft size={14} aria-hidden /> Back to Studio
-        </button>
-        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink">{harnessMeta.name}</span>
-        <button type="button" onClick={openCopilot} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">Ask Copilot</button>
-        <button type="button" onClick={useStudioInChat} disabled={nodes.length === 0 || isRunning} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40">Use in chat</button>
-      </div>
+      <StudioActionsBar />
       <div className="relative min-h-0 flex-1">
         <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
         {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-[13px] leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
