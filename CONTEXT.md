@@ -11,10 +11,38 @@ The portable JSON document that describes a harness — graph, content, connecto
 _Avoid_: oharness file, wallet bundle, pipeline JSON
 
 **Harness**:
-A composed system of Agents, Gates, HITL, Skills, and Signals that orchestrates work.
-_Avoid_: workflow (ambiguous with BPM), pipeline, agent chain
+A composed system of Agents, Gates, HITL, Skills, and Signals that orchestrates work. Everything the product ships, shows or opens is a harness.
+_Avoid_: framework, template, preset, sample, starter, workflow (ambiguous with BPM), pipeline, agent chain
+
+**Bundled harness**:
+A harness that ships inside the app. Opening one always makes an editable copy; the original is never changed.
+_Avoid_: built-in template, snapshot, default sample
+
+**Agile Harness**:
+The bundled harness for Agile/Scrum/Kanban delivery, adapted from the skills-framework `engineering/harness` project. The first harness listed in Starting points.
+_Avoid_: OpenHarness Agile, the framework, skills-framework (as a product label)
+
+**Example harness**:
+A bundled harness that shows one pattern: a minimal agent-plus-review loop, or a harness modelled on a published project (DeepSeek, Matt Pocock skills). Its description cites the source.
+_Avoid_: sample, demo, template, preset
+
+**Starting points**:
+The Studio overview section that lists the Agile Harness and the example harnesses.
+_Avoid_: templates, gallery, samples
+
+**Saved harness**:
+A harness the person keeps on this device. A **draft** is a harness that has not been saved yet.
+_Avoid_: project, document, file (except the `.ohm` file itself)
 
 ### Flow pieces (canvas)
+
+**Node**:
+One piece placed on the canvas (an Agent, Gate, HITL, Skill, or Connector). Connected by edges that carry Signals.
+_Avoid_: block, box, widget
+
+**Step**:
+One Node's turn inside a run or a simulation plan. A Node is authored; a Step is executed.
+_Avoid_: stage (reserved for the chat view), task
 
 **Agent**:
 A role-bound actor with a profile, exit signals, and optional provider/tool bindings (e.g. PO, BE, QA).
@@ -56,6 +84,35 @@ _Avoid_: integration, plugin
 A registered LLM backend (cloud or local) with credentials. Agents and Skills bind **1..N** Providers (primary + fallbacks; optional task routing).
 _Avoid_: wallet, model host, adapter (UI copy — adapter remains an internal runtime term)
 
+### Assistant and places
+
+**Nilo**:
+The OpenHarness assistant: it drafts harnesses in Studio and answers in chat. Not a role in the crew.
+_Avoid_: Copilot (a Microsoft brand; never in UI copy, docs or examples), AI assistant, bot
+
+**Studio**:
+The place where a person designs a harness: overview, canvas, inspector.
+_Avoid_: designer, builder
+
+**Workspace**:
+The folder on this device that a chat's tools read and run commands in.
+_Avoid_: project, repo, cwd
+
+## Copy standard
+
+Every user-facing string follows the terms above: UI, dialogs, menus, README, and the `name`/`description` of every bundled harness. A description may cite the project a harness is modelled on (`skills-framework`, `deepseek-ai/deepseek-harness`, `mattpocock/skills`); the product label stays a harness. Code identifiers may keep older words; only text a person reads is bound by this standard.
+
+| Retired wording | Say instead |
+|---|---|
+| "OpenHarness Agile (skills-framework)", "OpenHarness Agile", "the framework" | Agile Harness |
+| "Sample: Agent + review", "OpenHarness sample", "Open sample" | Agent + review (Example harness) |
+| "skills-framework · bundled snapshot" | Bundled harness |
+| "Open framework", "Open copy", "Open sample" | Open a copy |
+| "Open example" (menu) | Open bundled harness |
+| "Open preset" (command palette) | Open example harness |
+| "Copilot" in UI text | Nilo |
+| "Wallet" in UI text | Providers |
+
 ## Dogfood
 
-The skills-framework Agile harness (`engineering/harness`) is the proving preset: if OHM pieces cannot rebuild it, the catalog is wrong.
+The Agile Harness (adapted from skills-framework `engineering/harness`) is the proving harness: if OHM pieces cannot rebuild it, the catalog is wrong.
