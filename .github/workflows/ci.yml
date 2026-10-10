@@ -43,6 +43,9 @@ jobs:
         run: npm exec -- eslint . --max-warnings=0
       - run: npm run typecheck
       - run: npm test
+      - name: Ruleset required checks match job names
+        working-directory: .
+        run: node --test scripts/required-checks.test.mjs
       - run: npm run build
 
   backend:
@@ -143,20 +146,12 @@ jobs:
       - run: docker compose config --quiet
 
   required:
-    name: required
+    name: Quality / required
     if: always()
     needs: [frontend, backend, rust-tauri, website, compose]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce required results
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python - <<'PY'
-          import json, os, sys
-          results = json.loads(os.environ["RESULTS"])
-          failed = {name: job["result"] for name, job in results.items() if job["result"] != "success"}
-          if failed:
-              print(f"Required jobs did not succeed: {failed}", file=sys.stderr)
-              sys.exit(1)
-          PY
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          jobs: ${{ toJSON(needs) }}
