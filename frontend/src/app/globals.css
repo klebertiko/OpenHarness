@@ -31,17 +31,21 @@
   --sub-300: oklch(0.295 0.009 72);
   --sub-400: oklch(0.355 0.010 72);
 
-  --line: oklch(0.350 0.010 72);
-  --line-soft: oklch(0.275 0.008 72);
+  --line: oklch(0.400 0.010 72);
+  --line-soft: oklch(0.310 0.008 72);
+  /* Control boundary (inputs, keycaps, chips that are clickable): the one
+     hairline that must clear WCAG 1.4.11 (3:1) on every surface step.
+     --line / --line-soft stay quiet dividers — decoration, not boundaries. */
+  --line-control: oklch(0.580 0.010 72);
 
   /* ── Ink ───────────────────────────────────────────────────────────────────
      Four levels, spaced for comfortable reading on --sub-000, not squeezed:
      dim carries real body copy, mute carries secondary copy, faint is the
      quietest label that still needs to be read without effort. */
   --ink-primary: oklch(0.945 0.006 82);
-  --ink-dim: oklch(0.820 0.007 82);
-  --ink-mute: oklch(0.700 0.007 82);
-  --ink-faint: oklch(0.600 0.006 82);
+  --ink-dim: oklch(0.850 0.007 82);
+  --ink-mute: oklch(0.760 0.007 82);
+  --ink-faint: oklch(0.680 0.006 82);
   --ink: var(--ink-primary);
   /* legacy aliases */
   --ink-secondary: var(--ink-mute);
@@ -49,7 +53,7 @@
 
   /* ── Signal — soft blue (focus / live). Quiet, not neon cyan. ──────────── */
   --signal: oklch(0.700 0.105 190);
-  --signal-deep: oklch(0.570 0.095 190);
+  --signal-deep: oklch(0.600 0.100 190);
   --signal-ink: oklch(0.160 0.008 72);
   /* Warn shares hue 80 with --nilo-beak below on purpose — the app has two
      identity colours now, not one: teal (--signal, live/focus/body) and
@@ -57,8 +61,8 @@
      couple of hue-degrees from the beak by coincidence; locking them to the
      same value makes "amber" a real, deliberate second colour instead of
      three near-misses that almost match. */
-  --warn: oklch(0.620 0.120 80);
-  --fault: oklch(0.550 0.160 28);
+  --warn: oklch(0.680 0.120 80);
+  --fault: oklch(0.660 0.150 28);
 
   /* ── Node role hues — locked L/C, hue is the only free variable ────────── */
   --role-agent: oklch(0.520 0.095 190);
@@ -68,7 +72,7 @@
   --role-hitl: oklch(0.560 0.105 30);
   --role-skill: oklch(0.520 0.075 255);
   --role-mcp: oklch(0.520 0.075 160);
-  --role-tool: oklch(0.470 0.035 235);
+  --role-tool: oklch(0.530 0.040 235);
   /* EXPERIMENTAL (ADR-0005, spike) — distinct hue so a "decision" node never
      reads as a Gate/HITL (both real gates); this one never is. */
   --role-decision: oklch(0.560 0.130 310);
@@ -109,14 +113,19 @@
   --sub-200: oklch(0.940 0.009 82);
   --sub-300: oklch(0.905 0.010 82);
   --sub-400: oklch(0.865 0.011 82);
-  --line: oklch(0.810 0.011 82);
-  --line-soft: oklch(0.885 0.009 82);
+  --line: oklch(0.780 0.011 82);
+  --line-soft: oklch(0.865 0.009 82);
+  --line-control: oklch(0.600 0.011 82);
   --ink-primary: oklch(0.235 0.012 75);
-  --ink-dim: oklch(0.380 0.011 75);
-  --ink-mute: oklch(0.470 0.010 75);
-  --ink-faint: oklch(0.560 0.009 75);
-  --signal: oklch(0.520 0.105 190);
-  --signal-deep: oklch(0.440 0.095 190);
+  --ink-dim: oklch(0.360 0.011 75);
+  --ink-mute: oklch(0.440 0.010 75);
+  --ink-faint: oklch(0.500 0.009 75);
+  --signal: oklch(0.500 0.100 190);
+  --signal-deep: oklch(0.430 0.090 190);
+  /* Amber and red keep their hue; on ivory they step down in lightness so
+     status text still reads. The beak (--nilo-beak) is a fill and stays. */
+  --warn: oklch(0.520 0.110 80);
+  --fault: oklch(0.500 0.160 28);
   --signal-ink: oklch(0.985 0.005 82);
   --shadow-soft: 0 16px 44px oklch(0.25 0.01 75 / 0.09);
   --shadow-float: 0 22px 58px oklch(0.25 0.01 75 / 0.14);
