@@ -4,7 +4,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { Play, LayoutTemplate } from "lucide-react";
 
 import { AppShell } from "@/components/shell/AppShell";
-import { Toolbar } from "@/components/toolbar/Toolbar";
+import { StudioHeader } from "@/components/studio/StudioHeader";
 import { NodePalette } from "@/components/sidebar/NodePalette";
 import { PropertiesPanel } from "@/components/sidebar/PropertiesPanel";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
@@ -28,11 +28,6 @@ export default function CanvasBench() {
   const loadGraph = useCanvasStore((s) => s.loadGraph);
   const setHarnessMeta = useCanvasStore((s) => s.setHarnessMeta);
   const setSelectedNode = useCanvasStore((s) => s.setSelectedNode);
-  const nodes = useCanvasStore((s) => s.nodes);
-  const edges = useCanvasStore((s) => s.edges);
-  const selectedNodeId = useCanvasStore((s) => s.selectedNodeId);
-  const harnessMeta = useCanvasStore((s) => s.harnessMeta);
-  const executionMode = useCanvasStore((s) => s.executionMode);
   const isRunning = useCanvasStore((s) => s.isRunning);
   const actions = useHarnessActions();
 
@@ -90,26 +85,14 @@ export default function CanvasBench() {
     <ReactFlowProvider>
       <AppShell
         commands={commands}
-        harnessName={harnessMeta.name}
-        onHarnessNameChange={(name) => setHarnessMeta({ name })}
-        mode={executionMode}
         running={isRunning}
-        nodeCount={nodes.length}
-        edgeCount={edges.length}
-        selectedId={selectedNodeId}
-        backendOk={false}
-        toolbar={
-          <Toolbar
-            onRun={actions.run}
-            onStop={actions.stop}
-            onSave={actions.save}
-            onExport={actions.exportJson}
-            onImport={actions.importJson}
-            saveMsg={actions.saveMsg}
-          />
-        }
         left={<NodePalette />}
-        stage={<HarnessCanvas />}
+        stage={
+          <div className="flex h-full min-h-0 flex-col">
+            <StudioHeader />
+            <div className="relative min-h-0 flex-1"><HarnessCanvas /></div>
+          </div>
+        }
         right={<PropertiesPanel />}
       />
     </ReactFlowProvider>

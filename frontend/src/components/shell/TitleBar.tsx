@@ -13,17 +13,15 @@ import { chordCaps, useIsMac } from "./keys";
  * the window buttons on Windows/Linux, and a 68px inset on macOS where the
  * system draws its own traffic lights over our surface.
  *
- * Document context stays separate from command search. Browser previews omit
- * native window actions; the desktop shell retains its actual window controls.
+ * Window chrome only: brand, where you are, command search, window buttons.
+ * The harness being edited is named once, in the Studio editor's own header.
+ * Browser previews omit native window actions; the desktop shell retains its
+ * actual window controls.
  */
 
 interface Props {
-  harnessName: string;
-  onHarnessNameChange: (v: string) => void;
   mode: string;
   running: boolean;
-  nodeCount: number;
-  editingHarness?: boolean;
   onOpenPalette: () => void;
 }
 
@@ -63,15 +61,7 @@ function WindowButton({
   );
 }
 
-export function TitleBar({
-  harnessName,
-  onHarnessNameChange,
-  mode,
-  running,
-  nodeCount,
-  editingHarness,
-  onOpenPalette,
-}: Props) {
+export function TitleBar({ mode, running, onOpenPalette }: Props) {
   const mac = useIsMac();
   const win = useTauriWindow();
   const { paletteOpen, leftWidth, hydrated } = useShellStore();
@@ -97,20 +87,6 @@ export function TitleBar({
 
       <div data-tauri-drag-region className="oh-header-context flex min-w-0 flex-1 items-center gap-3 px-4">
         <span className="oh-header-mode shrink-0 text-[12px] text-ink-mute">{mode === "Studio" ? "Harness Studio" : mode}</span>
-        {/* Name a draft in the editor, including before its first node. */}
-        {mode === "Studio" && (editingHarness ?? (nodeCount > 0)) && (
-          <>
-            <span className="text-ink-faint" aria-hidden>/</span>
-            <input
-              value={harnessName}
-              onChange={(e) => onHarnessNameChange(e.target.value)}
-              spellCheck={false}
-              aria-label="Harness name"
-              title="Rename this harness"
-              className="oh-header-name oh-focus-inner w-full max-w-[240px] min-w-0 rounded-control border border-transparent bg-sub-200/70 px-2 py-1 text-[13px] text-ink outline-none transition-colors hover:border-line hover:bg-sub-200 focus:border-line focus:bg-sub-200"
-            />
-          </>
-        )}
         {running && <span role="status" className="shrink-0 text-[12px] text-ink-mute">Working…</span>}
       </div>
 

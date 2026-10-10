@@ -18,7 +18,6 @@ import { useCanvasStore } from "@/store/canvasStore";
 import { nodeTypes } from "./nodes";
 import { edgeTypes, WireTips } from "./edges/HarnessWire";
 import { CanvasDock } from "./CanvasDock";
-import { GraphAudit } from "./GraphAudit";
 import { ROLE_VAR } from "@/lib/roles";
 import styles from "./canvas.module.css";
 import type { HarnessNode, NodeTemplate, NodeType } from "@/lib/types";
@@ -31,10 +30,10 @@ import type { HarnessNode, NodeTemplate, NodeType } from "@/lib/types";
    of scale at any zoom — you can tell a 20% overview from a 200% close-up from
    the ground alone, which a uniform dot field never lets you do.
 
-   Chrome sits on three edges and never the fourth: audit top-right, viewport
-   dock bottom-centre, minimap bottom-right. The top-left quadrant is left
-   empty on purpose — it is where a graph's entry node lands after a fit, and
-   it is the first place the eye goes.
+   Chrome sits on two edges only: viewport dock bottom-centre, minimap
+   bottom-right. The top quadrants are left empty on purpose — the top-left is
+   where a graph's entry node lands after a fit, and the readiness verdict that
+   used to float top-right now lives in the editor header, once.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface Props {
@@ -210,7 +209,6 @@ export function HarnessCanvas({ onNodeClick }: Props) {
           color="var(--sub-300)"
         />
 
-        <GraphAudit />
         <CanvasDock
           snap={snap}
           onSnap={handleSnapChange}

@@ -5,21 +5,15 @@ import { TitleBar } from "./TitleBar";
 afterEach(cleanup);
 
 const props = {
-  harnessName: "Daily work",
-  onHarnessNameChange: vi.fn(),
   mode: "Studio",
   running: false,
-  nodeCount: 14,
   onOpenPalette: vi.fn(),
 };
 
-describe("Contextual header", () => {
-  it("keeps document editing and command search accessible", () => {
+describe("Window title bar", () => {
+  it("is window chrome only: command search is here, and no harness name field", () => {
     render(<TitleBar {...props} />);
-    fireEvent.change(screen.getByRole("textbox", { name: "Harness name" }), {
-      target: { value: "Research" },
-    });
-    expect(props.onHarnessNameChange).toHaveBeenCalledWith("Research");
+    expect(screen.queryByRole("textbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Search and commands" }));
     expect(props.onOpenPalette).toHaveBeenCalled();
     expect(screen.queryByText(/blocks in this harness/)).toBeNull();
@@ -32,9 +26,8 @@ describe("Contextual header", () => {
     }
   });
 
-  it("shows running status without presenting an editable harness in Agent", () => {
+  it("shows running status while a run is going", () => {
     render(<TitleBar {...props} mode="Agent" running />);
-    expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByRole("status").textContent).toBe("Working…");
   });
 });

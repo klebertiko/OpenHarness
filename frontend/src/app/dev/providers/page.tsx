@@ -19,10 +19,9 @@ import { activeVault, VAULT_LABEL } from "@/components/providers/secrets";
  * standing up the canvas or the FastAPI backend.
  */
 export default function ProvidersDevPage() {
-  const [name, setName] = useState("triage-loop");
+  const [name] = useState("triage-loop");
   const { connections, selectedId, probe, select } = useProviderStore();
 
-  const live = connections.filter((c) => c.health === "live").length;
 
   const commands: Command[] = useMemo(
     () => [
@@ -61,15 +60,7 @@ export default function ProvidersDevPage() {
   return (
     <AppShell
       commands={commands}
-      harnessName={name}
-      onHarnessNameChange={setName}
-      mode="draft"
       running={false}
-      nodeCount={connections.length}
-      edgeCount={live}
-      selectedId={selectedId}
-      backendOk
-      toolbar={null}
       left={
         <Panel title={PROVIDERS_PANEL_TITLE} meta={`${connections.length}`}>
           <ProvidersList />

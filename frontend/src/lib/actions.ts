@@ -1,21 +1,14 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useActiveRunStore } from "@/store/activeRunStore";
 import { api } from "@/lib/api";
 import type { HarnessEdge, HarnessNode } from "@/lib/types";
 import { useShellStore } from "@/components/shell/shellStore";
 import { sendControl } from "@/components/agent-run/runClient";
-import { flushAutosave, replaceStudioCanvas, useStudioDocsStore } from "@/lib/studioDocuments";
+import { replaceStudioCanvas } from "@/lib/studioDocuments";
+import { useReadinessStore } from "@/components/studio/readinessStore";
 
-/**
- * The harness verbs, in one place.
- *
- * Lifted out of the toolbar by the shell workstream so the command palette and
- * the toolbar invoke literally the same functions. The palette claims to be
- * the complete index of what this app can do; that claim only stays true if
- * there is no second, button-only copy of the logic.
- */
 /**
  * Load graph JSON as a new harness. It is saved right away and never
  * overwrites the open one, whose pending edits are saved first. Returns
@@ -51,49 +44,14 @@ export function importGraphFile(text: string, fileName: string): boolean {
   return true;
 }
 
+/**
+ * The harness verbs, in one place.
+ *
+ * Run, Stop and answering a paused human step. The command palette, the
+ * keyboard and the editor header's Run control invoke literally the same
+ * functions. File verbs (save, import, export) live in studioFileActions.
+ */
 export function useHarnessActions() {
-  const [saveMsg, setSaveMsg] = useState("");
-  const saveState = useStudioDocsStore((st) => st.saveState);
-
-  // One save path: the same autosave that runs while editing, flushed now.
-  const save = useCallback(async () => {
-    await flushAutosave();
-  }, []);
-  const statusMsg = saveState === "saving" ? "Saving…" : saveState === "error" ? "Not saved — local engine unreachable" : saveState === "saved" ? "Saved" : "";
-
-  const exportJson = useCallback(() => {
-    const { nodes, edges, harnessMeta } = useCanvasStore.getState();
-    const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${harnessMeta.name.replace(/\s+/g, "_")}.harness.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, []);
-
-  const importJson = useCallback(() => {
-    if (useCanvasStore.getState().isRunning) return;
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".json";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (!importGraphFile(ev.target?.result as string, file.name)) {
-          setSaveMsg("bad file");
-          setTimeout(() => setSaveMsg(""), 2400);
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  }, []);
-
   const stop = useCallback(() => {
     void useActiveRunStore.getState().requestStop().then((sent) => {
       if (!sent) useCanvasStore.getState().setRunning(false);
@@ -103,6 +61,14 @@ export function useHarnessActions() {
   const run = useCallback(() => {
     const s = useCanvasStore.getState();
     if (s.isRunning || s.nodes.length === 0) return;
+    // A harness the engine rejects would only fail late and obscurely. Say what
+    // is wrong, where, instead of starting. Reviews and an unreachable engine
+    // never block: those are worth a look, not a reason to refuse.
+    const readiness = useReadinessStore.getState();
+    if (readiness.summary.blocking) {
+      readiness.openPanel("problems");
+      return;
+    }
     s.resetExecution();
     s.setRunning(true);
     api.execute(
@@ -160,5 +126,5 @@ export function useHarnessActions() {
     void sendControl(runId, { action: "resume", decision, note });
   }, []);
 
-  return { run, stop, resolveHitl, save, exportJson, importJson, saving: saveState === "saving", saveMsg: saveMsg || statusMsg };
+  return { run, stop, resolveHitl };
 }

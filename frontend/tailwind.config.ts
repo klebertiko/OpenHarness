@@ -63,7 +63,6 @@ const config: Config = {
       },
       spacing: {
         titlebar: "var(--h-titlebar)",
-        statusbar: "var(--h-statusbar)",
         panelhead: "var(--h-panelhead)",
         rail: "var(--w-rail)",
       },

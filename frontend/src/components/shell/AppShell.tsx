@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TitleBar } from "./TitleBar";
 import { ActivityRail } from "./ActivityRail";
-import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { KeymapSheet } from "./KeymapSheet";
 import { HarnessLibrarySheet } from "./HarnessLibrarySheet";
@@ -83,16 +82,8 @@ function Resizer({
 
 interface Props {
   commands: Command[];
-  harnessName: string;
-  onHarnessNameChange: (v: string) => void;
-  mode: string;
   running: boolean;
-  nodeCount: number;
-  edgeCount: number;
-  selectedId: string | null;
-  backendOk: boolean;
   immersive?: boolean;
-  toolbar: React.ReactNode;
   left: React.ReactNode;
   stage: React.ReactNode;
   right: React.ReactNode;
@@ -100,16 +91,8 @@ interface Props {
 
 export function AppShell({
   commands,
-  harnessName,
-  onHarnessNameChange,
-  mode,
   running,
-  nodeCount,
-  edgeCount,
-  selectedId,
-  backendOk,
   immersive = false,
-  toolbar,
   left,
   stage,
   right,
@@ -245,16 +228,10 @@ export function AppShell({
       data-shell-mode={shellMode}
     >
       <TitleBar
-        harnessName={harnessName}
-        onHarnessNameChange={onHarnessNameChange}
         mode={shellMode === "agent" ? "Agent" : "Studio"}
         running={running}
-        nodeCount={nodeCount}
-        editingHarness={shellMode === "studio" && shell.studioView === "editor"}
         onOpenPalette={() => setPaletteOpen(true)}
       />
-
-      {toolbar}
 
       <div className="flex min-h-0 flex-1">
         <ActivityRail collapsed={narrow.left}>{leftOpen && !immersive ? left : null}</ActivityRail>
@@ -282,17 +259,6 @@ export function AppShell({
           </>
         )}
       </div>
-
-      {shellMode === "studio" && shell.studioView === "editor" && (
-        <StatusBar
-          mode={`Studio · exec ${mode}`}
-          running={running}
-          nodeCount={nodeCount}
-          edgeCount={edgeCount}
-          selectedId={selectedId}
-          backendOk={backendOk}
-        />
-      )}
 
       <CommandPalette
         open={paletteOpen}

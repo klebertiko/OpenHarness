@@ -1,12 +1,17 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import {
   Play,
   Square,
   Save,
+  SaveAll,
   Download,
   Upload,
+  FilePlus,
+  FlaskConical,
+  ListChecks,
+  MessageSquare,
   Undo2,
   Redo2,
   Trash2,
@@ -19,21 +24,21 @@ import {
 } from "lucide-react";
 
 import { StudioOverview } from "@/components/studio/StudioOverview";
-import { StudioActionsBar } from "@/components/studio/StudioActionsBar";
-import { newStudioHarness, openStudioPreset } from "@/lib/studio";
+import { StudioHeader } from "@/components/studio/StudioHeader";
+import { useReadinessStore } from "@/components/studio/readinessStore";
+import { useStudioHeaderStore } from "@/components/studio/studioHeaderStore";
+import { exportOhm, pickAndImport, saveNow } from "@/lib/studioFileActions";
+import { newStudioHarness, openStudioPreset, useStudioInChat } from "@/lib/studio";
 import { hasStudioDraft, startAutosave } from "@/lib/studioDocuments";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
 import { useShellStore } from "@/components/shell/shellStore";
 import type { Command } from "@/components/shell/commands";
-import { apiUrl } from "@/lib/apiBase";
 
-import { Toolbar } from "@/components/toolbar/Toolbar";
 import { NodePalette } from "@/components/sidebar/NodePalette";
 import { StudioSidePanel } from "@/components/copilot/StudioSidePanel";
 import { useCopilotStore } from "@/store/copilotStore";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
-import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
 import { ThreadsSidebar } from "@/components/agent/ThreadsSidebar";
 import { PROVIDERS_PANEL_TITLE } from "@/components/providers/copy";
@@ -54,14 +59,11 @@ const MODE_ORDER: ExecutionMode[] = ["mock", "live", "local"];
 export default function Home() {
   const {
     nodes,
-    edges,
     selectedNodeId,
     executionMode,
     isRunning,
-    harnessMeta,
     setSelectedNode,
     setExecutionMode,
-    setHarnessMeta,
     setRunning,
     addNode,
     deleteSelected,
@@ -74,7 +76,6 @@ export default function Home() {
   const { section, studioView, toggleLeft, toggleRight, setKeymapOpen, setSection, setStudioView } =
     useShellStore();
   const connectionCount = useProviderStore((s) => s.connections.length);
-  const [backendOk, setBackendOk] = useState(false);
   const isStudio = section === "studio";
   const copilotOpen = useCopilotStore((s) => s.open);
   const openCopilot = useCopilotStore((s) => s.openCopilot);
@@ -96,21 +97,6 @@ export default function Home() {
     const p = HARNESS_PRESETS.find((x) => x.id === id);
     if (!p) return;
     openStudioPreset(p);
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    const ping = () =>
-      fetch(apiUrl("/health"), { cache: "no-store" })
-        .then((r) => r.json())
-        .then((d) => alive && setBackendOk(Boolean(d.status === "ok" || d.ok)))
-        .catch(() => alive && setBackendOk(false));
-    ping();
-    const t = setInterval(ping, 15000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
   }, []);
 
   const loadPreset = (p: (typeof HARNESS_PRESETS)[number]) => {
@@ -197,22 +183,70 @@ export default function Home() {
             group: "File",
             icon: Save,
             chord: "Mod+S",
-            run: actions.save,
+            disabled: studioView !== "editor" || isRunning,
+            run: () => void saveNow(),
           },
           {
-            id: "export",
-            label: "Export graph JSON (advanced)",
+            id: "save-as",
+            label: "Save harness as…",
             group: "File",
-            icon: Download,
-            chord: "Mod+Shift+E",
-            run: actions.exportJson,
+            icon: SaveAll,
+            disabled: studioView !== "editor" || isRunning,
+            run: () => useStudioHeaderStore.getState().setPending("saveas"),
+          },
+          {
+            id: "new",
+            label: "New harness",
+            group: "File",
+            icon: FilePlus,
+            disabled: isRunning,
+            run: newStudioHarness,
           },
           {
             id: "import",
-            label: "Import graph JSON (advanced)",
+            label: "Import harness (.ohm)…",
             group: "File",
             icon: Upload,
-            run: actions.importJson,
+            keywords: "open file json bundle",
+            disabled: isRunning,
+            run: () => void pickAndImport(),
+          },
+          {
+            id: "export",
+            label: "Export harness (.ohm)",
+            group: "File",
+            icon: Download,
+            chord: "Mod+Shift+E",
+            keywords: "save file bundle download",
+            disabled: studioView !== "editor",
+            run: () => void exportOhm(),
+          },
+          {
+            id: "plan",
+            label: "Plan simulation",
+            group: "Run",
+            icon: FlaskConical,
+            keywords: "mock dry run steps no provider",
+            disabled: studioView !== "editor" || isRunning || nodes.length === 0,
+            run: () => void useReadinessStore.getState().runPlan(),
+          },
+          {
+            id: "run-in-chat",
+            label: "Run in chat",
+            group: "Run",
+            icon: MessageSquare,
+            keywords: "use harness conversation",
+            disabled: isRunning || nodes.length === 0,
+            run: useStudioInChat,
+          },
+          {
+            id: "problems",
+            label: "Show problems",
+            group: "Run",
+            icon: ListChecks,
+            keywords: "readiness check validate errors",
+            disabled: studioView !== "editor" || nodes.length === 0,
+            run: () => useReadinessStore.getState().openPanel("problems"),
           },
           {
             id: "copilot",
@@ -287,12 +321,11 @@ export default function Home() {
 
   const studioStage = studioView === "overview" ? <StudioOverview /> : (
     <div className="flex h-full min-h-0 flex-col">
-      <StudioActionsBar />
+      <StudioHeader />
       <div className="relative min-h-0 flex-1">
         <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
-        {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-[13px] leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
+        {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[300px] rounded-control border border-line bg-sub-100 p-4 text-[13px] leading-6 text-ink-mute">This harness is empty. Add a block from the left, ask Nilo to draft one, or bring in a file from the File menu.</p></div>}
       </div>
-      <ValidateDock />
     </div>
   );
 
@@ -309,27 +342,8 @@ export default function Home() {
     <ReactFlowProvider>
       <AppShell
         commands={commands}
-        harnessName={harnessMeta.name}
-        onHarnessNameChange={(name) => setHarnessMeta({ name })}
-        mode={executionMode}
         running={isRunning}
-        nodeCount={nodes.length}
-        edgeCount={edges.length}
-        selectedId={selectedNodeId}
-        backendOk={backendOk}
         immersive={isStudio && studioView === "overview"}
-        toolbar={
-          isStudio && studioView === "editor" ? (
-            <Toolbar
-              onRun={actions.run}
-              onStop={actions.stop}
-              onSave={actions.save}
-              onExport={actions.exportJson}
-              onImport={actions.importJson}
-              saveMsg={actions.saveMsg}
-            />
-          ) : null
-        }
         left={left}
         stage={stage}
         right={isStudio && studioView === "editor" && (selectedNodeId || copilotOpen) ? <StudioSidePanel /> : null}
