@@ -94,18 +94,18 @@ it("labels every starting point a harness and opens each through its loader", as
   expect(screen.getByText("Bundled harness")).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Agile Harness" })).toBeTruthy();
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Open a copy of Agile Harness" }));
+  await user.click(screen.getByRole("button", { name: "Open Agile Harness" }));
   await waitFor(() => expect(openBundledHarness).toHaveBeenCalledOnce());
-  await user.click(screen.getByRole("button", { name: "Open a copy of Agent + review" }));
+  await user.click(screen.getByRole("button", { name: "Open Agent + review" }));
   await waitFor(() => expect(openStudioPreset).toHaveBeenCalledOnce());
 });
 
 it("shows a loading failure and allows retry", async () => {
   vi.mocked(openBundledHarness).mockRejectedValue(new Error("offline"));
   render(<StudioOverview />);
-  await userEvent.setup().click(screen.getByRole("button", { name: "Open a copy of Agile Harness" }));
+  await userEvent.setup().click(screen.getByRole("button", { name: "Open Agile Harness" }));
   expect((await screen.findByText(/Could not load the bundled harness/))).toBeTruthy();
-  expect((screen.getByRole("button", { name: "Open a copy of Agile Harness" }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole("button", { name: "Open Agile Harness" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("exposes new/import actions", async () => {
@@ -122,7 +122,7 @@ it("keeps an active run available to inspect while blocking replacement starters
   useCanvasStore.setState({ isRunning: true, harnessMeta: { id: "h1", name: "Triage loop", description: "" } });
   render(<StudioOverview />);
   await screen.findByRole("heading", { name: "Triage loop" });
-  for (const name of ["New harness", "Open .ohm", "Open a copy of Agent + review", "Open a copy of Agile Harness", "Delete Triage loop"]) {
+  for (const name of ["New harness", "Open .ohm", "Open Agent + review", "Open Agile Harness", "Delete Triage loop"]) {
     expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
   }
   expect((screen.getByRole("button", { name: /Continue editing/ }) as HTMLButtonElement).disabled).toBe(false);
@@ -243,10 +243,10 @@ it("lists every extra example the catalog returns and opens it as a copy", async
     deepseek,
   ] as never);
   render(<StudioOverview />);
-  await userEvent.setup().click(await screen.findByRole("button", { name: "Open a copy of DeepSeek Harness" }));
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Open DeepSeek Harness" }));
   expect(openStudioExample).toHaveBeenCalledWith(expect.objectContaining({ id: deepseek.id }));
   // The two fixed cards already cover the Agile Harness and the example harness; they are not listed twice.
-  expect(screen.getAllByRole("button", { name: "Open a copy of Agile Harness" })).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: "Open Agile Harness" })).toHaveLength(1);
 });
 
 it("the starting points never call a harness a framework, sample, template, preset or Copilot", async () => {
@@ -255,10 +255,10 @@ it("the starting points never call a harness a framework, sample, template, pres
   ] as never);
   render(<StudioOverview />);
   const section = (await screen.findByRole("heading", { name: "Starting points" })).closest("aside")!;
-  await screen.findByRole("button", { name: "Open a copy of DeepSeek Harness (dsh)" });
+  await screen.findByRole("button", { name: "Open DeepSeek Harness (dsh)" });
   // The source project may be cited by name; nothing else may use the retired words.
   const text = (section.textContent ?? "").replace(/skills-framework/g, "");
   expect(text).not.toMatch(/framework|sample|template|preset|copilot/i);
   const verbs = within(section).getAllByRole("button").map((b) => b.textContent?.trim());
-  expect(new Set(verbs)).toEqual(new Set(["Open a copy"]));
+  expect(new Set(verbs)).toEqual(new Set(["Open harness"]));
 });

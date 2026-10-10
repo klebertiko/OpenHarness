@@ -107,7 +107,7 @@ Every user-facing string follows the terms above: UI, dialogs, menus, README, an
 | "OpenHarness Agile (skills-framework)", "OpenHarness Agile", "the framework" | Agile Harness |
 | "Sample: Agent + review", "OpenHarness sample", "Open sample" | Agent + review (Example harness) |
 | "skills-framework · bundled snapshot" | Bundled harness |
-| "Open framework", "Open copy", "Open sample" | Open a copy |
+| "Open framework", "Open copy", "Open sample" | Open harness (same label on every starting point) |
 | "Open example" (menu) | Open bundled harness |
 | "Open preset" (command palette) | Open example harness |
 | "Copilot" in UI text | Nilo |

@@ -286,10 +286,10 @@ export function StudioOverview() {
                   <h3 className="t-title text-ink">Agent + review</h3>
                   <p className="mt-1 text-[12px] leading-5 text-ink-mute">Agent → review gate → human approval. Three nodes, configured for mock runs.</p>
                 </div>
-                <button type="button" disabled={startDisabled} aria-label="Open a copy of Agent + review" className={`${secondary} mt-auto`} onClick={() => {
+                <button type="button" disabled={startDisabled} aria-label="Open Agent + review" className={`${secondary} mt-auto`} onClick={() => {
                   const sample = HARNESS_PRESETS.find((p) => p.id === "minimal-gate");
                   if (sample) void startFresh(() => openStudioPreset(sample));
-                }}>Open a copy <ArrowRight size={14} aria-hidden /></button>
+                }}>Open harness <ArrowRight size={14} aria-hidden /></button>
               </article>
               <article className="flex flex-col items-start gap-3 border-t border-line pt-4">
                 <div className="flex items-center gap-2">
@@ -300,8 +300,8 @@ export function StudioOverview() {
                   <h3 className="t-title text-ink">Agile Harness</h3>
                   <p className="mt-1 text-[12px] leading-5 text-ink-mute">Includes agent profiles and harness guidance. The graph is adapted from the skills-framework workflow, not the complete workflow.</p>
                 </div>
-                <button type="button" disabled={startDisabled} aria-label="Open a copy of Agile Harness" className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
-                  {loading ? "Opening…" : "Open a copy"} <ArrowRight size={14} aria-hidden />
+                <button type="button" disabled={startDisabled} aria-label="Open Agile Harness" className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
+                  {loading ? "Opening…" : "Open harness"} <ArrowRight size={14} aria-hidden />
                 </button>
               </article>
               {extraExamples.map((ex) => (
@@ -314,9 +314,9 @@ export function StudioOverview() {
                     <h3 className="t-title text-ink">{ex.name}</h3>
                     {ex.description && <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
                   </div>
-                  <button type="button" disabled={startDisabled} aria-label={`Open a copy of ${ex.name}`} className={`${secondary} mt-auto`}
+                  <button type="button" disabled={startDisabled} aria-label={`Open ${ex.name}`} className={`${secondary} mt-auto`}
                     onClick={() => void startFresh(() => openStudioExample(ex))}>
-                    Open a copy <ArrowRight size={14} aria-hidden />
+                    Open harness <ArrowRight size={14} aria-hidden />
                   </button>
                 </article>
               ))}
