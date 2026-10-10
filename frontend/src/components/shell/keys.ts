@@ -77,3 +77,12 @@ export function isEditingTarget(t: EventTarget | null): boolean {
   const tag = el.tagName.toLowerCase();
   return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
 }
+
+/**
+ * True while focus sits inside a widget that owns plain letters for typeahead
+ * (Radix Select/Menu, a listbox, a combobox). Bare chords must not fire there.
+ */
+export function isTypeaheadTarget(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  return !!el?.closest?.('[role="listbox"],[role="menu"],[role="combobox"]');
+}
