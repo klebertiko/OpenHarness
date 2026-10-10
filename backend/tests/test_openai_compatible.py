@@ -13,7 +13,7 @@ from adapters.openai_compatible import OpenAICompatibleAdapter
 
 
 def _config(**over: object) -> AdapterConfig:
-    base = dict(adapter="ollama", model="", endpoint="http://fake/v1", api_key="")
+    base = dict(adapter="openai", model="", endpoint="http://fake/v1", api_key="")
     base.update(over)
     return AdapterConfig(**base)  # type: ignore[arg-type]
 
@@ -172,3 +172,81 @@ def test_probe_with_an_unparseable_body_is_reachable_with_no_models() -> None:
     assert probe.health == "live"
     assert probe.models == []
     assert probe.detail == "Reachable."
+
+
+# --- Ollama: native health endpoints, not the OpenAI-compat /models path -----
+
+def _ollama_handler(seen: list[str], *, tags: dict | None = None):
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.url.path == "/api/version":
+            return httpx.Response(200, json={"version": "0.40.0"})
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json=tags if tags is not None else {"models": [{"name": "gemma4:26b"}, {"name": "nomic-embed-text:latest"}]})
+        return httpx.Response(404, text="404 page not found")
+    return handler
+
+
+def test_ollama_running_server_without_v1_in_the_endpoint_is_live() -> None:
+    # Regression: endpoint "http://127.0.0.1:11434" made the probe hit
+    # /models, which a running Ollama 404s -> "Unavailable — HTTP 404".
+    seen: list[str] = []
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(_ollama_handler(seen)))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434")))
+
+    assert probe.ok is True
+    assert probe.health == "live"
+    assert probe.models == ["gemma4:26b", "nomic-embed-text:latest"]
+    assert "http://127.0.0.1:11434/api/version" in seen
+
+
+def test_ollama_endpoint_with_v1_suffix_probes_native_api_on_the_origin() -> None:
+    seen: list[str] = []
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(_ollama_handler(seen)))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434/v1/")))
+
+    assert probe.ok is True
+    assert seen == ["http://127.0.0.1:11434/api/version", "http://127.0.0.1:11434/api/tags"]
+
+
+def test_ollama_running_but_tags_unavailable_is_still_live_with_no_models() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/version":
+            return httpx.Response(200, json={"version": "0.40.0"})
+        return httpx.Response(500)
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434/v1")))
+
+    assert probe.ok is True and probe.health == "live" and probe.models == []
+
+
+def test_ollama_unreachable_reports_a_clear_fault() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="http://127.0.0.1:11434/v1")))
+
+    assert probe.ok is False and probe.health == "fault"
+    assert "Could not reach http://127.0.0.1:11434" in probe.detail
+
+
+def test_ollama_401_is_reported_as_a_rejected_key() -> None:
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(lambda r: httpx.Response(401)))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="https://ollama.com", api_key="bad")))
+
+    assert probe.ok is False and "401" in probe.detail
+
+
+def test_ollama_that_404s_the_version_route_but_serves_tags_is_live() -> None:
+    # Ollama Cloud: no /api/version, but /api/tags works with a key.
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "gpt-oss:120b"}]})
+        return httpx.Response(404)
+
+    adapter = OpenAICompatibleAdapter(transport=httpx.MockTransport(handler))
+    probe = asyncio.run(adapter.probe(_config(adapter="ollama", endpoint="https://ollama.com", api_key="k")))
+
+    assert probe.ok is True and probe.models == ["gpt-oss:120b"]
