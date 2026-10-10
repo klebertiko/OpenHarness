@@ -286,7 +286,7 @@ export function StudioOverview() {
                   <h3 className="t-title text-ink">Agent + review</h3>
                   <p className="mt-1 text-[12px] leading-5 text-ink-mute">Agent → review gate → human approval. Three nodes, configured for mock runs.</p>
                 </div>
-                <button type="button" disabled={startDisabled} aria-label="Open Agent + review" className={`${secondary} mt-auto`} onClick={() => {
+                <button type="button" disabled={startDisabled} aria-label="Open harness: Agent + review" className={`${secondary} mt-auto`} onClick={() => {
                   const sample = HARNESS_PRESETS.find((p) => p.id === "minimal-gate");
                   if (sample) void startFresh(() => openStudioPreset(sample));
                 }}>Open harness <ArrowRight size={14} aria-hidden /></button>
@@ -300,7 +300,7 @@ export function StudioOverview() {
                   <h3 className="t-title text-ink">Agile Harness</h3>
                   <p className="mt-1 text-[12px] leading-5 text-ink-mute">Includes agent profiles and harness guidance. The graph is adapted from the skills-framework workflow, not the complete workflow.</p>
                 </div>
-                <button type="button" disabled={startDisabled} aria-label="Open Agile Harness" className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
+                <button type="button" disabled={startDisabled} aria-label="Open harness: Agile Harness" className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
                   {loading ? "Opening…" : "Open harness"} <ArrowRight size={14} aria-hidden />
                 </button>
               </article>
@@ -314,7 +314,7 @@ export function StudioOverview() {
                     <h3 className="t-title text-ink">{ex.name}</h3>
                     {ex.description && <p className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
                   </div>
-                  <button type="button" disabled={startDisabled} aria-label={`Open ${ex.name}`} className={`${secondary} mt-auto`}
+                  <button type="button" disabled={startDisabled} aria-label={`Open harness: ${ex.name}`} className={`${secondary} mt-auto`}
                     onClick={() => void startFresh(() => openStudioExample(ex))}>
                     Open harness <ArrowRight size={14} aria-hidden />
                   </button>
