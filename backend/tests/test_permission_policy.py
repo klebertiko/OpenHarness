@@ -72,7 +72,7 @@ def test_unknown_mode_falls_back_to_ask(mode, ws):
 @pytest.mark.parametrize('argv', [('git', 'status'), ('git', 'status', '--porcelain', '-b'), ('git', 'diff', '--stat'), ('git', 'diff', 'HEAD~1', '--', 'notes.txt'),
                                   ('git', 'log', '--oneline', '-5'), ('git', 'log', 'main..feature'), ('git', 'show', 'HEAD'),
                                   ('git', 'rev-parse', '--show-toplevel'), ('git', 'ls-files'), ('git', '--version'),
-                                  ('ls',), ('ls', 'sub'), ('ls', '-la'), ('pwd',), ('npm', '--version')])
+                                  ('ls',), ('ls', 'sub'), ('ls', '-la'), ('pwd',)])
 def test_auto_allows_read_only_commands_in_an_untrusted_workspace(argv, ws):
     assert auto(ex(*argv), ws) == 'allow'
 
@@ -237,3 +237,35 @@ def test_hardened_git_leaves_other_programs_alone(tmp_path):
 ])
 def test_effective_mode_is_never_laxer_than_stored_or_requested(stored, requested, expected):
     assert effective_mode(stored, requested) == expected
+
+
+# -- SEC round-2 regression: package-manager `--version` bypasses trust -------
+def test_yarn_version_in_untrusted_workspace_must_ask_when_yarnrc_present(ws):
+    """Yarn Berry's global shim re-executes the JS named by `yarnPath` in a
+    workspace `.yarnrc.yml` for EVERY subcommand, including `--version`.
+    `_package_manager_ok` allows `['--version']` regardless of `trusted`, so an
+    untrusted repo gets no-prompt code execution. This must be `ask`, not `allow`."""
+    (ws / '.yarnrc.yml').write_text('yarnPath: ./.evil.cjs\n', encoding='utf-8')
+    (ws / '.evil.cjs').write_text('// repo-controlled code yarn would run\n', encoding='utf-8')
+    assert auto(ex('yarn', '--version'), ws, trusted=False) == 'ask'
+
+
+@pytest.mark.parametrize('argv', [('npm', '--version'), ('npm', '-v'), ('pnpm', '--version'), ('pnpm', '-v'), ('yarn', '--version'), ('yarn', '-v')])
+def test_every_package_manager_invocation_needs_trust_even_for_version(argv, ws):
+    # npm/pnpm/yarn shims read repo-controlled files (.yarnrc.yml yarnPath, .npmrc...) before any subcommand.
+    assert auto(ex(*argv), ws, trusted=False) == 'ask'
+    assert auto(ex(*argv), ws, trusted=True) == 'allow'
+
+
+@pytest.mark.parametrize('where,name', [('.', '.yarnrc.yml'), ('.', '.yarnrc'), ('.', '.YARNRC.YML'), ('sub', '.yarnrc.yml'), ('sub', '.yarnrc')])
+@pytest.mark.parametrize('argv', [('yarn', 'test'), ('yarn', 'run', 'build'), ('yarn', '--version')])
+def test_yarn_asks_even_in_a_trusted_workspace_when_a_yarnrc_can_redirect_the_binary(where, name, argv, ws):
+    (ws / where / name).write_text('yarnPath: ./.evil.cjs', encoding='utf-8')
+    cwd = 'sub' if where == 'sub' else '.'
+    assert auto(ex(*argv, cwd=cwd), ws, trusted=True) == 'ask'
+
+
+def test_a_yarnrc_does_not_affect_other_programs(ws):
+    (ws / '.yarnrc.yml').write_text('yarnPath: ./.evil.cjs', encoding='utf-8')
+    assert auto(ex('npm', 'test'), ws, trusted=True) == 'allow'
+    assert auto(ex('git', 'status'), ws) == 'allow'

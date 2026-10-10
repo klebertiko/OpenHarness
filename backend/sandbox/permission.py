@@ -15,8 +15,8 @@ listed below asks, however harmless it looks.
 
 * read-only ``git`` (a short subcommand/flag list, run through `hardened_git`),
   ``ls`` and ``pwd`` run without asking in any workspace;
-* anything that executes code the repository defines (``npm|pnpm|yarn test|run``,
-  ``pytest``) runs without asking ONLY when the workspace is *trusted* (an explicit,
+* anything that executes code the repository defines (``npm|pnpm|yarn`` in ANY form, even
+  ``--version``, and ``pytest``) runs without asking ONLY when the workspace is *trusted* (an explicit,
   stored, per-workspace user decision), and only with no flags or extra arguments.
 
 There is deliberately no "bypass" mode, and an unknown mode is ``"ask"``. The mode
@@ -130,6 +130,19 @@ def _shadowed(program: str, *directories: Path) -> bool:
     return False
 
 
+_YARN_CONFIGS = frozenset({'.yarnrc.yml', '.yarnrc'})
+
+
+def _has_entry(names: frozenset, *directories: Path) -> bool:
+    for directory in directories:
+        try:
+            if any(entry.lower() in names for entry in os.listdir(directory)):
+                return True
+        except OSError:
+            return True
+    return False
+
+
 def _git_config_is_inert(root: Path) -> bool:
     """The repo's own .git/config must not be able to start programs (filters, textconv, hooks, includes...)."""
     git_dir = root / '.git'
@@ -170,10 +183,12 @@ def _git_ok(args: list[str], root: Path, cwd: Path) -> bool:
 
 
 def _package_manager_ok(args: list[str], trusted: bool) -> bool:
-    if args in (['--version'], ['-v']):
-        return True
+    # Every invocation, `--version` included, needs trust: the shims read repo-controlled files
+    # (yarn's `.yarnrc.yml` `yarnPath` re-executes a script from the repo for ANY subcommand).
     if not trusted:
         return False
+    if args in (['--version'], ['-v']):
+        return True
     # Exactly `<pm> test` or `<pm> run <script>`: no flags, no `--`, no extra arguments.
     if args == ['test']:
         return True
@@ -223,6 +238,9 @@ def _allowed_exec(call, workspace, trusted: bool) -> bool:
     if program == 'git':
         return _git_ok(args, root, cwd)
     if program in _PACKAGE_MANAGERS:
+        # Defense in depth: a yarn config in the root or cwd can redirect the binary even in a trusted workspace.
+        if program == 'yarn' and _has_entry(_YARN_CONFIGS, root, cwd):
+            return False
         return _package_manager_ok(args, trusted)
     if program == 'pytest':
         return _pytest_ok(args, trusted, cwd)
