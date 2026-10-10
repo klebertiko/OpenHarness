@@ -6,6 +6,7 @@ import { useChatProviderStore } from "@/store/chatProviderStore";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import css from "./agentRun.module.css";
 import { clock, latency as fmtLatency, paragraphs, tokens as fmtTokens } from "./format";
+import { groupActivity, segmentActivity, summarizeGroup } from "./activity";
 import { Gate } from "./Gate";
 import { ToolCard } from "./ToolCard";
 import { useActiveRunStore } from "@/store/activeRunStore";
@@ -186,6 +187,64 @@ function Reasoning({ text, done }: { text: string; done: boolean }) {
   );
 }
 
+/* ── Tool run ──────────────────────────────────────────────────────────────
+   A run of consecutive tool calls inside one step. Two or more fold to one
+   summary line: counts by verb, failed/denied counts, and (while live) the
+   call in flight. A lone call renders as a plain row — through this same
+   component, so when a second call streams in the first row keeps its tree
+   position (and its expanded-detail state) instead of remounting. Rows stay
+   mounted but `hidden` while the group is collapsed, for the same reason.
+   Closed once finished; open by default when something failed; held open —
+   and not collapsible — while any call is parked on the approval gate,
+   because an approval card must never be hidden. */
+function ToolRun({ calls, runId }: { calls: ToolCall[]; runId: string | null }) {
+  const summary = summarizeGroup({ kind: "activity", calls });
+  const multi = calls.length > 1;
+  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  const forced = multi && summary.awaitingApproval;
+  const open = !multi || forced || (userOpen ?? summary.failed > 0);
+  const panelId = `activity-${calls[0].callId}`;
+  return (
+    <div className={multi ? "mt-1" : undefined}>
+      {multi ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-disabled={forced || undefined}
+          onClick={() => {
+            if (!forced) setUserOpen(!open);
+          }}
+          className={`t-meta flex w-full min-w-0 items-center gap-1.5 text-left hover:text-ink ${
+            summary.failed > 0 ? "" : "text-ink-mute"
+          } ${forced ? "cursor-default" : ""}`}
+          style={summary.failed > 0 ? { color: "var(--fault)" } : undefined}
+        >
+          <span aria-hidden className="flex-none">
+            {open ? "▾" : "▸"}
+          </span>
+          <span className="min-w-0 truncate">{summary.label}</span>
+          {summary.current && (
+            <span className="min-w-0 flex-1 truncate" style={{ color: "var(--signal)" }}>
+              · {summary.current}
+            </span>
+          )}
+        </button>
+      ) : null}
+      <div
+        id={panelId}
+        hidden={!open}
+        className={multi ? "ml-1 border-l pl-2" : undefined}
+        style={multi ? { borderColor: "var(--line-soft)" } : undefined}
+      >
+        {calls.map((c) => (
+          <ToolRow key={c.callId} call={c} transcriptRunId={runId} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BlockView({ block, streaming, runId }: { block: Block; streaming: boolean; runId: string | null }) {
   if (block.kind === "tool") return <ToolRow call={block.call} transcriptRunId={runId} />;
   if (block.kind === "reason") return <Reasoning text={block.text} done={!streaming} />;
@@ -220,7 +279,9 @@ function SegmentView({
   const role = ROLE_VAR[segment.type] ?? "var(--ink-faint)";
   const running = segment.state === "running";
   const pending = segment.state === "pending" || segment.state === "skipped";
-  const lastBlockIndex = segment.blocks.length - 1;
+  const items = useMemo(() => groupActivity(segment.blocks), [segment.blocks]);
+  const lastItemIndex = items.length - 1;
+  const stepActivity = useMemo(() => segmentActivity(segment.blocks), [segment.blocks]);
 
   return (
     <div className="grid grid-cols-[24px_minmax(0,1fr)]">
@@ -242,6 +303,16 @@ function SegmentView({
               ? segment.type
               : `${segment.type} · ${segment.model || segment.adapter}`}
           </span>
+          {stepActivity && (
+            <span
+              role="note"
+              aria-label={`${segment.label} activity`}
+              className="t-meta max-w-[55%] flex-none truncate"
+              style={{ color: stepActivity.failed > 0 ? "var(--fault)" : "var(--ink-mute)" }}
+            >
+              {stepActivity.label}
+            </span>
+          )}
           {segment.state === "done" && (
             <span className="t-meta flex-none text-ink-faint">
               {segment.latencyMs ? fmtLatency(segment.latencyMs) : null}
@@ -256,9 +327,19 @@ function SegmentView({
           )}
         </div>
 
-        {segment.blocks.map((b, i) => (
-          <BlockView key={i} block={b} streaming={running && i === lastBlockIndex} runId={runId} />
-        ))}
+        {items.map((item, i) =>
+          item.kind === "activity" || item.kind === "tool" ? (
+            // Keyed by the run's first call so a solo call that becomes a
+            // group (second call arrives) is the same element, not a remount.
+            <ToolRun
+              key={`t-${item.kind === "activity" ? item.calls[0].callId : item.call.callId}`}
+              calls={item.kind === "activity" ? item.calls : [item.call]}
+              runId={runId}
+            />
+          ) : (
+            <BlockView key={`b-${i}`} block={item} streaming={running && i === lastItemIndex} runId={runId} />
+          ),
+        )}
 
         {/* An intrinsic node has no adapter and therefore no stream — its
             output is the whole of it, so it is shown rather than hidden. */}

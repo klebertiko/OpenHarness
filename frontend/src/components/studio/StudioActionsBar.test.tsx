@@ -23,8 +23,8 @@ vi.mock("@/lib/studio", async (original) => ({
 vi.mock("@/lib/studioExamples", async (original) => ({
   ...(await original<typeof import("@/lib/studioExamples")>()),
   fetchStudioExamples: vi.fn().mockResolvedValue([
-    { id: "openharness.default.agile", name: "OpenHarness Agile", description: "", bundle: { manifest: { id: "openharness.default.agile" } } },
-    { id: "sample:minimal-gate", name: "Sample: Agent + review", description: "", bundle: null, presetId: "minimal-gate" },
+    { id: "openharness.default.agile", name: "Agile Harness", description: "", bundle: { manifest: { id: "openharness.default.agile" } } },
+    { id: "sample:minimal-gate", name: "Agent + review", description: "", bundle: null, presetId: "minimal-gate" },
     { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness", description: "", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } },
   ]),
 }));
@@ -46,7 +46,7 @@ it("names the harness and says where it came from and whether it is saved", () =
   setDraft(null, "openharness.example.deepseek-harness");
   render(<StudioActionsBar />);
   expect(screen.getByText("My harness")).toBeTruthy();
-  expect(screen.getByText("Example")).toBeTruthy();
+  expect(screen.getByText("Bundled harness")).toBeTruthy();
   expect(screen.getByText("Not saved yet")).toBeTruthy();
   cleanup();
   setDraft("h1");
@@ -59,7 +59,7 @@ it("names the harness and says where it came from and whether it is saved", () =
 it("shows every file action as a labelled button", () => {
   setDraft(null);
   render(<StudioActionsBar />);
-  for (const name of ["New", "Open example", "Import", "Export", "Save", "Save as…", "Discard", "Delete draft"]) {
+  for (const name of ["New", "Open bundled harness", "Import", "Export", "Save", "Save as…", "Discard", "Delete draft"]) {
     expect(screen.getByRole("button", { name })).toBeTruthy();
   }
 });
@@ -93,7 +93,7 @@ it("Discard and Delete ask for confirmation first, and Cancel does nothing", asy
   await waitFor(() => expect(docs.removeSavedHarness).toHaveBeenCalledWith("h1"));
 });
 
-it("deleting a draft discards it, and a bundled example offers no Delete", async () => {
+it("deleting a draft discards it, and a bundled harness offers no Delete", async () => {
   setDraft(null);
   render(<StudioActionsBar />);
   await userEvent.click(screen.getByRole("button", { name: "Delete draft" }));
@@ -108,8 +108,8 @@ it("deleting a draft discards it, and a bundled example offers no Delete", async
 it("lists every example the catalog returns and opens the chosen one as a copy", async () => {
   setDraft("h1");
   render(<StudioActionsBar />);
-  await userEvent.click(screen.getByRole("button", { name: "Open example" }));
-  for (const n of ["OpenHarness Agile", "Sample: Agent + review", "DeepSeek Harness"]) {
+  await userEvent.click(screen.getByRole("button", { name: "Open bundled harness" }));
+  for (const n of ["Agile Harness", "Agent + review", "DeepSeek Harness"]) {
     expect(await screen.findByRole("menuitem", { name: n })).toBeTruthy();
   }
   await userEvent.click(screen.getByRole("menuitem", { name: /DeepSeek Harness/ }));

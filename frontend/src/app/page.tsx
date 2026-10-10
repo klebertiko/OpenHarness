@@ -147,7 +147,7 @@ export default function Home() {
     const presets: Command[] = HARNESS_PRESETS.map((p) => ({
       id: `preset:${p.id}`,
       label: p.name,
-      group: "Open preset",
+      group: "Open example harness",
       disabled: isRunning,
       icon: LayoutTemplate,
       meta: p.id,

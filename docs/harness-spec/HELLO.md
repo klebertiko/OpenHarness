@@ -30,9 +30,9 @@ cd backend
 python -m oharness validate path/to/bundle.oharness
 ```
 
-## Default Agile harness
+## Agile Harness
 
-OpenHarness ships the skills-framework Agile/Scrum/Kanban harness as the product default:
+OpenHarness ships the Agile Harness, an Agile/Scrum/Kanban harness adapted from the skills-framework project, as the product default:
 
 - **Fixture:** [`backend/oharness/fixtures/default-agile.oharness`](../../backend/oharness/fixtures/default-agile.oharness)
 - **Manifest id:** `openharness.default.agile`

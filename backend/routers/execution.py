@@ -26,6 +26,8 @@ from providers.resolution import ProviderResolutionError, resolve_node_provider
 from providers.outcomes import failure_details
 from sandbox.approval import ApprovalConflict
 from sandbox.broker import ToolBroker, redact_value
+from sandbox.permission import effective_mode
+from sandbox.permission_store import get_thread_mode, is_workspace_trusted
 from sandbox.schemas import ToolsRequest
 
 router = APIRouter(prefix="/execute", tags=["execution"])
@@ -72,10 +74,12 @@ async def _validated_project_cwd(db: AsyncSession, requested: str | None) -> str
     if not requested:
         return None
     result = await db.execute(select(CoworkProject).where(CoworkProject.root_path == requested))
-    if result.scalars().first() is None:
+    project = result.scalars().first()
+    if project is None:
         return None
     try:
-        p = Path(requested).resolve()
+        # The stored root (equal to `requested`, but read from the database), never the request string itself.
+        p = Path(project.root_path).resolve()
         if p.is_dir():
             return str(p)
     except OSError:
@@ -554,7 +558,14 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
     control = RunControl(run_id, step=body.step)
     RUNS[run_id] = control
     control.tool_mode = tool_options is not None
-    broker = ToolBroker(cwd, adapter_name, control, tool_options) if tool_options else None
+    permission_mode = None
+    workspace_trusted = False
+    if tool_options:
+        # The conversation's stored mode is the ceiling; the request can only tighten it.
+        stored = await get_thread_mode(db, tool_options.thread_id)
+        permission_mode = effective_mode(stored, tool_options.permission_mode)
+        workspace_trusted = await is_workspace_trusted(db, cwd)
+    broker = ToolBroker(cwd, adapter_name, control, tool_options, permission_mode=permission_mode, workspace_trusted=workspace_trusted) if tool_options else None
     node_view = {
         "node_id": node_id,
         "type": "llm",
@@ -581,7 +592,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
 
         try:
             if broker:
-                yield emit('capabilities', {'node_id': node_id, **broker.capabilities})
+                yield emit('capabilities', {'node_id': node_id, **broker.capabilities, 'permission_mode': broker.permission_mode, 'workspace_trusted': broker.workspace_trusted})
             if budget_status is not None and budget_status.state == "warning":
                 warn_evt = _budget_warning_event(budget_status)
                 yield emit(warn_evt["event"], warn_evt["data"])

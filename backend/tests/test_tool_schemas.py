@@ -2,6 +2,10 @@ import pytest
 from pydantic import ValidationError
 from sandbox.schemas import ToolsRequest
 
+RUN_COMMAND_DESCRIPTION = ('Run a program locally. No shell: argv only. A command needs the user approval unless the conversation permission mode '
+    'runs it automatically (Auto: read-only git and listings in any workspace; project scripts such as npm test or pytest only in a workspace '
+    'the user trusted). In Plan mode (read-only) every command is refused.')
+
 
 @pytest.mark.parametrize('preset',[
     {'name':'exec','argv':['echo','']}, {'name':'exec','argv':['echo'],'timeout_s':1},
@@ -91,7 +95,7 @@ def test_model_tool_schema_is_the_exact_published_contract():
             'type': 'function',
             'function': {
                 'name': 'run_command',
-                'description': 'Run a program locally. No shell: argv only. Every command requires user approval.',
+                'description': RUN_COMMAND_DESCRIPTION,
                 'parameters': {
                     'type': 'object',
                     'properties': {
