@@ -72,24 +72,40 @@ class OpenAICompatibleAdapter(AgentAdapter):
         if calls:
             yield {'kind': 'tool_calls', 'calls': [calls[index] for index in sorted(calls)]}
 
+    @staticmethod
+    async def _get_capped(client: httpx.AsyncClient, url: str, headers: dict) -> tuple[int, bytes | None]:
+        """GET streaming at most MAX_PROBE_BODY_BYTES; body is None when over the cap."""
+        async with client.stream("GET", url, headers=headers) as resp:
+            if resp.status_code >= 400:
+                return resp.status_code, b""
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in resp.aiter_bytes():
+                size += len(chunk)
+                if size > MAX_PROBE_BODY_BYTES:
+                    return resp.status_code, None
+                chunks.append(chunk)
+            return resp.status_code, b"".join(chunks)
+
     async def _probe_ollama(self, config: AdapterConfig) -> ProbeResult:
         """Ollama's own health surface: `GET /api/version` says the server is
         up, `GET /api/tags` lists models. The endpoint may or may not carry the
         OpenAI-compat `/v1` suffix (a running Ollama 404s `/models` without
-        it), so probe the origin either way."""
+        it), so probe the origin either way. Every body is read with a byte
+        ceiling and the model list is capped before it is processed."""
         origin = (config.endpoint or DEFAULT_ENDPOINTS["ollama"]).rstrip("/")
         if origin.endswith("/v1"):
             origin = origin[: -len("/v1")]
         headers = {"Authorization": f"Bearer {config.api_key}"} if config.api_key else {}
 
         started = time.monotonic()
+        tags_status, tags_body = 0, b""
         try:
             async with httpx.AsyncClient(timeout=10, transport=self._transport) as client:
-                version = await client.get(f"{origin}/api/version", headers=headers)
-                tags = None
-                if version.status_code < 400 or version.status_code == 404:
+                version_status, _ = await self._get_capped(client, f"{origin}/api/version", headers)
+                if version_status < 400 or version_status == 404:
                     # 404 on /api/version: not a local server (Ollama Cloud) — tags decides.
-                    tags = await client.get(f"{origin}/api/tags", headers=headers)
+                    tags_status, tags_body = await self._get_capped(client, f"{origin}/api/tags", headers)
         except httpx.ConnectError:
             return ProbeResult(ok=False, health="fault", detail=f"Could not reach {origin}.")
         except httpx.TimeoutException:
@@ -98,32 +114,37 @@ class OpenAICompatibleAdapter(AgentAdapter):
             return ProbeResult(ok=False, health="fault", detail=str(exc))
         latency_ms = int((time.monotonic() - started) * 1000)
 
-        for resp in (version, tags):
-            if resp is not None and resp.status_code == 401:
-                return ProbeResult(
-                    ok=False, health="fault", latency_ms=latency_ms,
-                    detail="401 unauthorized — the key was rejected or has been revoked.",
-                )
-        tags_ok = tags is not None and tags.status_code < 400
-        if version.status_code >= 400 and not tags_ok:
+        if 401 in (version_status, tags_status):
             return ProbeResult(
                 ok=False, health="fault", latency_ms=latency_ms,
-                detail=f"HTTP {version.status_code} from {origin}.",
+                detail="401 unauthorized — the key was rejected or has been revoked.",
+            )
+        tags_ok = 0 < tags_status < 400
+        if version_status >= 400 and not tags_ok:
+            return ProbeResult(
+                ok=False, health="fault", latency_ms=latency_ms,
+                detail=f"HTTP {version_status} from {origin}.",
             )
 
-        ids: set[str] = set()
-        if tags_ok and len(tags.content) <= MAX_PROBE_BODY_BYTES:
+        ids: list[str] = []
+        total = 0
+        if tags_ok and tags_body is not None:
             try:
-                entries = tags.json().get("models", [])
+                entries = json.loads(tags_body).get("models", [])
             except (ValueError, AttributeError):
                 entries = []
             if isinstance(entries, list):
-                ids = {
-                    m["name"] for m in entries
-                    if isinstance(m, dict) and isinstance(m.get("name"), str) and len(m["name"]) <= MAX_MODEL_ID_LEN
-                }
-        models = sorted(ids)[:MAX_PROBE_MODELS]
-        detail = f"{len(models)} models available." if models else "Ollama is running."
+                total = len(entries)
+                for m in entries[:MAX_PROBE_MODELS]:
+                    if isinstance(m, dict) and isinstance(m.get("name"), str) and len(m["name"]) <= MAX_MODEL_ID_LEN:
+                        ids.append(m["name"])
+        models = sorted(set(ids))
+        if total > MAX_PROBE_MODELS:
+            detail = f"Showing the first {len(models)} of {total} models."
+        elif models:
+            detail = f"{len(models)} models available."
+        else:
+            detail = "Ollama is running."
         return ProbeResult(ok=True, health="live", latency_ms=latency_ms, detail=detail, models=models)
 
     async def probe(self, config: AdapterConfig) -> ProbeResult:
