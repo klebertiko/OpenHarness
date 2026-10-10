@@ -7,7 +7,7 @@ import { CommandPalette } from "./CommandPalette";
 import { KeymapSheet } from "./KeymapSheet";
 import { HarnessLibrarySheet } from "./HarnessLibrarySheet";
 import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX, type RailSection } from "./shellStore";
-import { isEditingTarget, matchesChord, useIsMac } from "./keys";
+import { isEditingTarget, isTypeaheadTarget, matchesChord, useIsMac } from "./keys";
 import { shellNavCommands, type Command } from "./commands";
 import { useModeStore } from "@/store/modeStore";
 import { useProviderStore } from "@/components/providers/providerStore";
@@ -172,6 +172,7 @@ export function AppShell({
     (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       const editing = isEditingTarget(e.target);
+      const typing = editing || isTypeaheadTarget(e.target);
 
       // Overlay-owning chords first: the palette must open from anywhere,
       // including from inside the harness-name field.
@@ -215,6 +216,9 @@ export function AppShell({
         }
       }
       for (const c of commandsRef.current) {
+        // A bare (or Shift-only) chord is a letter someone may be typing, in a
+        // field or in a typeahead widget (Select, menu, listbox, combobox).
+        if (typing && c.chord && !/Mod|Alt/.test(c.chord)) continue;
         if (c.chord && !c.disabled && matchesChord(e, c.chord, mac)) {
           e.preventDefault();
           c.run();

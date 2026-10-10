@@ -16,6 +16,7 @@ import {
   Shuffle,
   LayoutTemplate,
   Sparkles,
+  Network,
 } from "lucide-react";
 
 import { StudioOverview } from "@/components/studio/StudioOverview";
@@ -33,6 +34,7 @@ import { NodePalette } from "@/components/sidebar/NodePalette";
 import { StudioSidePanel } from "@/components/copilot/StudioSidePanel";
 import { useCopilotStore } from "@/store/copilotStore";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
+import { ARRANGE_CHORD } from "@/components/canvas/CanvasDock";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
 import { ThreadsSidebar } from "@/components/agent/ThreadsSidebar";
@@ -67,6 +69,7 @@ export default function Home() {
     deleteSelected,
     undo,
     redo,
+    arrangeGraph,
   } = useCanvasStore();
 
   const setMode = useModeStore((s) => s.setMode);
@@ -223,6 +226,16 @@ export default function Home() {
             keywords: "assistant ai build graph",
             disabled: studioView !== "editor",
             run: openCopilot,
+          },
+          {
+            id: "arrange",
+            label: "Auto-arrange graph",
+            group: "Edit",
+            icon: Network,
+            chord: ARRANGE_CHORD,
+            keywords: "layout tidy organize organizar layers align clean up",
+            disabled: studioView !== "editor" || isRunning || nodes.length < 2,
+            run: arrangeGraph,
           },
           { id: "undo", label: "Undo", group: "Edit", icon: Undo2, chord: "Mod+Z", run: undo },
           { id: "redo", label: "Redo", group: "Edit", icon: Redo2, chord: "Mod+Shift+Z", run: redo },

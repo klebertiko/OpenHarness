@@ -9,6 +9,7 @@ import {
 } from "@xyflow/react";
 import type { HarnessNode, HarnessEdge, NodeData, ExecutionMode } from "@/lib/types";
 import { edgeForConnection, sameWire } from "@/lib/edges";
+import { layoutGraph } from "@/lib/graphLayout";
 
 /*
  * NOTE (shell workstream): this file arrived syntactically broken — the
@@ -50,6 +51,8 @@ export interface CanvasState {
   _history: HistoryEntry[];
   _historyIndex: number;
   _seq: number;
+  /** Bumped by `arrangeGraph`; the canvas watches it to re-frame the view. */
+  fitSeq: number;
 
   setNodes: (nodes: HarnessNode[]) => void;
   setEdges: (edges: HarnessEdge[]) => void;
@@ -74,6 +77,10 @@ export interface CanvasState {
   applyGraphPatch: (nodes: HarnessNode[], edges: HarnessEdge[]) => number | null;
   /** `updateNodeData` as one undo step. No-op while running. */
   commitNodeData: (nodeId: string, patch: Partial<NodeData>) => void;
+  /** Layered auto-layout (ADR 0007) as exactly one undo step. Only positions
+   *  change. Returns false when nothing moved: fewer than two nodes, a run owns
+   *  the graph, or the graph is already laid out. */
+  arrangeGraph: () => boolean;
   headSeq: () => number;
   undo: () => void;
   redo: () => void;
@@ -115,6 +122,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   _history: [],
   _historyIndex: -1,
   _seq: 0,
+  fitSeq: 0,
 
   pushHistory: () => {
     const { _history, _historyIndex, _seq } = get();
@@ -139,6 +147,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ nodes, edges: edges.map((e) => ({ ...e, type: "harness" })) });
     get().pushHistory();
     return get().headSeq();
+  },
+
+  arrangeGraph: () => {
+    const { nodes, edges, isRunning } = get();
+    if (isRunning || nodes.length < 2) return false;
+    const positions = layoutGraph(
+      nodes.map((n) => {
+        // React Flow adds the rendered size to the node; the typed shape omits it.
+        const v = n as HarnessNode & { measured?: { width?: number; height?: number }; width?: number; height?: number };
+        return { id: n.id, width: v.measured?.width ?? v.width, height: v.measured?.height ?? v.height };
+      }),
+      edges
+    );
+    const moved = nodes.map((n) => ({ ...n, position: positions[n.id] ?? n.position }));
+    const changed = moved.some((n, i) => n.position.x !== nodes[i].position.x || n.position.y !== nodes[i].position.y);
+    if (!changed) {
+      // Already tidy: still re-frame, so the button always does something visible.
+      set({ fitSeq: get().fitSeq + 1 });
+      return false;
+    }
+    if (get().applyGraphPatch(moved, edges) === null) return false;
+    set({ fitSeq: get().fitSeq + 1 });
+    return true;
   },
 
   commitNodeData: (nodeId, patch) => {
