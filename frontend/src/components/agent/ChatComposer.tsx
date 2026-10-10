@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
+import { PERMISSION_HINT, PERMISSION_LABEL, PERMISSION_MODES, PERMISSION_SUMMARY, nextPermissionMode, type PermissionMode } from "@/lib/permissionMode";
 import { chatCommands, splitArgv, type ChatCommand, type ChatToolsInput, type ToolPreset } from "./chatCommands";
 interface Props {
   value: string;
@@ -12,6 +13,11 @@ interface Props {
   tools?: ChatToolsInput;
   /** A Tool was chosen: the parent starts a `/execute/direct` run with this preset. */
   onPreset?: (preset: ToolPreset) => void;
+  /** Permission mode of this conversation (enforced by the sidecar). Absent → no selector. */
+  permissionMode?: PermissionMode;
+  onPermissionModeChange?: (mode: PermissionMode) => void;
+  /** Set when the sidecar refused to store a mode change. */
+  permissionNotice?: string | null;
 }
 /** `/exec npm test` → preset, or a warning when the text contains shell syntax. */
 export function presetFromSlashText(value: string): { preset: ToolPreset } | { warning: string } | null {
@@ -23,7 +29,7 @@ export function presetFromSlashText(value: string): { preset: ToolPreset } | { w
   if (shellSyntax.length) return { warning: `Sem shell do outro lado: ${shellSyntax.join(" ")} seria passado literalmente. Rode um programa por vez.` };
   return { preset: { name: "exec", argv } };
 }
-export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, tools, onPreset }: Props) {
+export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, tools, onPreset, permissionMode, onPermissionModeChange, permissionNotice }: Props) {
   const id = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(0);
@@ -99,6 +105,11 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
       onBlur={() => setDismissed(value)}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+        // Shift+Tab cycles the permission mode (like Claude Code). Only the bare chord:
+        // Ctrl/Alt/Meta+Shift+Tab stay with the browser and the OS.
+        if (permissionMode && onPermissionModeChange && event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault(); onPermissionModeChange(nextPermissionMode(permissionMode)); return;
+        }
         if (open) {
           if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDismissed(value); return; }
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -116,5 +127,14 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
       }}
       placeholder={live ? "Waiting on this run — click Stop to send something new" : tools?.workspace ? `Ask OpenHarness… Type / for commands, skills and tools in ${tools.workspace.name}` : "Ask OpenHarness… Type / for commands and skills"}
       className="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60" />
+    {permissionMode && onPermissionModeChange && <div className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-1">
+      <div role="radiogroup" aria-label="Permission mode" title="Shift+Tab alterna o modo" className="inline-flex overflow-hidden rounded-control border border-line-soft">
+        {PERMISSION_MODES.map(mode => <button key={mode} type="button" role="radio" aria-checked={mode === permissionMode} disabled={live}
+          title={PERMISSION_HINT[mode]} onClick={() => onPermissionModeChange(mode)}
+          className={"h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 " + (mode === permissionMode ? "bg-sub-300 text-ink" : "text-ink-mute hover:bg-sub-200")}>{PERMISSION_LABEL[mode]}</button>)}
+      </div>
+      <span className="text-[11px] text-ink-faint">{PERMISSION_SUMMARY[permissionMode]} · Shift+Tab</span>
+      {permissionNotice && <p role="alert" className="w-full text-[11px] text-warn">{permissionNotice}</p>}
+    </div>}
   </div>;
 }

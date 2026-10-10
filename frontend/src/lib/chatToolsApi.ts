@@ -12,6 +12,8 @@
 
 import { apiUrl } from "@/lib/apiBase";
 
+import type { PermissionMode } from "@/lib/permissionMode";
+
 export type ProviderKind = "http" | "cli" | "mock";
 export type CapabilityReason = "ok" | "no-workspace" | "cli-adapter" | "provider-no-tools" | "mock";
 
@@ -53,6 +55,11 @@ export interface ReadResult {
   redactions: number;
 }
 
+export interface PermissionState {
+  thread_id: string;
+  mode: PermissionMode;
+}
+
 /** Structured error body from the broker (contract §2.3). */
 export class ChatToolsError extends Error {
   constructor(public readonly status: number, public readonly code: string, public readonly path?: string) {
@@ -92,5 +99,13 @@ export const chatToolsApi = {
     request<ReadResult>("/chat/tools/read", {
       method: "POST",
       body: JSON.stringify({ cwd, path, ...opts }),
+    }),
+  /** Stored permission mode of a conversation (enforced by the sidecar; `ask` until set). */
+  getPermission: (threadId: string) =>
+    request<PermissionState>(`/chat/tools/permission?${new URLSearchParams({ thread_id: threadId }).toString()}`),
+  setPermission: (threadId: string, mode: PermissionMode) =>
+    request<PermissionState>("/chat/tools/permission", {
+      method: "PUT",
+      body: JSON.stringify({ thread_id: threadId, mode }),
     }),
 };
