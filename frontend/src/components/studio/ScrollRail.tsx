@@ -1,7 +1,7 @@
 "use client";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { RAIL_INSET, nextCardIndex, pageTarget, railState, wheelToScroll, type RailState } from "@/lib/scrollRail";
+import { RAIL_INSET, nextCardIndex, pageTarget, railState, revealTarget, wheelToScroll, type RailState } from "@/lib/scrollRail";
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
 const stepButton = `inline-flex h-7 w-7 items-center justify-center rounded-control border border-line bg-sub-100 text-ink-dim transition-colors hover:bg-sub-200 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-sub-100 disabled:hover:text-ink-dim ${focusRing}`;
@@ -72,6 +72,16 @@ export function ScrollRail({ labelledBy, as: Tag = "div", className = "", childr
     el.scrollTo({ left, behavior: reducedMotion() ? "auto" : "smooth" });
   };
 
+  // Focus landing in a card (Tab, arrows, a click) brings the whole card clear of the fades.
+  const onFocus = (e: FocusEvent<HTMLElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    const card = (Array.from(el.children) as HTMLElement[]).find((c) => c.contains(e.target as Node));
+    if (!card) return;
+    const left = revealTarget({ left: card.offsetLeft, width: card.offsetWidth }, { scrollLeft: el.scrollLeft, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth });
+    if (left !== null) el.scrollTo({ left, behavior: reducedMotion() ? "auto" : "smooth" });
+  };
+
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     const el = ref.current;
     const target = e.target as HTMLElement;
@@ -113,6 +123,7 @@ export function ScrollRail({ labelledBy, as: Tag = "div", className = "", childr
         aria-labelledby={labelledBy}
         onScroll={measure}
         onKeyDown={onKeyDown}
+        onFocus={onFocus}
         className={`oh-rail${fades} ${className}`.trim()}
       >
         {children}

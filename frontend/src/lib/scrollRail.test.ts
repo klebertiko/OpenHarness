@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RAIL_INSET, nextCardIndex, pageTarget, railState, wheelToScroll, type RailMetrics, type Span } from "./scrollRail";
+import { RAIL_INSET, nextCardIndex, pageTarget, railState, revealTarget, wheelToScroll, type RailMetrics, type Span } from "./scrollRail";
 
 const m = (scrollLeft: number, clientWidth = 500, scrollWidth = 1100): RailMetrics => ({ scrollLeft, clientWidth, scrollWidth });
 /** Five 200px cards, 12px apart, 4px lead-in: left = 4 + i * 212. */
@@ -85,5 +85,26 @@ describe("nextCardIndex", () => {
   });
   it("has no answer for an empty rail", () => {
     expect(nextCardIndex(0, "ArrowRight", 0)).toBeNull();
+  });
+});
+
+describe("revealTarget", () => {
+  it("does nothing for a card already clear of both fades", () => {
+    expect(revealTarget(cards[1], m(100))).toBeNull();
+  });
+  it("brings a card clipped on the right fully into view, clear of the fade", () => {
+    // card 2 spans 428..628; the clear region ends at scrollLeft + 500 - 28.
+    expect(revealTarget(cards[2], m(0))).toBe(628 - 500 + RAIL_INSET);
+  });
+  it("brings a card clipped on the left fully into view, clear of the fade", () => {
+    expect(revealTarget(cards[1], m(300))).toBe(216 - RAIL_INSET);
+  });
+  it("clamps at the ends and reports no move when already there", () => {
+    expect(revealTarget(cards[0], m(0))).toBeNull();
+    expect(revealTarget(cards[4], m(0, 500, 1000))).toBe(500);
+    expect(revealTarget(cards[4], m(500, 500, 1000))).toBeNull();
+  });
+  it("aligns a card wider than the viewport to its leading edge", () => {
+    expect(revealTarget({ left: 4, width: 700 }, m(300, 500, 1420))).toBe(0);
   });
 });

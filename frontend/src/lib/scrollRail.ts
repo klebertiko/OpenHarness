@@ -61,6 +61,24 @@ export function pageTarget(cards: Span[], m: RailMetrics, dir: "prev" | "next", 
   return clamp(cards[j].left - inset);
 }
 
+/**
+ * scrollLeft that brings a card fully into view, clear of the edge fades, or null when
+ * it already is (or the rail cannot move any further). Used when focus lands in a card,
+ * so Tab and arrow keys never leave the card half-hidden under a fade.
+ */
+export function revealTarget(card: Span, m: RailMetrics, inset = RAIL_INSET): number | null {
+  const max = Math.max(0, m.scrollWidth - m.clientWidth);
+  const viewStart = m.scrollLeft + inset;
+  const viewEnd = m.scrollLeft + m.clientWidth - inset;
+  const right = card.left + card.width;
+  let target: number;
+  if (card.left < viewStart - EPS || card.width > viewEnd - viewStart) target = card.left - inset;
+  else if (right > viewEnd + EPS) target = right - m.clientWidth + inset;
+  else return null;
+  target = Math.min(max, Math.max(0, target));
+  return Math.abs(target - m.scrollLeft) <= EPS ? null : target;
+}
+
 /** Which card an arrow/Home/End key moves to, or null when the key is not ours. */
 export function nextCardIndex(current: number, key: string, count: number): number | null {
   if (count <= 0) return null;

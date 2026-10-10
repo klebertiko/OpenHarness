@@ -247,3 +247,14 @@ it("lists every extra example the catalog returns and opens it as a copy", async
   // The two fixed cards already cover Agile and the sample; they are not listed twice.
   expect(screen.queryByRole("button", { name: "Open OpenHarness Agile" })).toBeNull();
 });
+
+it("saved harnesses and starting points each sit in a named scroll rail, and clamped example text keeps its full text on hover", async () => {
+  h.list.mockResolvedValue([rec("h1", "Triage loop")]);
+  const long = "Example modelled on https://github.com/some-org/some-very-long-repository-name/tree/main/path/to/the/thing — plan mode, loop, guarded tools.";
+  vi.mocked(fetchStudioExamples).mockResolvedValue([{ id: "ex1", name: "Long example", description: long, bundle: null }]);
+  render(<StudioOverview />);
+  await screen.findByRole("heading", { name: "Long example" });
+  expect(screen.getByRole("list", { name: "Your harnesses" }).className).toContain("oh-rail");
+  expect(screen.getByRole("group", { name: "Starting points" }).className).toContain("oh-rail");
+  expect(screen.getByText(long).getAttribute("title")).toBe(long);
+});
