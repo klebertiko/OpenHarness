@@ -20,6 +20,12 @@ if ($installer.ExitCode -ne 0) {
 }
 
 $appPath = Join-Path $installRoot "openharness.exe"
+# Windows caches shell icons (taskbar, Start, jump list on right-click). An
+# upgrade in place keeps the stale icon until that cache is refreshed.
+$ie4uinit = Join-Path $env:SystemRoot "System32\ie4uinit.exe"
+if (Test-Path -LiteralPath $ie4uinit) {
+  & $ie4uinit -show
+}
 if (-not (Test-Path -LiteralPath $appPath)) {
   throw "Installed OpenHarness executable was not found at $appPath"
 }

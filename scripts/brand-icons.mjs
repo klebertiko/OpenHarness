@@ -49,18 +49,35 @@ function renderIcon(size) {
   // Small Windows surfaces need an adaptive mark, not a uniformly shrunken
   // desktop illustration. Use Nilo's face at 16/32 px so the eyes and beak
   // remain identifiable; keep the complete mascot at larger sizes.
-  const rows = size <= 32 ? FACE : GRID;
+  const sprite = size <= 32 ? FACE : GRID;
+  // Trim fully transparent edge columns so the visible mark, not the sprite
+  // box, is what fills the slot.
+  const used = [...sprite[0]].map((_, x) => sprite.some((r) => r[x] !== "."));
+  const x0 = used.indexOf(true), x1 = used.lastIndexOf(true) + 1;
+  const rows = sprite.map((r) => r.slice(x0, x1));
   const w = rows[0].length, h = rows.length;
-  const cell = Math.max(1, Math.floor((size * (size <= 32 ? 1 : 0.86)) / Math.max(w, h)));
-  const ox = Math.floor((size - w * cell) / 2);
-  const oy = Math.floor((size - h * cell) / 2);
-  rows.forEach((row, gy) => [...row].forEach((symbol, gx) => {
-    if (symbol === ".") return;
-    const colour = rgb(FILL[symbol]);
-    for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) {
-      px.set([...colour, 255], ((oy + gy * cell + y) * size + ox + gx * cell + x) * 4);
+  // Fill the slot: full width up to 64 px (taskbar, Start, desktop), ~94%
+  // above. Prefer an integer cell (crisp, even pixels); fall back to
+  // nearest-neighbour only when an integer cell would leave the mark under
+  // 90% of the target width.
+  const target = size * (size <= 64 ? 1 : 0.94);
+  const intCell = Math.floor(target / Math.max(w, h));
+  const drawW = intCell * w >= 0.9 * target ? intCell * w : Math.round(target);
+  const drawH = Math.round((drawW * h) / w);
+  const ox = Math.floor((size - drawW) / 2);
+  const oy = Math.floor((size - drawH) / 2);
+  for (let y = 0; y < drawH; y++) {
+    const gy = Math.min(h - 1, Math.floor((y * h) / drawH));
+    for (let x = 0; x < drawW; x++) {
+      // Map columns from the nearer edge so a non-integer scale stays
+      // left/right symmetric (both eyes get the same pixel widths).
+      const col = (i) => Math.min(w - 1, Math.floor((i * w) / drawW));
+      const gx = x < drawW / 2 ? col(x) : w - 1 - col(drawW - 1 - x);
+      const symbol = rows[gy][gx];
+      if (symbol === ".") continue;
+      px.set([...rgb(FILL[symbol]), 255], ((oy + y) * size + ox + x) * 4);
     }
-  }));
+  }
   return px;
 }
 
