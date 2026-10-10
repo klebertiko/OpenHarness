@@ -1,6 +1,6 @@
 [package]
 name = "openharness"
-version = "0.1.0"
+version = "0.0.1-alpha"
 description = "OpenHarness — Agent + Harness Design Studio"
 authors = ["OpenHarness"]
 edition = "2021"
