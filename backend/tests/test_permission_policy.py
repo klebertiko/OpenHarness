@@ -279,3 +279,29 @@ def test_yarn_asks_when_a_yarnrc_sits_in_any_directory_between_cwd_and_the_root(
     (ws / 'a' / name).write_text('yarnPath: ./.evil.cjs', encoding='utf-8')
     assert auto(ex(*argv, cwd='a/b'), ws, trusted=True) == 'ask'
     assert auto(ex('npm', 'test', cwd='a/b'), ws, trusted=True) == 'allow'
+
+
+# -- the policy never touches the disk outside the workspace (CodeQL py/path-injection) ------------------
+def test_decide_never_stats_lists_or_opens_a_path_outside_the_workspace(ws, tmp_path_factory, monkeypatch):
+    outside = tmp_path_factory.mktemp('never-touched')
+    (outside / 'secret.txt').write_text('s', encoding='utf-8')
+    root = os.path.realpath(ws)
+    touched = []
+
+    def spy(name, original):
+        def wrapper(path, *args, **kwargs):
+            touched.append((name, os.path.abspath(path)))
+            return original(path, *args, **kwargs)
+        return wrapper
+
+    for owner, name in ((os, 'listdir'), (os, 'stat'), (os.path, 'lexists'), (os.path, 'isdir'), (os.path, 'isfile'), (os.path, 'islink'), (os.path, 'exists')):
+        monkeypatch.setattr(owner, name, spy(name, getattr(owner, name)))
+    monkeypatch.setattr('builtins.open', spy('open', open))
+    link_dir_or_skip(ws / 'hop', outside)
+    hostile = [ex('ls', '../x'), ex('ls', str(outside)), ex('ls', 'hop'), ex('ls', 'hop/secret.txt'), ex('ls', '-o../x'), ex('ls', 'sub/../../x'),
+               ex('git', 'status', cwd='..'), ex('git', 'status', cwd=str(outside)), ex('git', 'diff', 'hop/secret.txt'),
+               ex('yarn', 'test', cwd='hop'), ex('pytest', 'hop/secret.txt'), ex('ls', cwd='hop'), ex('ls', cwd='sub/../..')]
+    for call in hostile:
+        auto(call, ws, trusted=True)
+    escaped = [(name, path) for name, path in touched if not (path == root or path.startswith(root + os.sep))]
+    assert escaped == []

@@ -74,10 +74,12 @@ async def _validated_project_cwd(db: AsyncSession, requested: str | None) -> str
     if not requested:
         return None
     result = await db.execute(select(CoworkProject).where(CoworkProject.root_path == requested))
-    if result.scalars().first() is None:
+    project = result.scalars().first()
+    if project is None:
         return None
     try:
-        p = Path(requested).resolve()
+        # The stored root (equal to `requested`, but read from the database), never the request string itself.
+        p = Path(project.root_path).resolve()
         if p.is_dir():
             return str(p)
     except OSError:

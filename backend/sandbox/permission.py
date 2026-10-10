@@ -102,30 +102,56 @@ def _looks_like_path_escape(arg: str) -> bool:
     return False
 
 
-def _operand_stays_in_root(base: Path, arg: str) -> bool:
-    """An operand that happens to name an existing path must resolve inside the root (symlinks)."""
-    try:
-        if not (base / arg).exists() and not (base / arg).is_symlink():
-            return True
-        resolve_in_root(base, arg)
-        return True
-    except (PathViolation, OSError, ValueError):
+def _inside(root: str, candidate: str) -> str | None:
+    """CodeQL's path-injection sanitizer, in one place: normalize, then require containment in `root`
+    (an already-normalized real path) BEFORE the value is used. Every filesystem call in this module only
+    receives what this returns; a candidate outside the root yields None and is never touched."""
+    normalized = os.path.normpath(candidate)
+    prefix = root if root.endswith(os.sep) else root + os.sep
+    if normalized == root or normalized.startswith(prefix):
+        return normalized
+    return None
+
+
+def _join_inside(root: str, relative: str) -> str | None:
+    return _inside(root, os.path.join(root, relative))
+
+
+def _real_inside(root: str, path: str) -> str | None:
+    """Follow symlinks/junctions of an already-contained path and require the target to stay inside `root`."""
+    return _inside(root, os.path.realpath(path))
+
+
+def _operand_stays_in_root(base: str, arg: str) -> bool:
+    """An operand that happens to name an existing path must resolve inside the base (symlinks)."""
+    full = _join_inside(base, arg)
+    if full is None:
         return False
+    # realpath of a missing path is just the normalized path, so this is also True for operands that do not exist.
+    return _real_inside(base, full) is not None
 
 
-def _operand_ok(base: Path, arg: str, pattern: re.Pattern) -> bool:
+def _operand_ok(base: str, arg: str, pattern: re.Pattern) -> bool:
     return (not arg.startswith('-') and pattern.match(arg) is not None and not _looks_like_path_escape(arg)
             and _operand_stays_in_root(base, arg))
 
 
-def _shadowed(program: str, *directories: Path) -> bool:
+def _entries(root: str, directory: str) -> list[str] | None:
+    safe = _inside(root, directory)
+    if safe is None:
+        return None
+    try:
+        return os.listdir(safe)
+    except OSError:
+        return None
+
+
+def _shadowed(program: str, root: str, *directories: str) -> bool:
     """A planted `<program>.exe/.cmd/...` in the workspace could be picked up instead of the real tool."""
     names = {program + suffix for suffix in _SHADOW_SUFFIXES}
     for directory in directories:
-        try:
-            if any(entry.lower() in names for entry in os.listdir(directory)):
-                return True
-        except OSError:
+        entries = _entries(root, directory)
+        if entries is None or any(entry.lower() in names for entry in entries):
             return True
     return False
 
@@ -133,32 +159,36 @@ def _shadowed(program: str, *directories: Path) -> bool:
 _YARN_CONFIGS = frozenset({'.yarnrc.yml', '.yarnrc'})
 
 
-def _chain(root: Path, cwd: Path) -> list[Path]:
-    """cwd and every parent up to and including the workspace root (cwd is already inside it)."""
+def _chain(root: str, cwd: str) -> list[str]:
+    """cwd and every parent up to and including the workspace root (never above it)."""
     chain = [cwd]
-    while chain[-1] != root and chain[-1].parent != chain[-1]:
-        chain.append(chain[-1].parent)
+    while chain[-1] != root:
+        parent = os.path.dirname(chain[-1])
+        if parent == chain[-1] or _inside(root, parent) is None:
+            break
+        chain.append(parent)
     return chain
 
 
-def _has_entry(names: frozenset, *directories: Path) -> bool:
+def _has_entry(names: frozenset, root: str, *directories: str) -> bool:
     for directory in directories:
-        try:
-            if any(entry.lower() in names for entry in os.listdir(directory)):
-                return True
-        except OSError:
+        entries = _entries(root, directory)
+        if entries is None or any(entry.lower() in names for entry in entries):
             return True
     return False
 
 
-def _git_config_is_inert(root: Path) -> bool:
+def _git_config_is_inert(root: str) -> bool:
     """The repo's own .git/config must not be able to start programs (filters, textconv, hooks, includes...)."""
-    git_dir = root / '.git'
-    config = git_dir / 'config'
+    git_dir = _join_inside(root, '.git')
+    config = _join_inside(root, os.path.join('.git', 'config'))
+    if git_dir is None or config is None:
+        return False
     try:
-        if git_dir.is_symlink() or not git_dir.is_dir() or config.is_symlink() or not config.is_file() or config.stat().st_size > 65536:
+        if os.path.islink(git_dir) or not os.path.isdir(git_dir) or os.path.islink(config) or not os.path.isfile(config) or os.stat(config).st_size > 65536:
             return False
-        text = config.read_text(encoding='utf-8', errors='replace')
+        with open(config, encoding='utf-8', errors='replace') as handle:
+            text = handle.read()
     except OSError:
         return False
     for raw in text.splitlines():
@@ -177,7 +207,7 @@ def _git_config_is_inert(root: Path) -> bool:
     return True
 
 
-def _git_ok(args: list[str], root: Path, cwd: Path) -> bool:
+def _git_ok(args: list[str], root: str, cwd: str) -> bool:
     if args in (['--version'], ['-v']):
         return True
     if not args or args[0] not in _GIT_SUBCOMMANDS or not _git_config_is_inert(root):
@@ -203,7 +233,7 @@ def _package_manager_ok(args: list[str], trusted: bool) -> bool:
     return len(args) == 2 and args[0] in ('run', 'run-script') and _SCRIPT_NAME.match(args[1]) is not None
 
 
-def _pytest_ok(args: list[str], trusted: bool, cwd: Path) -> bool:
+def _pytest_ok(args: list[str], trusted: bool, cwd: str) -> bool:
     if not trusted:
         return False
     for arg in args:
@@ -214,7 +244,7 @@ def _pytest_ok(args: list[str], trusted: bool, cwd: Path) -> bool:
     return True
 
 
-def _ls_ok(args: list[str], cwd: Path) -> bool:
+def _ls_ok(args: list[str], cwd: str) -> bool:
     return all(_LS_FLAGS.match(arg) or _operand_ok(cwd, arg, re.compile(r'^[\w./\\ +@-]+$')) for arg in args)
 
 
@@ -222,10 +252,10 @@ def _allowed_exec(call, workspace, trusted: bool) -> bool:
     if workspace is None:
         return False
     try:
-        root = Path(workspace).resolve(strict=True)
+        root = os.path.realpath(str(workspace))
     except (OSError, RuntimeError, ValueError):
         return False
-    if not root.is_dir():
+    if not os.path.isdir(root):
         return False
     argv = list(call.argv)
     program_raw = argv[0]
@@ -237,17 +267,19 @@ def _allowed_exec(call, workspace, trusted: bool) -> bool:
     if PureWindowsPath(call.cwd).drive or Path(call.cwd).is_absolute() or call.cwd.startswith(('/', '\\')):
         return False
     try:
-        cwd = resolve_in_root(root, call.cwd)
+        # Lexical, reserved-name and symlink checks first; the contained real path is then re-verified below.
+        resolved = resolve_in_root(Path(root), call.cwd)
     except (PathViolation, OSError, ValueError):
         return False
-    if not cwd.is_dir() or _shadowed(program, root, cwd):
+    cwd = _real_inside(root, str(resolved))
+    if cwd is None or not os.path.isdir(cwd) or _shadowed(program, root, root, cwd):
         return False
     args = argv[1:]
     if program == 'git':
         return _git_ok(args, root, cwd)
     if program in _PACKAGE_MANAGERS:
         # Defense in depth: a yarn config anywhere from the cwd up to the root (yarn searches upward) can redirect the binary even in a trusted workspace.
-        if program == 'yarn' and _has_entry(_YARN_CONFIGS, *_chain(root, cwd)):
+        if program == 'yarn' and _has_entry(_YARN_CONFIGS, root, *_chain(root, cwd)):
             return False
         return _package_manager_ok(args, trusted)
     if program == 'pytest':
@@ -270,7 +302,7 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
         rest[1:1] = ['--no-ext-diff', '--no-textconv']
     env = {
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
-        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': str(Path(root).resolve().parent),
+        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(os.path.realpath(str(root))),
     }
     return head + rest, env
 
