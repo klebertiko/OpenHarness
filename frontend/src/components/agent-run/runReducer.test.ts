@@ -307,6 +307,13 @@ describe("runReducer · chat tools", () => {
     expect(tool(state)?.approval?.note).toBe("ok");
   });
 
+  it("tool_auto_approved records that the mode, not a person, let the command run", () => {
+    const state = runReducer(called, { type: "sse", event: "tool_auto_approved", data: { node_id: "direct", call_id: "c1", mode: "auto_workspace", reason: "workspace" } });
+    expect(tool(state)?.autoApproved).toEqual({ mode: "auto_workspace", reason: "workspace" });
+    expect(tool(state)?.approval).toBeUndefined();
+    expect(state.status).not.toBe("gate");
+  });
+
   it("tool_denied marks the call failed with the reason", () => {
     const state = runReducer(called, { type: "sse", event: "tool_denied", data: { node_id: "direct", call_id: "c1", reason: "rejected", note: "no" } });
     expect(state.status).toBe("running");

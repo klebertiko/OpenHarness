@@ -76,7 +76,7 @@ export default function CanvasBench() {
     ...HARNESS_PRESETS.map((p) => ({
       id: `preset:${p.id}`,
       label: p.name,
-      group: "Open preset",
+      group: "Open example harness",
       icon: LayoutTemplate,
       meta: p.id,
       run: () => {

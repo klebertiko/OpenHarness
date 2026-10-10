@@ -279,48 +279,49 @@ export function StudioOverview() {
 
           <aside aria-labelledby="starting-points" className="relative min-w-0 [&>p]:pr-20">
             <h2 id="starting-points" className="text-[14px] font-semibold text-ink">Starting points</h2>
-            <p className="mt-1 text-[12px] leading-5 text-ink-mute">A small example, or the bundled framework. Your work stays saved.</p>
+            <p className="mt-1 text-[12px] leading-5 text-ink-mute">Open an example harness or the Agile Harness as an editable copy. Your work stays saved.</p>
             <ScrollRail labelledBy="starting-points" className="mt-4">
               <article className={railCard}>
+
                 <div className="flex items-center gap-2">
                   <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
-                  <p className="text-[11px] text-ink-faint">OpenHarness sample</p>
+                  <p className="text-[11px] text-ink-faint">Example harness</p>
                 </div>
                 <div className="min-w-0">
                   <h3 className="t-title text-ink">Agent + review</h3>
                   <p className="mt-1 text-[12px] leading-5 text-ink-mute">Agent → review gate → human approval. Three nodes, configured for mock runs.</p>
                 </div>
-                <button type="button" disabled={startDisabled} className={`${secondary} mt-auto`} onClick={() => {
+                <button type="button" disabled={startDisabled} aria-label="Open harness: Agent + review" className={`${secondary} mt-auto`} onClick={() => {
                   const sample = HARNESS_PRESETS.find((p) => p.id === "minimal-gate");
                   if (sample) void startFresh(() => openStudioPreset(sample));
-                }}>Open sample <ArrowRight size={14} aria-hidden /></button>
+                }}>Open harness <ArrowRight size={14} aria-hidden /></button>
               </article>
               <article className={railCard}>
                 <div className="flex items-center gap-2">
                   <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
-                  <p className="text-[11px] text-ink-faint">skills-framework · bundled snapshot</p>
+                  <p className="text-[11px] text-ink-faint">Bundled harness</p>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="t-title text-ink">OpenHarness Agile</h3>
-                  <p className="mt-1 text-[12px] leading-5 text-ink-mute">Includes agent profiles and harness guidance. The graph is an adaptation, not the complete framework workflow.</p>
+                  <h3 className="t-title text-ink">Agile Harness</h3>
+                  <p className="mt-1 text-[12px] leading-5 text-ink-mute">Includes agent profiles and harness guidance. The graph is adapted from the skills-framework workflow, not the complete workflow.</p>
                 </div>
-                <button type="button" disabled={startDisabled} className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
-                  {loading ? "Opening…" : "Open framework"} <ArrowRight size={14} aria-hidden />
+                <button type="button" disabled={startDisabled} aria-label="Open harness: Agile Harness" className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
+                  {loading ? "Opening…" : "Open harness"} <ArrowRight size={14} aria-hidden />
                 </button>
               </article>
               {extraExamples.map((ex) => (
                 <article key={ex.id} className={railCard}>
                   <div className="flex items-center gap-2">
                     <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
-                    <p className="text-[11px] text-ink-faint">OpenHarness example</p>
+                    <p className="text-[11px] text-ink-faint">Example harness</p>
                   </div>
                   <div className="min-w-0">
                     <h3 title={ex.name} className="t-title text-ink">{ex.name}</h3>
                     {ex.description && <p title={ex.description} className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
                   </div>
-                  <button type="button" disabled={startDisabled} aria-label={`Open ${ex.name}`} className={`${secondary} mt-auto`}
+                  <button type="button" disabled={startDisabled} aria-label={`Open harness: ${ex.name}`} className={`${secondary} mt-auto`}
                     onClick={() => void startFresh(() => openStudioExample(ex))}>
-                    Open copy <ArrowRight size={14} aria-hidden />
+                    Open harness <ArrowRight size={14} aria-hidden />
                   </button>
                 </article>
               ))}
