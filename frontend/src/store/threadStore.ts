@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { usePermissionStore } from "./permissionStore";
 
 export type Thread = {
   id: string;
@@ -113,6 +114,7 @@ export const useThreadStore = create<ThreadState>()(
       },
 
       deleteThread: (id) => {
+        usePermissionStore.getState().forget(id);
         const rest = get().threads.filter((t) => t.id !== id);
         const nextMessages = { ...get().messagesByThread };
         delete nextMessages[id];

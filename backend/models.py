@@ -66,6 +66,31 @@ class CoworkProject(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class ChatPermission(Base):
+    """Permission mode of one chat conversation (`plan` | `ask` | `auto_workspace`).
+
+    Enforced by the sidecar (`sandbox.permission`); the UI only selects it. A
+    missing row means `ask`. A run request can tighten but never loosen it."""
+    __tablename__ = "chat_permissions"
+
+    thread_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mode: Mapped[str] = mapped_column(String(32), nullable=False, default="ask")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class WorkspaceTrust(Base):
+    """Per-workspace trust (false unless a person said so through the UI).
+
+    A trusted workspace lets `auto_workspace` run the project's own scripts
+    (npm test, pytest...) without asking. Keyed by the resolved root of a
+    registered Cowork project. Never settable from a run request."""
+    __tablename__ = "workspace_trust"
+
+    root_path: Mapped[str] = mapped_column(String(1024), primary_key=True)
+    trusted: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class UsageRecord(Base):
     """One row per completed node/turn that actually reached a real vendor —
     the durable source of truth for tokens spent and USD cost, written once
