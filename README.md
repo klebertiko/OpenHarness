@@ -122,18 +122,20 @@ npm ci
 npm run dev
 ```
 
-Full desktop loop (builds sidecar, opens Tauri):
+Desktop shell (Tauri) on top of that loop. The shell launches a PyInstaller-built sidecar, so build it first. It lands in `src-tauri/binaries/` with the target-triple suffix Tauri expects:
 
 ```bash
 npm ci
-npm run tauri:dev
+node scripts/build-sidecar.mjs   # needs backend/.venv or a system python
+npm run tauri:dev                # devUrl is http://127.0.0.1:3000 (Terminal B)
 ```
 
-### Windows installer (local delivery gate)
+### Windows installer
 
 ```bash
 npm ci
-npm run desktop:release
+node scripts/build-sidecar.mjs
+npm run tauri:build
 ```
 
 Artifact:
@@ -142,9 +144,17 @@ Artifact:
 src-tauri/target/release/bundle/nsis/OpenHarness_*_x64-setup.exe
 ```
 
-`desktop:release` builds, smoke-tests, installs the current-user copy, and validates again. It fails if the UI does not render, the sidecar is unhealthy or exposed outside loopback, the window cannot close cleanly, or a sidecar process remains after quit.
+Install the current-user copy and smoke-test it in one step:
 
-Manual smoke after install:
+```powershell
+powershell -File scripts/install-desktop.ps1
+```
+
+The script silently installs to `%LOCALAPPDATA%\Programs\OpenHarness`, refreshes the Windows icon cache, then runs the smoke test against the installed app. The smoke test fails if no sidecar listens on loopback, `/health` is not `ok`, the WebView does not render, the main window does not close, a sidecar process remains after quit, or the app writes `harness.db` or `secrets` into its install directory.
+
+The app is single-instance. The smoke test refuses to run while another OpenHarness process is open and names the executable to close.
+
+Smoke test on its own:
 
 ```powershell
 npm run desktop:smoke
