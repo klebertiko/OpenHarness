@@ -3,21 +3,25 @@ if (!Number.isInteger(port) || port <= 0) {
   throw new Error("Usage: node scripts/check-webview.mjs <debug-port>");
 }
 
-const deadline = Date.now() + 15_000;
+// Cold CI runners can take well over 15s to start the WebView2 runtime.
+const deadline = Date.now() + Number(process.env.OH_WEBVIEW_TIMEOUT_MS ?? 60_000);
 let page;
+let lastSeen = "no response from the DevTools endpoint";
 while (Date.now() < deadline) {
   try {
     const response = await fetch(`http://127.0.0.1:${port}/json/list`);
     const targets = await response.json();
+    lastSeen = `targets: ${JSON.stringify(targets.map(({ type, url }) => ({ type, url })))}`;
     page = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
     if (page) break;
-  } catch {
+  } catch (error) {
     // WebView2 starts after the native window and sidecar.
+    lastSeen = `DevTools endpoint error: ${error.cause?.code ?? error.message}`;
   }
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  await new Promise((resolve) => setTimeout(resolve, 250));
 }
 
-if (!page) throw new Error("WebView2 did not expose a page target");
+if (!page) throw new Error(`WebView2 did not expose a page target (${lastSeen})`);
 
 const socket = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => {

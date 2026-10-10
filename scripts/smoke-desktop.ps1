@@ -61,7 +61,17 @@ try {
 
   $webView = & node (Join-Path $PSScriptRoot "check-webview.mjs") $debugPort
   if ($LASTEXITCODE -ne 0) {
-    throw "OpenHarness WebView did not render"
+    $app.Refresh()
+    $state = if ($app.HasExited) { "exited with code $($app.ExitCode)" } else { "still running" }
+    $webViewProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'")
+    # Browser process = the one without --type=; shows whether the debug flag arrived.
+    foreach ($process in $webViewProcesses | Where-Object { $_.CommandLine -notmatch '--type=' }) {
+      Write-Host "WebView2 browser process $($process.ProcessId): $($process.CommandLine)"
+      Get-NetTCPConnection -State Listen -OwningProcess $process.ProcessId -ErrorAction SilentlyContinue |
+        ForEach-Object { Write-Host "  listening on $($_.LocalAddress):$($_.LocalPort)" }
+    }
+    Write-Host "Expected debug port: $debugPort"
+    throw "OpenHarness WebView did not render (app $state; msedgewebview2 processes: $($webViewProcesses.Count))"
   }
 
   if (-not $app.CloseMainWindow()) {
