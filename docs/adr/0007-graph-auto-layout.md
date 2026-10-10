@@ -17,33 +17,37 @@ ignoram o fluxo). Os exemplos DeepSeek e Matt Pocock já trazem posições
 autoradas à mão e abrem limpos.
 
 Faltava também uma forma de o usuário arrumar o próprio grafo: a spec do
-redesign (`docs/design/studio-redesign/README.md`, slice S6, "Shift L tidy
-layout") pede um auto-layout e registra que não há biblioteca de layout nas
+redesign (PR #92, branch `design/studio-creation-redesign`, arquivo
+`docs/design/studio-redesign/README.md`, slice S6, "Shift L tidy layout") pede um auto-layout e registra que não há biblioteca de layout nas
 dependências e que a escolha exige ADR (dagre vs elkjs).
 
 ## Opções medidas
 
 Mesmo grafo real (os três exemplos distribuídos), placas 212 × 120 px,
-espaçamento 48 px entre nós e 96 px entre camadas nas duas, layout da esquerda para a direita. Bundle medido com
-esbuild `--bundle --minify` (formato ESM) do import mínimo de cada biblioteca;
-tempo medido em Node, uma chamada. Versões: `@dagrejs/dagre` 3.1.1 e `elkjs`
+espaçamento 48 px entre nós e 96 px entre camadas nas duas, layout da esquerda
+para a direita. Medido por `frontend/scripts/bench-graph-layout.mjs`
+(reproduzível: `npm i --no-save elkjs@0.12.0 && node scripts/bench-graph-layout.mjs`):
+bundle com esbuild `--minify` do import mínimo de cada biblioteca e gzip -9;
+tempo em Node numa chamada (varia por execução e máquina, tome a ordem de
+grandeza); qualidade com placas 212 × 120. Versões: `@dagrejs/dagre` 3.1.1 e `elkjs`
 0.12.0.
 
 | | dagre | elkjs |
 |---|---|---|
-| Bundle minificado | 48,3 KB (16,8 KB gzip) | 1 460 KB (440 KB gzip) com `elk.bundled.js`; 5,3 KB só com `elk-api`, mas então exige o worker `elk-worker.min.js` separado (1 595 KB) |
+| Bundle minificado | 47,1 KB (16,4 KB gzip) | 1 426 KB (430 KB gzip) com `elk.bundled.js`; 5,3 KB só com `elk-api`, mas então exige o worker `elk-worker.min.js` separado (1 595 KB, `wc -c` do arquivo; medido à parte, fora do script) |
 | Licença | MIT | EPL-2.0 OR GPL-3.0-or-later |
 | Dependências | `@dagrejs/graphlib` | nenhuma (GWT compilado) |
 | Último release | 3.1.1, 2026-08-08 (repo com push em 2026-08-08, não arquivado) | 0.12.0, 2026-07-17 (repo com push em 2026-10-06, não arquivado) |
 | Layout no Agile (9 nós) | 0 sobreposições, 0 cruzamentos, 0 arestas para trás | idêntico |
-| Layout no DeepSeek (14) / Matt Pocock (15) | 0 / 0 / 0 em ambos | idêntico em cruzamentos e sobreposições; um pouco mais compacto na vertical (792 contra 876 px no DeepSeek, 624 contra 708 no Matt Pocock) |
-| Tempo (Agile / DeepSeek / Matt Pocock) | 21,2 / 7,9 / 8,4 ms | 208 / 56,9 / 30,2 ms |
+| Layout no DeepSeek (14) / Matt Pocock (15) | 0 / 0 / 0 em ambos | idêntico |
+| Tempo (Agile / DeepSeek / Matt Pocock) | ~17 a 25 ms / ~8 a 17 ms / ~9 a 19 ms | ~63 a 290 ms (Agile ~290, DeepSeek ~80, Matt Pocock ~63) |
 | API | síncrona | assíncrona (Promise, worker) |
 
-Linha de base do que o usuário via no Agile: 18 pares de placas sobrepostos
+Linha de base do que o usuário via no Agile (grade de fallback): 18 pares de placas sobrepostos
 (placa 212 × 120), 1 cruzamento e 3 arestas apontando para trás.
 
-Fontes: registro npm (`npm view` para versão, licença e datas de publicação) e
+Medido ad hoc em 2026-10-10, sem script (não fazem parte da decisão): a
+comparação de largura/altura totais entre os layouts. Fontes: registro npm (`npm view` para versão, licença e datas de publicação) e
 API do GitHub (`archived`, `pushed_at`, último release) de `dagrejs/dagre` e
 `kieler/elkjs`, consultadas em 2026-10-10. Ambos os projetos estão mantidos.
 
@@ -71,7 +75,7 @@ Adotar **`@dagrejs/dagre`** (versão fixa, sem `^`) atrás de uma função pura
   produzem layouts equivalentes nas métricas acima; o elkjs só ganharia em
   portas explícitas, ligações hierárquicas e roteamento de arestas, nada disso
   usado hoje (o roteamento é do `HarnessWire`).
-- Custa 26 vezes menos no bundle (16,8 KB contra 440 KB gzip), é
+- Custa 26 vezes menos no bundle (16,4 KB contra 430 KB gzip), é
   síncrona (um botão que arruma o grafo e desfaz num único passo) e é MIT.
 - O seam isola a escolha: trocar por elkjs mais tarde muda um arquivo, sem
   tocar canvas, store ou fixtures.
@@ -92,11 +96,14 @@ Adotar **`@dagrejs/dagre`** (versão fixa, sem `^`) atrás de uma função pura
    uma run, e enquadra a vista depois. O documento fica "unsaved" pelo mesmo
    caminho de qualquer outra edição (o autosave compara o conteúdo, posições
    incluídas).
-4. Os exemplos distribuídos que abriam bagunçados trazem posições geradas por
-   esse mesmo `layoutGraph`. Um teste de backend
-   (`backend/tests/oharness/test_example_layout.py`) falha se um exemplo
-   distribuído ficar sem posição, com placas sobrepostas ou com o fluxo
-   majoritariamente para trás.
+4. As posições do exemplo Agile foram geradas uma vez com este `layoutGraph`
+   (placas 212 × 120, sem script de regeneração commitado) e gravadas no
+   fixture; DeepSeek e Matt Pocock mantêm as suas. Um teste de backend
+   (`backend/tests/oharness/test_example_layout.py`) não gera nada: apenas
+   falha se um exemplo distribuído ficar sem posição, com placas 212 × 120
+   sobrepostas, ou com o fluxo majoritariamente para trás.
+5. O atalho `Shift+L` é ignorado em campos de texto e dentro de widgets com
+   typeahead (`[role=listbox]`, `[role=menu]`, `[role=combobox]`).
 
 ## Consequências
 
