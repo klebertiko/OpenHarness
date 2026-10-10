@@ -11,7 +11,7 @@ import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessi
 import { harnessSubtitle, isBuiltInHarness, splitHarnessName } from "./harnessLabel";
 
 /**
- * The harness library — always lists the skills-framework default, plus
+ * The harness library — always lists the bundled Agile Harness, plus
  * imports. Clicking a row puts that harness in use; the full description is
  * on hover. `onPicked` lets the caller (Studio's sheet) close itself once a
  * choice is made, without this component knowing it's inside a sheet.
