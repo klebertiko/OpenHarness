@@ -44,19 +44,17 @@ argv/cwd/env review, same discipline as the Claude adapter:
     ``CURSOR_API_KEY``.
   * every spawn is timeboxed and killed on timeout/cancellation.
 
-Windows has no ``cursor-agent`` executable on PATH, only a ``.cmd`` shim and a
-``.ps1`` script (confirmed on this machine: ``shutil.which("cursor-agent")``
-resolves the ``.cmd``). A ``.cmd`` cannot be handed to
-``asyncio.create_subprocess_exec`` directly — Windows `CreateProcess` needs a
-real PE executable, and there is no shell fallback the way
-``subprocess.run(shell=True)`` gets one — so on Windows this goes through
-``powershell.exe -NoProfile -NonInteractive -File <script> …`` as a literal
-argv list (no shell string, so no reinterpretation of prompt text). Elsewhere
-`cursor-agent` is assumed to be directly executable.
+Native Windows remains blocked by SEC-2 because Cursor's sandbox helper is
+disabled there. On Windows this adapter instead invokes the Linux CLI inside
+WSL2, where ``--sandbox enabled`` has a real filesystem boundary. ``wsl.exe``
+and the Linux executable receive a literal argv list (no shell string), while
+the prompt continues to travel only through stdin. Elsewhere `cursor-agent`
+is invoked directly.
 """
 from __future__ import annotations
 
 import json
+import os
 from shutil import which
 from typing import Any, AsyncIterator, Callable, Coroutine
 
@@ -64,7 +62,6 @@ from .base import AdapterConfig, AdapterResult, AgentAdapter, ProbeResult
 from .cli_shared import (
     CliRunResult,
     find_cli,
-    find_cli_script,
     is_windows,
     resolve_cwd,
     run_cli,
@@ -77,15 +74,29 @@ DEFAULT_TIMEOUT_S = 600.0
 
 Runner = Callable[..., Coroutine[Any, Any, CliRunResult]]
 
+WSL_DISTRO = "Ubuntu-24.04"
+
+
+def _windows_wsl_prefix() -> list[str] | None:
+    """Run Cursor in WSL2, where its Linux filesystem sandbox is real.
+
+    The Linux executable is invoked directly (no shell); prompts still travel
+    over stdin. Native Windows cursor-agent is intentionally never returned
+    because SEC-2 remains true for that runtime.
+    """
+    wsl = which("wsl") or which("wsl.exe")
+    if not wsl:
+        return None
+    distro = os.environ.get("OPENHARNESS_CURSOR_WSL_DISTRO", WSL_DISTRO)
+    windows_user = os.environ.get("USERNAME", "")
+    linux_home = os.environ.get("OPENHARNESS_CURSOR_WSL_HOME") or f"/home/{windows_user}"
+    return [wsl, "-d", distro, "--", f"{linux_home}/.local/bin/cursor-agent"]
+
 
 def _invocation_prefix() -> list[str] | None:
     """Argv prefix that launches cursor-agent, or None if it cannot be found."""
     if is_windows():
-        ps1 = find_cli_script(CLI_NAME, ".ps1")
-        if not ps1:
-            return None
-        powershell = which("powershell") or which("pwsh") or "powershell.exe"
-        return [powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", ps1]
+        return _windows_wsl_prefix()
     direct = find_cli(CLI_NAME)
     return [direct] if direct else None
 
@@ -123,10 +134,8 @@ class CursorCliAdapter(AgentAdapter):
             "json",
             "--trust",  # cwd is app-pinned (see cli_shared.resolve_cwd) — safe to trust unattended
             "--force",  # headless: nobody can answer an interactive approval prompt
-            # Hardcoded, not caller-configurable: SEC-2 found this Windows
-            # build's --sandbox provides no filesystem isolation regardless
-            # of value (proxy-only on win32), so a caller-supplied value here
-            # was a false lever, not a real control — see _windows_gate().
+            # Hardcoded, not caller-configurable. Native Windows remains
+            # blocked by SEC-2; the Windows route runs this inside WSL2.
             "--sandbox",
             "enabled",
         ]
@@ -136,23 +145,21 @@ class CursorCliAdapter(AgentAdapter):
 
     def _windows_gate(self) -> str | None:
         """SEC-2 (harness Security Gate, 2026-09-11): `--sandbox enabled`
-        provides no filesystem isolation on Windows — confirmed from
+        provides no filesystem isolation in the native Windows CLI — confirmed from
         cursor-agent's own bundled source (`isSandboxHelperSupported()`
         returns false unconditionally on win32; the shipped default map sets
         `sandbox_force_disable_win32: true`). Combined with `--force --trust`
         (required for headless use), a delegated task on this platform has
-        real, unsandboxed file/shell access, gated only by cwd pinning and a
-        timeout — neither of which is a sandbox. SEC's recommendation was not
-        to ship this on Windows until that has a real answer. This app's
-        primary target is Windows (Tauri + NSIS), so the gate is unconditional
-        here rather than a config flag someone could quietly flip.
+        real, unsandboxed file/shell access. Native execution therefore stays
+        blocked. Windows is allowed only when `_windows_wsl_prefix()` can route
+        the task to Cursor's Linux CLI under WSL2.
         """
-        if is_windows():
+        if is_windows() and _windows_wsl_prefix() is None:
             return (
-                "Cursor delegation is disabled on Windows pending a real sandbox "
-                "(security review 2026-09-11, SEC-2: --sandbox enabled does not "
-                "provide filesystem isolation on this platform). Use Claude or a "
-                "direct API provider for now."
+                "Cursor delegation on Windows requires Cursor Agent inside WSL2 "
+                "because the native Windows CLI has no filesystem sandbox (SEC-2). "
+                "Install cursor-agent in Ubuntu-24.04 and sign in there, or set "
+                "OPENHARNESS_CURSOR_WSL_DISTRO to a prepared distribution."
             )
         return None
 
