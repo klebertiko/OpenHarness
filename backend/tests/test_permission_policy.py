@@ -1,5 +1,7 @@
 """Pure policy seam for the chat permission mode: decide(mode, call, workspace, trusted)."""
 import os
+import re
+import shutil
 import subprocess
 import sys
 
@@ -195,6 +197,179 @@ def test_auto_asks_when_the_workspace_can_shadow_the_program(planted, ws):
     # shutil.which() on Windows looks in the current directory first.
     (ws / planted).write_text('', encoding='utf-8')
     assert auto(ex('git', 'status'), ws) == 'ask'
+
+
+# -- git config reached by other paths than .git/config (#112) ------------------
+FILTER_CONFIG = '[core]\n\trepositoryformatversion = 0\n[filter "x"]\n\tclean = sh -c evil\n\tsmudge = sh -c evil\n'
+
+
+def test_auto_asks_when_commondir_points_to_an_external_config_with_a_filter(ws, tmp_path_factory):
+    common = tmp_path_factory.mktemp('common')
+    (common / 'config').write_text(FILTER_CONFIG, encoding='utf-8')
+    (ws / '.git' / 'commondir').write_text(str(common), encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+@pytest.mark.parametrize('target', ['.', '../sibling', 'objects'])
+def test_auto_asks_for_any_commondir_even_a_relative_one_inside_the_repo(ws, target):
+    (ws / '.git' / 'commondir').write_text(target, encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_config_worktree_defines_a_filter(ws):
+    (ws / '.git' / 'config').write_text(SAFE_GIT_CONFIG + '[extensions]\n\tworktreeConfig = true\n', encoding='utf-8')
+    (ws / '.git' / 'config.worktree').write_text(FILTER_CONFIG, encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_for_any_config_worktree_even_without_the_extension(ws):
+    (ws / '.git' / 'config.worktree').write_text('', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_dot_git_holds_a_gitdir_pointer(ws):
+    (ws / '.git' / 'gitdir').write_text(str(ws / 'elsewhere'), encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+@pytest.mark.parametrize('rule', ['* filter=x', '*.txt diff=x', '*.txt merge=x', '*.TXT   filter=lfs -text', '[attr]foo filter=x', '* text eol=lf filter=x'])
+def test_auto_asks_when_info_attributes_activates_a_driver(ws, rule):
+    (ws / '.git' / 'info').mkdir()
+    (ws / '.git' / 'info' / 'attributes').write_text(rule + '\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_info_attributes_is_not_a_plain_file(ws, tmp_path_factory):
+    outside = tmp_path_factory.mktemp('attr') / 'attributes'
+    outside.write_text('', encoding='utf-8')
+    (ws / '.git' / 'info').mkdir()
+    try:
+        os.symlink(outside, ws / '.git' / 'info' / 'attributes')
+    except (OSError, NotImplementedError):
+        pytest.skip('file symlinks are not available on this machine')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_dot_git_is_a_file_with_a_gitdir_pointer_to_a_real_repo(tmp_path, tmp_path_factory):
+    real = tmp_path_factory.mktemp('real')
+    (real / 'config').write_text(SAFE_GIT_CONFIG, encoding='utf-8')
+    (tmp_path / '.git').write_text(f'gitdir: {real}\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), tmp_path, trusted=True) == 'ask'
+
+
+def test_auto_still_allows_plain_info_attributes_and_a_normal_repo(ws):
+    (ws / '.git' / 'info').mkdir()
+    (ws / '.git' / 'info' / 'attributes').write_text('# comment\n*.bin binary\n*.txt text eol=lf\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'allow'
+
+
+def test_hardened_git_pins_the_git_directories_to_the_workspace(tmp_path):
+    _, env = hardened_git(['git', 'status'], tmp_path)
+    root = str(tmp_path.resolve())
+    git_dir = os.path.join(root, '.git')
+    assert env['GIT_DIR'] == git_dir and env['GIT_COMMON_DIR'] == git_dir
+    assert env['GIT_WORK_TREE'] == root
+
+
+# -- the config is parsed by git itself, not line by line (#112 SEC findings) ------
+real_git = pytest.mark.skipif(shutil.which('git') is None, reason='git is not installed')
+EVIL_CMD = 'echo pwned >> {marker}; cat'
+
+
+def _hostile_repo(tmp_path, name, config_text, extra=None):
+    """A real repo whose versioned .gitattributes binds `*` to filter x and whose .git/config is `config_text`."""
+    repo = tmp_path / name
+    repo.mkdir()
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+    subprocess.run(['git', '-C', str(repo), 'add', 'a.txt'], check=True)
+    (repo / 'a.txt').write_text('two changed\n', encoding='utf-8')
+    (repo / '.gitattributes').write_text('* filter=x\n', encoding='utf-8')
+    marker = (tmp_path / (name + '.MARKER')).as_posix()
+    with open(repo / '.git' / 'config', 'w', encoding='utf-8', newline='\n') as handle:
+        handle.write(config_text.replace('MARK', marker))
+    for rel, text in (extra or {}).items():
+        (repo / '.git' / rel).write_text(text.replace('MARK', marker), encoding='utf-8')
+    return repo, marker
+
+
+def _run_hardened(repo, argv):
+    cmd, env = hardened_git(argv, repo)
+    base = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+    return subprocess.run(cmd, cwd=repo, env={**base, **env}, capture_output=True, text=True)  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
+
+
+_BASE_CFG = '[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = false\n'
+_EVIL = EVIL_CMD.format(marker='MARK')
+HOSTILE_CONFIGS = {
+    'two_headers_one_line': _BASE_CFG + f'[core][filter "x"]clean = {_EVIL}\n',
+    'bom_first_line': '﻿' + f'[filter "x"]clean = {_EVIL}\n' + _BASE_CFG,
+    'include_same_line': _BASE_CFG + '[core][include]path = evil.cfg\n',
+}
+HOSTILE_EXTRA = {'include_same_line': {'evil.cfg': f'[filter "x"]\n\tclean = {_EVIL}\n'}}
+
+
+@real_git
+@pytest.mark.parametrize('name', sorted(HOSTILE_CONFIGS))
+def test_auto_asks_for_configs_that_the_line_parser_misreads(name, tmp_path):
+    repo, _ = _hostile_repo(tmp_path, name, HOSTILE_CONFIGS[name], HOSTILE_EXTRA.get(name))
+    assert auto(ex('git', 'diff'), repo) == 'ask'
+    assert auto(ex('git', 'status'), repo, trusted=True) == 'ask'
+
+
+@real_git
+@pytest.mark.parametrize('name', sorted(HOSTILE_CONFIGS))
+def test_hardened_git_does_not_run_a_filter_even_if_the_policy_were_bypassed(name, tmp_path):
+    repo, marker = _hostile_repo(tmp_path, name, HOSTILE_CONFIGS[name], HOSTILE_EXTRA.get(name))
+    version = subprocess.run(['git', '--version'], capture_output=True, text=True).stdout
+    numbers = [int(n) for n in re.findall(r'\d+', version)[:2]]
+    if numbers < [2, 42]:
+        pytest.skip('GIT_ATTR_SOURCE needs git 2.42 or newer')
+    _run_hardened(repo, ['git', 'diff'])
+    assert not os.path.exists(marker)
+
+
+@real_git
+def test_auto_still_allows_a_repo_created_by_git_init(tmp_path):
+    repo = tmp_path / 'clean'
+    repo.mkdir()
+    subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+    assert auto(ex('git', 'status'), repo) == 'allow'
+
+
+@pytest.mark.parametrize('config', [
+    '[core]\n\tfsmonitor = true\n', '[Core]\n\tPager = sh\n', '[core "sub"]\n\tx = y\n', '[extensions]\n\tworktreeConfig = true\n',
+    '[core]\n\tsomethingnew = 1\n', '[alias]\n\tst = !sh\n', '[url "x"]\n\tinsteadOf = y\n', '[core]\n\tattributesFile = x\n',
+    '[include]\n\tpath = x\n', '[includeIf "gitdir:/"]\n\tpath = x\n', '[core]\n  bare = false\n  [filter "x"] clean = sh\n',
+])
+@real_git
+def test_auto_asks_for_any_config_key_outside_the_allowlist(config, ws):
+    (ws / '.git' / 'config').write_text(SAFE_GIT_CONFIG + config, encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+@real_git
+def test_auto_asks_when_the_config_is_not_parseable_by_git(ws):
+    (ws / '.git' / 'config').write_text('[core\n\tbare = false\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_objects_use_alternates(ws):
+    (ws / '.git' / 'objects' / 'info').mkdir(parents=True)
+    (ws / '.git' / 'objects' / 'info' / 'alternates').write_text(str(ws.parent), encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_objects_is_a_link(ws, tmp_path_factory):
+    outside = tmp_path_factory.mktemp('objects')
+    link_dir_or_skip(ws / '.git' / 'objects', outside)
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_hardened_git_ignores_working_tree_attributes(tmp_path):
+    _, env = hardened_git(['git', 'status'], tmp_path)
+    assert env['GIT_ATTR_SOURCE'] == '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 
 def test_auto_asks_when_the_cwd_can_shadow_the_program(ws):
