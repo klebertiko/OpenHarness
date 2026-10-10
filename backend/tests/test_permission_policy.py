@@ -296,7 +296,8 @@ def _hostile_repo(tmp_path, name, config_text, extra=None):
 def _run_hardened(repo, argv):
     cmd, env = hardened_git(argv, repo)
     base = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
-    return subprocess.run(cmd, cwd=repo, env={**base, **env}, capture_output=True, text=True)
+    # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+    return subprocess.run(cmd, cwd=repo, env={**base, **env}, capture_output=True, text=True)  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
 
 
 _BASE_CFG = '[core]\n\trepositoryformatversion = 0\n\tfilemode = false\n\tbare = false\n'

@@ -231,7 +231,9 @@ def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith('GIT_')}
     env.update({'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_TERMINAL_PROMPT': '0'})
     try:
-        done = subprocess.run([git, 'config', '--file', config, '--no-includes', '--null', '--list'], cwd=git_dir, env=env,
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+        # argv is a list (no shell); git is the executable resolved once at import; the call only parses the file.
+        done = subprocess.run([git, 'config', '--file', config, '--no-includes', '--null', '--list'], cwd=git_dir, env=env,  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
                               capture_output=True, timeout=10, check=False)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
