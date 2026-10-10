@@ -6,7 +6,7 @@ import { useChatProviderStore } from "@/store/chatProviderStore";
 import { useProviderStore, type Connection } from "@/components/providers/providerStore";
 import css from "./agentRun.module.css";
 import { clock, latency as fmtLatency, paragraphs, tokens as fmtTokens } from "./format";
-import { groupActivity, segmentActivity, summarizeGroup, type ActivityGroup } from "./activity";
+import { groupActivity, segmentActivity, summarizeGroup } from "./activity";
 import { Gate } from "./Gate";
 import { ToolCard } from "./ToolCard";
 import { useActiveRunStore } from "@/store/activeRunStore";
@@ -187,49 +187,60 @@ function Reasoning({ text, done }: { text: string; done: boolean }) {
   );
 }
 
-/* ── Activity group ────────────────────────────────────────────────────────
-   Two or more consecutive tool calls inside one step, folded to one line:
-   counts by verb, a failure count, and (while live) the call in flight. The
-   cards underneath are the same ToolRows, unchanged. Closed once finished;
-   open by default when something failed; held open — and not collapsible —
-   while any call is parked on the approval gate, because an approval card
-   must never be hidden. */
-function ActivityGroupView({ group, runId }: { group: ActivityGroup; runId: string | null }) {
-  const summary = summarizeGroup(group);
+/* ── Tool run ──────────────────────────────────────────────────────────────
+   A run of consecutive tool calls inside one step. Two or more fold to one
+   summary line: counts by verb, failed/denied counts, and (while live) the
+   call in flight. A lone call renders as a plain row — through this same
+   component, so when a second call streams in the first row keeps its tree
+   position (and its expanded-detail state) instead of remounting. Rows stay
+   mounted but `hidden` while the group is collapsed, for the same reason.
+   Closed once finished; open by default when something failed; held open —
+   and not collapsible — while any call is parked on the approval gate,
+   because an approval card must never be hidden. */
+function ToolRun({ calls, runId }: { calls: ToolCall[]; runId: string | null }) {
+  const summary = summarizeGroup({ kind: "activity", calls });
+  const multi = calls.length > 1;
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
-  const forced = summary.awaitingApproval;
-  const open = forced || (userOpen ?? summary.failed > 0);
+  const forced = multi && summary.awaitingApproval;
+  const open = !multi || forced || (userOpen ?? summary.failed > 0);
+  const panelId = `activity-${calls[0].callId}`;
   return (
-    <div className="mt-1">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-disabled={forced || undefined}
-        onClick={() => {
-          if (!forced) setUserOpen(!open);
-        }}
-        className={`t-meta flex w-full min-w-0 items-center gap-1.5 text-left hover:text-ink ${
-          summary.failed > 0 ? "" : "text-ink-mute"
-        } ${forced ? "cursor-default" : ""}`}
-        style={summary.failed > 0 ? { color: "var(--fault)" } : undefined}
-      >
-        <span aria-hidden className="flex-none">
-          {open ? "▾" : "▸"}
-        </span>
-        <span className="min-w-0 truncate">{summary.label}</span>
-        {summary.current && (
-          <span className="min-w-0 flex-1 truncate" style={{ color: "var(--signal)" }}>
-            · {summary.current}
+    <div className={multi ? "mt-1" : undefined}>
+      {multi ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-disabled={forced || undefined}
+          onClick={() => {
+            if (!forced) setUserOpen(!open);
+          }}
+          className={`t-meta flex w-full min-w-0 items-center gap-1.5 text-left hover:text-ink ${
+            summary.failed > 0 ? "" : "text-ink-mute"
+          } ${forced ? "cursor-default" : ""}`}
+          style={summary.failed > 0 ? { color: "var(--fault)" } : undefined}
+        >
+          <span aria-hidden className="flex-none">
+            {open ? "▾" : "▸"}
           </span>
-        )}
-      </button>
-      {open && (
-        <div className="ml-1 border-l pl-2" style={{ borderColor: "var(--line-soft)" }}>
-          {group.calls.map((c) => (
-            <ToolRow key={c.callId} call={c} transcriptRunId={runId} />
-          ))}
-        </div>
-      )}
+          <span className="min-w-0 truncate">{summary.label}</span>
+          {summary.current && (
+            <span className="min-w-0 flex-1 truncate" style={{ color: "var(--signal)" }}>
+              · {summary.current}
+            </span>
+          )}
+        </button>
+      ) : null}
+      <div
+        id={panelId}
+        hidden={!open}
+        className={multi ? "ml-1 border-l pl-2" : undefined}
+        style={multi ? { borderColor: "var(--line-soft)" } : undefined}
+      >
+        {calls.map((c) => (
+          <ToolRow key={c.callId} call={c} transcriptRunId={runId} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -317,10 +328,16 @@ function SegmentView({
         </div>
 
         {items.map((item, i) =>
-          item.kind === "activity" ? (
-            <ActivityGroupView key={i} group={item} runId={runId} />
+          item.kind === "activity" || item.kind === "tool" ? (
+            // Keyed by the run's first call so a solo call that becomes a
+            // group (second call arrives) is the same element, not a remount.
+            <ToolRun
+              key={`t-${item.kind === "activity" ? item.calls[0].callId : item.call.callId}`}
+              calls={item.kind === "activity" ? item.calls : [item.call]}
+              runId={runId}
+            />
           ) : (
-            <BlockView key={i} block={item} streaming={running && i === lastItemIndex} runId={runId} />
+            <BlockView key={`b-${i}`} block={item} streaming={running && i === lastItemIndex} runId={runId} />
           ),
         )}
 
