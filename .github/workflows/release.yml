@@ -326,12 +326,12 @@ jobs:
             runner: macos-15
             os: macos
             triple: aarch64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg # keep the .app: tauri deletes it when only dmg is requested
           - id: macos-x64
             runner: macos-15-intel
             os: macos
             triple: x86_64-apple-darwin
-            bundles: dmg
+            bundles: app,dmg # keep the .app: tauri deletes it when only dmg is requested
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -409,7 +409,20 @@ jobs:
 
       # PyInstaller cannot cross-compile: build the sidecar natively for this triple.
       - name: Build sidecar
-        run: node scripts/build-sidecar.mjs
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          if [ "$ID" = macos-x64 ]; then
+            # cryptography ships no x86_64 macOS wheel, so pip builds it from
+            # source. Linked dynamically, its libssl.3.dylib (current Homebrew
+            # 3.x) collides inside the bundle with the older one from the
+            # python.org framework and fails with "Symbol not found". Link
+            # OpenSSL statically into cryptography instead.
+            OPENSSL_DIR="$(brew --prefix openssl@3)"
+            export OPENSSL_DIR OPENSSL_STATIC=1
+          fi
+          node scripts/build-sidecar.mjs
       - name: Check sidecar target triple
         env:
           TRIPLE: ${{ matrix.triple }}
@@ -494,7 +507,9 @@ jobs:
               cp "$(one "$bundle/appimage" "*.AppImage")" dist-release/OpenHarness-linux-x86_64.AppImage
               cp "$(one "$bundle/deb" "*.deb")" dist-release/OpenHarness-linux-amd64.deb
               dpkg-deb --info dist-release/OpenHarness-linux-amd64.deb | sed -n '1,20p'
-              dpkg-deb --contents dist-release/OpenHarness-linux-amd64.deb | grep -q 'openharness-sidecar' \
+              # Capture first: grep -q closing the pipe early would SIGPIPE dpkg-deb.
+              deb_contents=$(dpkg-deb --contents dist-release/OpenHarness-linux-amd64.deb)
+              grep -q 'openharness-sidecar' <<<"$deb_contents" \
                 || { echo "::error::.deb does not contain the sidecar"; exit 1; }
               if [ "$SIGNED" = true ]; then
                 sig=$(APPIMAGE_EXTRACT_AND_RUN=1 dist-release/OpenHarness-linux-x86_64.AppImage --appimage-signature || true)
