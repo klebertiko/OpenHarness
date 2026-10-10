@@ -58,9 +58,9 @@ it("Shift+L typed into an <input> or <textarea> is a letter, not a command", () 
 it("Shift+L inside a listbox, menu or combobox (typeahead) does not arrange", () => {
   const { container } = renderShell(
     <>
-      <div role="listbox"><div role="option" tabIndex={0}>Local</div></div>
+      <div role="listbox"><div role="option" aria-selected={false} tabIndex={0}>Local</div></div>
       <div role="menu"><div role="menuitem" tabIndex={0}>Launch</div></div>
-      <div role="combobox" tabIndex={0}>Model</div>
+      <div role="combobox" aria-controls="x" aria-expanded={false} tabIndex={0}>Model</div>
     </>
   );
   for (const el of container.querySelectorAll('[role="option"],[role="menuitem"],[role="combobox"]')) {
