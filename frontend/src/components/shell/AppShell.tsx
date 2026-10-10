@@ -215,6 +215,8 @@ export function AppShell({
         }
       }
       for (const c of commandsRef.current) {
+        // A bare (or Shift-only) chord is a letter someone may be typing.
+        if (editing && c.chord && !/Mod|Alt/.test(c.chord)) continue;
         if (c.chord && !c.disabled && matchesChord(e, c.chord, mac)) {
           e.preventDefault();
           c.run();

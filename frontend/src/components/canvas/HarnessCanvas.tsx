@@ -113,6 +113,19 @@ export function HarnessCanvas({ onNodeClick }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialised, idKey, paneWidth, fitView]);
 
+  /* "Auto-arrange graph" moves every node at once, usually far from where the
+     camera is looking. Re-frame after it lands; the animation is skipped for
+     people who asked for reduced motion. */
+  const fitSeq = useCanvasStore((s) => s.fitSeq);
+  const lastFitSeq = useRef(fitSeq);
+  useEffect(() => {
+    if (fitSeq === lastFitSeq.current) return;
+    lastFitSeq.current = fitSeq;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const raf = requestAnimationFrame(() => fitView({ padding: 0.16, duration: reduce ? 0 : 320 }));
+    return () => cancelAnimationFrame(raf);
+  }, [fitSeq, fitView]);
+
   /* Selection is owned by the store — the inspector, the command palette and
      the audit strip all set it — so it is mirrored onto the flow rather than
      read from it. One source of truth, no two-way sync to get wrong. */

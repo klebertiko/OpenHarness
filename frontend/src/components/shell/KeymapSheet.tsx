@@ -46,6 +46,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Mod+Z", "Undo"],
       ["Mod+Shift+Z", "Redo"],
+      ["Shift+L", "Auto-arrange graph (Studio)"],
       ["Mod+Shift+E", "Export graph JSON (advanced)"],
     ],
   },

@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useReactFlow, useStore } from "@xyflow/react";
-import { Minus, Plus, Maximize2, Grid2x2, Hand, Lock, Unlock } from "lucide-react";
+import { Minus, Plus, Maximize2, Grid2x2, Hand, Lock, Unlock, Network } from "lucide-react";
+import { useCanvasStore } from "@/store/canvasStore";
+import { chordCaps, useIsMac } from "@/components/shell/keys";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -20,20 +22,26 @@ function DockButton({
   label,
   onClick,
   active,
+  ariaLabel,
+  disabled,
 }: {
   icon: LucideIcon;
   label: string;
+  /** Accessible name when the tooltip carries extra text (a shortcut). */
+  ariaLabel?: string;
   onClick: () => void;
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       title={label}
-      aria-label={label}
+      aria-label={ariaLabel ?? label}
       aria-pressed={active}
+      disabled={disabled}
       onClick={onClick}
-      className={`grid h-[24px] w-[26px] place-items-center transition-colors hover:bg-sub-300 ${
+      className={`grid h-[24px] w-[26px] place-items-center transition-colors hover:bg-sub-300 disabled:pointer-events-none disabled:opacity-30 ${
         active ? "bg-sub-400 text-signal" : "text-ink-mute hover:text-ink"
       }`}
     >
@@ -41,6 +49,9 @@ function DockButton({
     </button>
   );
 }
+
+/** Chord for "Auto-arrange graph" (keys.ts spec; also bound in app/page.tsx). */
+export const ARRANGE_CHORD = "Shift+L";
 
 const Rule = () => <span className="my-[4px] w-px flex-none bg-line-soft" aria-hidden />;
 
@@ -57,6 +68,9 @@ export function CanvasDock({ snap, onSnap, locked, onLock, panMode, onPanMode }:
   const { zoomIn, zoomOut, fitView, zoomTo } = useReactFlow();
   const zoom = useStore((s) => s.transform[2]);
   const [flash, setFlash] = useState(false);
+  const mac = useIsMac();
+  const arrangeGraph = useCanvasStore((s) => s.arrangeGraph);
+  const canArrange = useCanvasStore((s) => s.nodes.length > 1 && !s.isRunning);
 
   /* The zoom readout doubles as a reset: clicking it snaps back to 100%. That
      needs a moment of acknowledgement, or the click feels like it missed. */
@@ -89,6 +103,13 @@ export function CanvasDock({ snap, onSnap, locked, onLock, panMode, onPanMode }:
           icon={Maximize2}
           label="Fit graph to view"
           onClick={() => fitView({ padding: 0.22, duration: 220 })}
+        />
+        <DockButton
+          icon={Network}
+          label={`Auto-arrange graph · ${chordCaps(ARRANGE_CHORD, mac).join(" ")}`}
+          ariaLabel="Auto-arrange graph"
+          disabled={!canArrange}
+          onClick={arrangeGraph}
         />
         <DockButton
           icon={Hand}
