@@ -10,7 +10,7 @@
 // Needs the backend venv (or PYTHON=...) to read the bundled .ohm examples
 // through the real codec. Nothing here is imported by the app.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -43,7 +43,8 @@ print(json.dumps(out))
 async function bundleSize(label, contents) {
   const r = await build({ stdin: { contents, resolveDir: frontend }, bundle: true, minify: true, format: "esm", write: false, logLevel: "error" });
   const code = r.outputFiles[0].contents;
-  console.log(`${label.padEnd(8)} min ${(code.length / 1024).toFixed(1)} KB  gzip ${(gzipSync(code, { level: 9 }).length / 1024).toFixed(1)} KB`);
+  const kb = (n) => (n / 1024).toFixed(1) + " KB";
+  console.log(label.padEnd(8), "min", kb(code.length), " gzip", kb(gzipSync(code, { level: 9 }).length));
 }
 await bundleSize("dagre", `import d from "@dagrejs/dagre"; export default d;`);
 let ELK = null;
@@ -91,16 +92,17 @@ async function elkLayout(g) {
 
 // 4. Quality and time per example.
 for (const [id, g] of Object.entries(graphs)) {
-  console.log(`\n${id}  ${g.nodes.length} nodes / ${g.edges.length} edges`);
+  console.log("
+" + id, g.nodes.length, "nodes /", g.edges.length, "edges");
   // "fallback" is what the Studio drew for a node without a stored position.
-  console.log(`${"fallback".padEnd(8)}`, JSON.stringify(metrics(g, fallback(g.nodes))));
-  if (g.nodes.every((n) => n.position)) console.log(`${"shipped".padEnd(8)}`, JSON.stringify(metrics(g, Object.fromEntries(g.nodes.map((n) => [n.id, n.position])))));
+  console.log("fallback", JSON.stringify(metrics(g, fallback(g.nodes))));
+  if (g.nodes.every((n) => n.position)) console.log("shipped ", JSON.stringify(metrics(g, Object.fromEntries(g.nodes.map((n) => [n.id, n.position])))));
   let t = performance.now();
   const d = layoutGraph(g.nodes.map((n) => ({ id: n.id })), g.edges);
-  console.log(`${"dagre".padEnd(8)}`, JSON.stringify(metrics(g, d)), `${(performance.now() - t).toFixed(1)} ms`);
+  console.log("dagre   ", JSON.stringify(metrics(g, d)), (performance.now() - t).toFixed(1), "ms");
   if (ELK) {
     t = performance.now();
     const e = await elkLayout(g);
-    console.log(`${"elkjs".padEnd(8)}`, JSON.stringify(metrics(g, e)), `${(performance.now() - t).toFixed(1)} ms`);
+    console.log("elkjs   ", JSON.stringify(metrics(g, e)), (performance.now() - t).toFixed(1), "ms");
   }
 }
