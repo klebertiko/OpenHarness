@@ -92,7 +92,8 @@ async function elkLayout(g) {
 
 // 4. Quality and time per example.
 for (const [id, g] of Object.entries(graphs)) {
-  console.log("\n" + id, g.nodes.length, "nodes /", g.edges.length, "edges");
+  console.log();
+  console.log(id, g.nodes.length, "nodes /", g.edges.length, "edges");
   // "fallback" is what the Studio drew for a node without a stored position.
   console.log("fallback", JSON.stringify(metrics(g, fallback(g.nodes))));
   if (g.nodes.every((n) => n.position)) console.log("shipped ", JSON.stringify(metrics(g, Object.fromEntries(g.nodes.map((n) => [n.id, n.position])))));
