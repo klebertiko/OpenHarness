@@ -66,11 +66,13 @@ async function exclusive(work: () => Promise<void>): Promise<void> {
   }
 }
 
-/** Save now. A harness with no record yet becomes one; a saved one is flushed. */
+/**
+ * Save now. A harness with no record yet becomes one; a saved one is flushed.
+ * Success is already said by the header's save state, so only a failure speaks.
+ */
 export async function saveNow(): Promise<void> {
   try {
     await saveHarnessNow();
-    notify("ok", "Saved");
   } catch (e) {
     notify("error", message(e, "That didn't work."));
   }

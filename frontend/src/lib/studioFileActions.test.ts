@@ -46,10 +46,10 @@ afterEach(() => {
 });
 
 describe("saveNow", () => {
-  it("runs the explicit save and says so; a failure is an error notice, not a throw", async () => {
+  it("runs the explicit save without a second 'Saved' (the header's save state says it); a failure is an error notice, not a throw", async () => {
     await saveNow();
     expect(saveHarnessNowMock).toHaveBeenCalledTimes(1);
-    expect(notice()).toMatchObject({ tone: "ok", text: "Saved" });
+    expect(notice()).toBeNull();
     saveHarnessNowMock.mockRejectedValue(new Error("Stop the current run first."));
     await saveNow();
     expect(notice()).toMatchObject({ tone: "error", text: "Stop the current run first." });
