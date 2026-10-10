@@ -79,14 +79,23 @@ describe("summarizeCalls / summarizeGroup", () => {
     expect(summarizeCalls([call("exec"), call("zz"), call("yy")]).label).toBe("Ran 1 command · Used 2 other tools");
   });
 
-  it("reports a failure count in the label (ok=false or denied)", () => {
+  it("reports a failure count in the label (ok=false)", () => {
+    const s = summarizeCalls([call("exec"), call("exec", { ok: false }), call("read", { ok: false })]);
+    expect(s.failed).toBe(2);
+    expect(s.denied).toBe(0);
+    expect(s.label).toBe("Ran 2 commands · Read 1 file · 2 failed");
+  });
+
+  it("counts a denial separately: the user's decision, not a failure", () => {
     const s = summarizeCalls([
       call("exec"),
-      call("exec", { ok: false }),
-      call("read", { ok: false, denied: { reason: "rejected", note: "" } }),
+      call("exec", { ok: false, denied: { reason: "rejected", note: "" } }),
+      call("read", { ok: false }),
     ]);
-    expect(s.failed).toBe(2);
-    expect(s.label).toBe("Ran 2 commands · Read 1 file · 2 failed");
+    expect(s.failed).toBe(1);
+    expect(s.denied).toBe(1);
+    expect(s.label).toBe("Ran 2 commands · Read 1 file · 1 failed · 1 denied");
+    expect(summarizeCalls([call("exec", { denied: { reason: "policy", note: "" } })]).failed).toBe(0);
   });
 
   it("is running while any call has no result yet, and names the current call", () => {
@@ -135,9 +144,14 @@ describe("segmentActivity (step header summary)", () => {
     expect(s?.label).toBe("Ran 2 commands · Read 3 files");
   });
 
-  it("always surfaces failures", () => {
-    const s = segmentActivity([tool("exec", { ok: false })]);
+  it("is null for a single item even when it failed (the row already shows it)", () => {
+    expect(segmentActivity([tool("exec", { ok: false })])).toBeNull();
+    expect(segmentActivity([tool("exec", { ok: false }), tool("read")])).toBeNull();
+  });
+
+  it("surfaces failures across several items", () => {
+    const s = segmentActivity([tool("exec", { ok: false }), text("x"), tool("read")]);
     expect(s?.failed).toBe(1);
-    expect(s?.label).toBe("Ran 1 command · 1 failed");
+    expect(s?.label).toBe("Ran 1 command · Read 1 file · 1 failed");
   });
 });

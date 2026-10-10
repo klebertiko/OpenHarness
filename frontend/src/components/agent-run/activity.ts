@@ -81,7 +81,10 @@ export interface ActivitySummary {
   total: number;
   /** At least one call has not produced a result yet. */
   running: boolean;
+  /** Calls that errored. A denial is not one of these. */
   failed: number;
+  /** Calls the user (or policy) rejected — a decision, not an error. */
+  denied: number;
   /** A call is parked on the approval gate with no decision yet. */
   awaitingApproval: boolean;
   /** Live line for the in-flight call ("Running npm test…"), else null. */
@@ -103,8 +106,11 @@ function phrase(verb: ActivityVerb, n: number, onlyOther: boolean): string {
   return verb === "other" && !onlyOther ? `${lead} ${n} other ${noun}` : `${lead} ${n} ${noun}`;
 }
 
+function isDenied(c: ToolCall): boolean {
+  return c.denied !== undefined;
+}
 function isFailed(c: ToolCall): boolean {
-  return c.ok === false || c.denied !== undefined;
+  return c.ok === false && !isDenied(c);
 }
 function isPending(c: ToolCall): boolean {
   return c.ok === undefined && c.denied === undefined;
@@ -146,6 +152,8 @@ export function summarizeCalls(calls: ToolCall[]): ActivitySummary {
   const parts = VERB_ORDER.filter((v) => counts[v]).map((v) => phrase(v, counts[v]!, onlyOther));
   const failed = calls.filter(isFailed).length;
   if (failed > 0) parts.push(`${failed} failed`);
+  const denied = calls.filter(isDenied).length;
+  if (denied > 0) parts.push(`${denied} denied`);
 
   const pending = calls.filter(isPending);
   const awaiting = calls.filter(isAwaiting);
@@ -157,6 +165,7 @@ export function summarizeCalls(calls: ToolCall[]): ActivitySummary {
     total: calls.length,
     running: pending.length > 0,
     failed,
+    denied,
     awaitingApproval: awaiting.length > 0,
     current: live ? describeCurrent(live) : null,
   };
@@ -169,14 +178,13 @@ export function summarizeGroup(group: ActivityGroup): ActivitySummary {
 /**
  * Step-header summary: the whole step's tool activity in one line. Returns
  * null when it would only repeat what is already on screen — no tools, or a
- * single activity item with nothing failed — so the header adds information
- * instead of echoing the group line below it.
+ * single activity item (a lone row or one group, failure included: the row
+ * already shows it) — so the header adds information instead of echoing it.
  */
 export function segmentActivity(blocks: Block[]): ActivitySummary | null {
   const calls = blocks.flatMap((b) => (b.kind === "tool" ? [b.call] : []));
   if (calls.length === 0) return null;
   const items = groupActivity(blocks).filter((x) => x.kind === "activity" || x.kind === "tool").length;
-  const summary = summarizeCalls(calls);
-  if (items === 1 && summary.failed === 0) return null;
-  return summary;
+  if (items === 1) return null;
+  return summarizeCalls(calls);
 }
