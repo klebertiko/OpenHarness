@@ -64,7 +64,7 @@ try {
   await page.goto(base, { waitUntil: 'networkidle', timeout: 120000 });
   await button('Studio').click();
   step = 'BaseNode sample reproduction';
-  await button('Open sample').click();
+  await button('Open harness: Agent + review').click();
   await page.locator('.react-flow__node[data-id="impl"]').waitFor();
   assert.deepEqual(errors, []); checks.push('Current BaseNode sample renders without historical Play error');
   await page.locator('.react-flow__node[data-id="impl"]').click();

@@ -1,9 +1,9 @@
 schemaVersion: 1.0.0
 manifest:
   id: openharness.default.agile
-  name: OpenHarness Agile (skills-framework)
+  name: Agile Harness
   version: 0.1.0
-  description: Default Agile/Scrum/Kanban agent harness compiled from skills-framework engineering/harness.
+  description: Default Agile/Scrum/Kanban agent harness, modelled on the engineering/harness project in skills-framework.
   license: MIT
   tags:
     - agile

@@ -126,7 +126,7 @@ export const HARNESS_PRESETS: HarnessPreset[] = [
   {
     id: "agile-default",
     name: "Agile role sketch",
-    description: "Local visual sketch with simplified role prompts and mock adapters; not the bundled skills-framework OHM.",
+    description: "A simplified Agile crew with short role prompts and mock adapters. The Agile Harness is the full bundled version.",
     graph: {
       /* Node order mirrors GATES.md's ownership model, not a generic
          checkpoint-then-specialist pipeline: Gate 2/3/4 are each OWNED by

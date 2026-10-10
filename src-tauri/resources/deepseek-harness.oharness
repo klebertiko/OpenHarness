@@ -4,7 +4,7 @@
     "id": "openharness.example.deepseek-harness",
     "name": "DeepSeek Harness (dsh)",
     "version": "0.1.0",
-    "description": "Example modelled on DeepSeek Harness desktop release dsh-v0.2.1-alpha.2: plan mode, AgentLoop turn/step loop, guarded tools, subagents and goal continuation. Source: https://github.com/deepseek-ai/deepseek-harness (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2).",
+    "description": "Example harness modelled on DeepSeek Harness desktop release dsh-v0.2.1-alpha.2: plan mode, AgentLoop turn/step loop, guarded tools, subagents and goal continuation. Source: https://github.com/deepseek-ai/deepseek-harness (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2).",
     "license": "MIT",
     "tags": [
       "example",

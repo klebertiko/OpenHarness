@@ -24,7 +24,7 @@ const secondary = `${base} border border-line bg-sub-100 text-ink hover:bg-sub-2
 const quiet = `${base} text-ink-dim hover:bg-sub-200 hover:text-ink`;
 const danger = `${base} text-ink-dim hover:bg-sub-200 hover:text-fault`;
 
-const ORIGIN_LABEL = { saved: "Saved harness", example: "Example", draft: "Draft" } as const;
+const ORIGIN_LABEL = { saved: "Saved harness", example: "Bundled harness", draft: "Draft" } as const;
 
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1">{children}</div>;
@@ -150,14 +150,14 @@ export function StudioActionsBar() {
           </button>
           <div ref={menuRef} className="relative">
             <button type="button" aria-haspopup="menu" aria-expanded={menuOpen} onClick={toggleExamples} disabled={locked} className={quiet}>
-              <Layers size={14} aria-hidden /> Open example <ChevronDown size={12} aria-hidden />
+              <Layers size={14} aria-hidden /> Open bundled harness <ChevronDown size={12} aria-hidden />
             </button>
             {menuOpen && (
-              <div role="menu" aria-label="Examples"
+              <div role="menu" aria-label="Bundled harnesses"
                 onKeyDown={(e) => { if (e.key === "Escape") setMenuOpen(false); }}
                 className="absolute left-0 top-full z-40 mt-1 w-[300px] max-w-[85vw] overflow-hidden rounded-[10px] border border-line bg-sub-100 py-1 shadow-lg">
-                {!examples && <p role="status" className="px-3 py-2 text-[12px] text-ink-mute">Loading examples…</p>}
-                {examples?.length === 0 && <p className="px-3 py-2 text-[12px] text-ink-mute">No examples available.</p>}
+                {!examples && <p role="status" className="px-3 py-2 text-[12px] text-ink-mute">Loading bundled harnesses…</p>}
+                {examples?.length === 0 && <p className="px-3 py-2 text-[12px] text-ink-mute">No bundled harnesses available.</p>}
                 {examples?.map((ex) => (
                   <button key={ex.id} type="button" role="menuitem" onClick={() => chooseExample(ex)}
                     className={`block w-full px-3 py-2 text-left hover:bg-sub-200 ${focusRing}`}>
@@ -165,7 +165,7 @@ export function StudioActionsBar() {
                     {ex.description && <span className="mt-0.5 line-clamp-2 block text-[11px] leading-4 text-ink-mute">{ex.description}</span>}
                   </button>
                 ))}
-                <p className="border-t border-line-soft px-3 py-2 text-[11px] text-ink-faint">Opens an editable copy; the example itself is never changed.</p>
+                <p className="border-t border-line-soft px-3 py-2 text-[11px] text-ink-faint">Opens an editable copy; the bundled harness itself is never changed.</p>
               </div>
             )}
           </div>
@@ -211,7 +211,7 @@ export function StudioActionsBar() {
           <button type="submit" disabled={busy || !copyName.trim()} className={primary}>Save copy</button>
           <button type="button" onClick={() => setPending(null)} className={quiet}>Cancel</button>
           <p className="basis-full text-[11px] text-ink-faint">
-            Creates a new editable harness. {origin === "saved" ? "The original stays as it is." : "Bundled examples are never overwritten."}
+            Creates a new editable harness. {origin === "saved" ? "The original stays as it is." : "Bundled harnesses are never overwritten."}
           </p>
         </form>
       )}
