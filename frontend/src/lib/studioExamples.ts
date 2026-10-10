@@ -8,7 +8,7 @@ export interface StudioExample {
   id: string;
   name: string;
   description: string;
-  /** Catalog examples carry their bundle; the local sample is a built-in preset. */
+  /** Catalog examples carry their bundle; the local example harness is built in. */
   bundle: HarnessBundle | null;
   presetId?: string;
 }
@@ -18,7 +18,7 @@ export const SAMPLE_PRESET_ID = "minimal-gate";
 function sampleExample(): StudioExample | null {
   const preset = HARNESS_PRESETS.find((p) => p.id === SAMPLE_PRESET_ID);
   return preset
-    ? { id: "sample:" + preset.id, name: "Sample: " + preset.name, description: preset.description, bundle: null, presetId: preset.id }
+    ? { id: "sample:" + preset.id, name: preset.name, description: preset.description, bundle: null, presetId: preset.id }
     : null;
 }
 
@@ -38,8 +38,8 @@ function fromCatalog(raw: unknown): StudioExample[] {
 
 /**
  * Everything the app offers as a starting point: whatever the engine's examples
- * catalog returns (`GET /bundles/examples`), plus the built-in sample. An engine
- * without the catalog falls back to the bundled framework so there is always one.
+ * catalog returns (`GET /bundles/examples`), plus the built-in example harness. An engine
+ * without the catalog falls back to the bundled Agile Harness so there is always one.
  */
 export async function fetchStudioExamples(): Promise<StudioExample[]> {
   let catalog: StudioExample[] = [];
@@ -51,7 +51,7 @@ export async function fetchStudioExamples(): Promise<StudioExample[]> {
     try {
       const bundle = (await fetchDefault()) as unknown as HarnessBundle;
       catalog = fromCatalog([{ bundle }]);
-    } catch { /* no engine: only the built-in sample is offered */ }
+    } catch { /* no engine: only the built-in example harness is offered */ }
   }
   const sample = sampleExample();
   if (!sample) return catalog;
