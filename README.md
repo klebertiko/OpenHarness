@@ -33,11 +33,19 @@
 
 ## What this is
 
-OpenHarness is a **desktop application** (Tauri v2 + FastAPI sidecar) where you author and run **agent harnesses** — composed systems of Agents, Gates, HITL checkpoints, Skills, and Signals — against the LLM providers you already pay for (Anthropic, OpenAI, OpenRouter, Ollama, Cursor, …).
+OpenHarness is a **desktop application** (Tauri v2 + FastAPI sidecar) where you author and run **agent harnesses** — composed systems of Agents, Gates, HITL checkpoints, Skills, and Signals — against the providers you connect: Anthropic and OpenAI through their local CLIs, OpenRouter with an API key, Ollama (local or cloud), and Cursor for delegated agent tasks. See [Providers](#providers).
 
-The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle (YAML 1.2 authoring profile; legacy JSON still readable). OpenHarness ships with one **example** Agile harness (`openharness.default.agile`) so you can open the app and see a full crew immediately. Every user authors and shares their own harnesses — the example is a starting point, not the product.
+The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle, authored in YAML 1.2 ([ADR 0003](docs/adr/0003-ohm-yaml.md)). Three harnesses ship bundled so you can open the app and see a full crew immediately:
 
-Nilo is the front door — a small presence who greets you, answers what she can, and hands real work to the loaded harness or to a provider-native path. She is not a role in the crew.
+| Harness | Id | Source |
+| --- | --- | --- |
+| **Agile Harness** (the default) | `openharness.default.agile` | Compiled from the `engineering/harness` skill in `skills-framework` |
+| **DeepSeek Harness** | `openharness.example.deepseek-harness` | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness), desktop release `dsh-v0.2.1-alpha.2` |
+| **Matt Pocock skills** | `openharness.example.mattpocock-skills` | [mattpocock/skills](https://github.com/mattpocock/skills) |
+
+The last two model published projects and cite their sources in their descriptions; they set no provider and ship no secrets. Every user authors and shares their own harnesses — the bundled ones are starting points, not the product.
+
+Nilo is the front door — a small presence who greets you and answers what she can. When a request needs the crew, she starts the loaded harness. She is not a role in the crew.
 
 ---
 
@@ -55,16 +63,49 @@ Nilo is the front door — a small presence who greets you, answers what she can
 
 <p align="center"><em>Chats</em> — talk to Nilo; escalate into the harness when the work needs a crew.</p>
 
+The app has three destinations, reachable with `Alt+1` to `Alt+3`.
+
 | Surface | Intent |
 | --- | --- |
-| **Studio** | Visual harness authoring, validation, mock/live modes |
-| **Agent / Chats** | Direct runs and harness-bound conversations; chat tools (`/exec`, `/read`, `/ls`) with HITL approval for exec |
-| **Providers** | Wallet of connections — cloud, local, CLI adapters |
-| **Cowork** | Authorized workspace context for tool use |
+| **Chats** (`Alt+1`) | Direct runs and harness-bound conversations. Chat tools (`/exec`, `/read`, `/ls`) run through the sidecar; `/exec` waits for your approval. Composer chips pick the provider for the chat and the workspace folder it works in (no folder runs in a scratch directory). |
+| **Studio** (`Alt+2`) | Visual harness authoring, validation, mock/live modes. Describe a flow to Nilo or open a bundled harness. |
+| **Providers** (`Alt+3`) | The roster of connections — cloud, local, CLI. See [Providers](#providers). |
+
+**Removed:** Automate and Pull requests no longer exist. The `/automations` and `/repos` routes are gone (breaking change, #31).
+
+### Studio files
+
+Starting points on the Studio overview are "Agent + review" and the bundled harnesses above. The editor bar shows the harness name, where it came from (Example, Draft or Saved harness) and whether it has unsaved changes.
+
+| Action | What it does |
+| --- | --- |
+| New, Open example, Import, Export | Start a blank harness, open a bundled harness as an editable copy (the bundled one is never changed), import or export a `.ohm`. In the desktop app, Export opens the native Save dialog. |
+| Save / Save as… | Save writes a harness you already own. On an unedited example it creates an editable copy. Save as always creates a new harness and opens the copy. |
+| Discard / Delete | Discard drops a draft, or returns a saved harness to its last saved version. Delete removes a draft or a saved harness. Both ask for confirmation. |
+| Use in chat | Makes the open harness the one the chat runs. |
 
 ### Nilo in Studio
 
 In Studio, **Ask Nilo** (or `Mod+I`) opens a side panel where you describe a flow in plain language and Nilo, the OpenHarness assistant, proposes graph edits: nodes added, wired and configured. The proposal appears as a list of changes you **Keep** or **Undo**; applying it is one undoable step, and every change is validated against the graph rules before it reaches the canvas. With a connected provider the request goes to that model (one repair attempt on an invalid reply). With none, a deterministic offline planner answers instead, and the result is tagged *Offline draft*. In the Inspector, **Assist** drafts, improves or reviews the free-text fields of agents, skills and gates, also offline when no provider is ready. Secrets, endpoints, commands and provider ids are never sent. The transcript is session-only and replies are not streamed.
+
+---
+
+## Providers
+
+Five vendors. Anthropic and OpenAI connect through the CLI you are already signed in to, so OpenHarness stores no key for them.
+
+| Vendor | Connects through | Notes |
+| --- | --- | --- |
+| **Anthropic** | Local `claude` CLI (`claude login`) | Runs on your Claude subscription. Tool execution is disabled; it answers chat only. |
+| **OpenAI** | Local `codex` CLI (`codex login`) | Runs on your ChatGPT subscription. Shell commands go through a read-only sandbox. |
+| **OpenRouter** | API key (`sk-or-…`) | You pick a route, an ordered model preference, not a single model. |
+| **Ollama** | Local daemon, default `http://127.0.0.1:11434/v1`, no key | Ollama Cloud is a separate connection. |
+| **Cursor** | Local `cursor-agent` CLI (`cursor-agent login`) | Agent-only: an LLM node cannot use it, a Delegate node can. On Windows it runs inside WSL2 (distro `Ubuntu-24.04` by default, override with `OPENHARNESS_CURSOR_WSL_DISTRO`); the native Windows `cursor-agent` stays blocked. |
+
+- **Chat picker.** Lists "Auto" (the first eligible connection, cloud before on-device) and the connections that can answer now. Setup stays on the Providers screen.
+- **Per-node pins and failover.** A node can pin an ordered list of connections. If one rejects the call, the next is tried, and the attempts show in the run transcript. A node with no pin uses the chat's choice. If neither resolves, the run stops at that node with an error; it never swaps providers silently. Rule: [`docs/product/provider-harness-rule.md`](docs/product/provider-harness-rule.md).
+- **Secrets** are written by the sidecar's secrets store (`OH_SECRETS`, below), never by the Tauri shell.
+- **Experimental: Laya.** A local classifier ([ADR 0005](docs/adr/0005-laya-decision-node.md), [ADR 0006](docs/adr/0006-laya-front-door-cascade.md)). It needs a separate Laya process on loopback (`LAYA_LOOPBACK_PORT`, default 8761). With it running, a chat message goes to Laya first to decide between a direct answer and starting the harness; below 0.80 confidence, or when Laya is unavailable, the model-based triage decides as before. The decision is recorded as a `route_decision` event. A Laya `decision` node in a graph is advisory evidence only; no gate, edge or HITL step reads it.
 
 ---
 
