@@ -21,7 +21,7 @@ Enable GitHub Code Scanning, Dependabot alerts, dependency graph, secret scannin
 | `sbom.yml` | SBOM CycloneDX | CycloneDX SBOMs for npm, Python and Cargo | Main/scheduled evidence |
 | `owasp.yml` | OWASP Dependency-Check | OWASP Dependency-Check defense in depth | Scheduled; opens an issue on failure |
 | `security-monitor.yml` | Dependency audit | npm, pip and RustSec audits | Scheduled; opens an issue on failure |
-| `release.yml` | Release | version gate, NSIS build, smoke, checksum, SBOM and attestations | Tag-only release gate |
+| `release.yml` | Release | version gate, Windows/Linux/macOS installers, sidecar + desktop smoke, signing when configured, checksums, SBOM, attestations, draft release | Tag: release gate. PR (desktop paths): build-only check |
 | `laya-shadow.yml` | Laya triage | optional issue-triage research artifact | Never |
 
 Failed security scanners open or update a deterministic GitHub Issue via `.github/scripts/upsert-security-issue.sh` (title + fingerprint). SARIF uploads to Code Scanning remain the alert surface; Issues are the work-tracking surface.
@@ -42,13 +42,53 @@ Create an annotated `vX.Y.Z` tag only after synchronizing the version in:
 - `src-tauri/Cargo.toml`
 - `src-tauri/tauri.conf.json`
 
-Configure a protected GitHub Environment named `release` with required reviewer approval. A release is built on `windows-2025`, smoke-checked, checksummed, described by a CycloneDX SBOM, and signed with GitHub build-provenance and SBOM attestations. Verify a downloaded asset with:
+The tag runs the Quality and Security gates, checks the versions, then builds every platform in the protected `release` environment. PyInstaller cannot cross-compile, so each runner builds its own sidecar (`scripts/build-sidecar.mjs`) and smoke-tests it (`scripts/smoke-sidecar.mjs`) before `tauri build`. Windows also runs the full desktop smoke (`scripts/smoke-desktop.ps1`).
+
+| Runner | Target | Assets |
+| --- | --- | --- |
+| `windows-2025` | `x86_64-pc-windows-msvc` | `OpenHarness-windows-x64-setup.exe` (NSIS, per-user), `OpenHarness-windows-x64.msi` |
+| `ubuntu-22.04` | `x86_64-unknown-linux-gnu` | `OpenHarness-linux-x86_64.AppImage`, `OpenHarness-linux-amd64.deb` |
+| `macos-15` | `aarch64-apple-darwin` | `OpenHarness-macos-arm64.dmg` |
+| `macos-15-intel` | `x86_64-apple-darwin` | `OpenHarness-macos-x64.dmg` |
+
+Linux builds on the oldest supported Ubuntu runner, so they need glibc 2.35 or newer. macOS ships two native DMGs instead of a universal one: a PyInstaller `--onefile` sidecar can only be universal2 if Python and every native wheel are universal2, and a onefile binary cannot be merged with `lipo`.
+
+The last job adds `SHA256SUMS` and the CycloneDX SBOM `OpenHarness-sbom.cdx.json` (from the source lockfiles), attests build provenance for every asset and the SBOM for every installer, and creates a **draft** GitHub Release. A maintainer reviews the draft and publishes it. Asset names never contain the version, so `https://github.com/klebertiko/OpenHarness/releases/latest/download/<asset>` always points at the newest published release.
+
+Pull requests that touch the desktop build (`src-tauri/**`, the release workflow, sidecar scripts, root `package*.json`) run the same matrix as a build-only check: no signing, no attestations, no release. `workflow_dispatch` is a dry run that uploads workflow artifacts only; its `sign` input also runs signing through the `release` environment, so a new certificate can be tested before tagging.
+
+Verify a download:
 
 ```bash
-gh attestation verify OpenHarness_*_x64-setup.exe --repo klebertiko/OpenHarness
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify OpenHarness-windows-x64-setup.exe --repo klebertiko/OpenHarness
 ```
 
-GitHub attestations prove where the artifact came from; they do not replace Windows Authenticode. Before treating releases as production distribution, configure an EV certificate or Azure Artifact Signing and sign both the packaged application binaries and the final NSIS installer. Keep that credential path inside the protected `release` environment and fail the release when signature verification fails.
+### Code signing
+
+Each platform signs only when the `release` environment holds its complete set of secrets. With none of them, it builds **unsigned**, and the job summary and the release notes say so, including the warning that users will see. With only part of a set, the build fails rather than shipping a half-configured signature. Set the repository variable `REQUIRE_SIGNING=true` to make a tag build fail whenever any platform would be unsigned. Pull requests never sign.
+
+Create these as **environment secrets of `release`**, not as repository secrets, so pull-request builds can never read them.
+
+| Platform | Secret / variable | Value |
+| --- | --- | --- |
+| Windows | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (secrets) | App registration with a federated credential for subject `repo:klebertiko/OpenHarness:environment:release` and the *Certificate Profile Signer* role on the signing account |
+| Windows | `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT`, `AZURE_TRUSTED_SIGNING_PROFILE` (variables) | Endpoint URL, Artifact Signing (Trusted Signing) account name, certificate profile name |
+| macOS | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD` | Base64 of the exported *Developer ID Application* `.p12`, and its password |
+| macOS | `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Name (TEAMID)` |
+| macOS notarization, option A | `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Apple ID e-mail, app-specific password, team ID |
+| macOS notarization, option B | `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_KEY_P8` | App Store Connect API issuer ID, key ID, and the contents of the `.p8` key (the workflow writes it to `APPLE_API_KEY_PATH`) |
+| Linux | `APPIMAGE_GPG_PRIVATE_KEY`, `APPIMAGE_GPG_KEY_ID`, `APPIMAGETOOL_SIGN_PASSPHRASE` | ASCII-armored GPG private key, its key ID, and its passphrase |
+
+The names follow Tauri's own signing variables ([Windows](https://v2.tauri.app/distribute/sign/windows/), [macOS](https://v2.tauri.app/distribute/sign/macos/), [Linux](https://v2.tauri.app/distribute/sign/linux/)). On Windows the workflow signs inside out with Microsoft's `azure/artifact-signing-action` over OIDC (no client secret): first the sidecar, then `openharness.exe`, then the NSIS and MSI installers, and it verifies every signature with `Get-AuthenticodeSignature`. On macOS Tauri signs and notarizes; the workflow then checks `codesign`, `spctl` and `stapler`. Developer ID without notarization does not get past Gatekeeper, so macOS signing requires a notarization credential as well. The `.deb` carries no signature of its own (Debian signs repositories, not packages); it is covered by `SHA256SUMS` and the attestations.
+
+What users see while a platform is unsigned:
+
+- **Windows:** SmartScreen shows "Windows protected your PC" with an unknown publisher; *More info* then *Run anyway*.
+- **macOS:** the app has an ad-hoc signature only, because Apple silicon refuses to run unsigned code. Gatekeeper blocks the first launch; *System Settings > Privacy & Security > Open Anyway*.
+- **Linux:** no warning; there is no embedded AppImage signature to check.
+
+GitHub attestations prove where an artifact came from. They do not replace Authenticode or notarization.
 
 ## Laya experiment
 
@@ -67,6 +107,7 @@ After these workflows land on the default branch:
 1. Protect `main` with the ruleset in `.github/rulesets/main.json` (merge queue, required checks, linear history, no force-push/deletion; no required reviewers).
 2. Require status checks: `Quality / required`, `Security scan / required`.
 3. Enable Code Scanning, Dependabot alerts, dependency graph, secret scanning + push protection, private vulnerability reporting.
-4. Create protected Environment `release` with required reviewers.
-5. Optionally set `ENABLE_LAYA_SHADOW=true` only when collecting advisory issue-triage artifacts.
-6. Optional: `NVD_API_KEY` repository secret for faster OWASP NVD sync.
+4. Create protected Environment `release` with required reviewers and a deployment rule limited to `v*.*.*` tags (plus `main` if signed dry runs are wanted). The workflow references it by name, and GitHub creates an *unprotected* environment of that name on first use if it does not exist yet, so create it before the first tag.
+5. Add the signing secrets from [Code signing](#code-signing) to that environment when certificates are available. Until then releases are built unsigned.
+6. Optionally set `ENABLE_LAYA_SHADOW=true` only when collecting advisory issue-triage artifacts.
+7. Optional: `NVD_API_KEY` repository secret for faster OWASP NVD sync.
