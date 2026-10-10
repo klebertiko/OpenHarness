@@ -521,6 +521,34 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_grant_every_window_control_the_title_bar_calls() {
+        // TitleBar.tsx calls `win?.toggleMaximize?.()` etc.; each maps to a
+        // `core:window:allow-<kebab>` grant, and a missing one fails silently.
+        let title_bar = include_str!("../../frontend/src/components/shell/TitleBar.tsx");
+        let caps = include_str!("../capabilities/default.json");
+        let calls: Vec<&str> = title_bar
+            .split("win?.")
+            .skip(1)
+            .filter_map(|rest| rest.split("?.(").next())
+            .collect();
+        assert!(calls.contains(&"toggleMaximize"), "{calls:?}");
+        for call in calls {
+            let kebab: String = call
+                .chars()
+                .flat_map(|c| {
+                    if c.is_ascii_uppercase() {
+                        vec!['-', c.to_ascii_lowercase()]
+                    } else {
+                        vec![c]
+                    }
+                })
+                .collect();
+            let grant = format!("\"core:window:allow-{kebab}\"");
+            assert!(caps.contains(&grant), "missing {grant} for win.{call}()");
+        }
+    }
+
+    #[test]
     fn reserve_port_returns_a_loopback_port_that_can_be_rebound() {
         let port = reserve_port().unwrap();
         TcpListener::bind(("127.0.0.1", port)).unwrap();
