@@ -1,0 +1,64 @@
+name: Pages
+
+# Publishes website/ to GitHub Pages from main. The site is built by
+# `npm run build:pages` (website/scripts/build-pages.mjs), which copies only the
+# public allowlist into a fresh directory and verifies the inventory. No npm
+# dependencies are installed: the build uses Node built-ins only.
+# Cut-over and fallback: docs/ci-security.md ("Deploy do site").
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  # Never cancel a deployment that already started.
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 22.20.0
+
+jobs:
+  build:
+    name: build site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout website/
+      pages: read # configure-pages reads the site configuration
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Build public files
+        working-directory: website
+        # The destination must not exist yet; build-pages.mjs refuses to reuse one.
+        run: npm run build:pages -- "${RUNNER_TEMP}/pages-site"
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/pages-site
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # create the Pages deployment
+      id-token: write # OIDC token that deploy-pages presents to Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
