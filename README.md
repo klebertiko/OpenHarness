@@ -221,7 +221,8 @@ Portable harness bundles: graph, roles, gates, embedded skills/agents/hooks.
 | --- | --- |
 | [`docs/harness-spec/HELLO.md`](docs/harness-spec/HELLO.md) | Minimal valid shape |
 | [`docs/harness-spec/README.md`](docs/harness-spec/README.md) | Public entry + schema links |
-| [`backend/oharness/fixtures/default-agile.ohm`](backend/oharness/fixtures/default-agile.ohm) | Product default |
+| [`backend/oharness/fixtures/default-agile.ohm`](backend/oharness/fixtures/default-agile.ohm) | Agile Harness, the product default |
+| [`backend/oharness/fixtures/`](backend/oharness/fixtures) | Also `deepseek-harness.ohm` and `mattpocock-skills.ohm` |
 | [`docs/adr/0003-ohm-yaml.md`](docs/adr/0003-ohm-yaml.md) | YAML 1.2 authoring profile |
 
 ```bash
@@ -229,7 +230,9 @@ cd backend
 python -m oharness validate oharness/fixtures/default-agile.ohm
 ```
 
-Default harness id: `openharness.default.agile`.
+Default harness id: `openharness.default.agile`. The sidecar lists the bundled harnesses at `GET /bundles/examples` and returns one at `GET /bundles/examples/{id}`.
+
+**YAML status.** The bundled `.ohm` files, the backend codec and the CLI use YAML 1.2. The Studio's Import and Export still read and write JSON text inside the `.ohm` file; the desktop side of the YAML migration is not finished (see [`docs/product/ohm-yaml-migration.md`](docs/product/ohm-yaml-migration.md)).
 
 ---
 
@@ -256,6 +259,7 @@ Quality and security are **independent** required checks. Probabilistic classifi
 | --- | --- |
 | `Quality / required` | Frontend, backend, Rust, website, Compose |
 | `Security scan / required` | Dependency review, CodeQL, OpenGrep, Trivy, Gitleaks, Zizmor |
+| Merge queue | Both required workflows also trigger on `merge_group` |
 | Scheduled | SBOM CycloneDX, OWASP Dependency-Check, Scorecards supply-chain security, Dependency audit |
 | Tag `vX.Y.Z` | Version gate → Windows NSIS → smoke → checksums → SBOM + attestations |
 
@@ -289,7 +293,7 @@ Published: [klebertiko.github.io/OpenHarness](https://klebertiko.github.io/OpenH
 
 ## Domain vocabulary (short)
 
-Use these names in issues, PRs, and docs — see [`CONTEXT.md`](CONTEXT.md) when present:
+Use these names in issues, PRs, and docs — see [`CONTEXT.md`](CONTEXT.md):
 
 | Term | Meaning |
 | --- | --- |
