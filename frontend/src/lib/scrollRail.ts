@@ -4,8 +4,8 @@
  * which card a key moves to) is testable without layout.
  */
 
-/** Width of the edge fade, and the scroll-padding that keeps a snapped card clear of it.
- *  Mirrors `--rail-fade` in globals.css. */
+/** Fallback for the edge-fade width. The live value is `--rail-fade` in globals.css, read
+ *  at runtime with `parseInset`, so CSS stays the single source of truth. */
 export const RAIL_INSET = 28;
 /** Sub-pixel slack: zoomed or fractional layouts can leave scrollLeft a hair short of the end. */
 const EPS = 1;
@@ -16,6 +16,21 @@ const LINE_PX = 16;
 export interface RailMetrics { scrollLeft: number; clientWidth: number; scrollWidth: number }
 export interface Span { left: number; width: number }
 export interface RailState { canPrev: boolean; canNext: boolean; fadeStart: boolean; fadeEnd: boolean }
+
+/** `--rail-fade` as pixels; anything that is not a plain px length falls back to RAIL_INSET. */
+export function parseInset(value: string): number {
+  const m = /^\s*(\d+(?:\.\d+)?)px\s*$/.exec(value);
+  return m ? Number(m[1]) : RAIL_INSET;
+}
+
+/**
+ * A card's span in scroll-content coordinates (the space scrollLeft lives in), from
+ * viewport rects. Unlike `offsetLeft` this does not depend on which ancestor happens to
+ * be the card's offsetParent.
+ */
+export function cardSpan(card: { left: number; width: number }, rail: { left: number }, scrollLeft: number, clientLeft: number): Span {
+  return { left: card.left - rail.left - clientLeft + scrollLeft, width: card.width };
+}
 
 export function railState({ scrollLeft, clientWidth, scrollWidth }: RailMetrics): RailState {
   const canPrev = scrollLeft > EPS;

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { RAIL_INSET, nextCardIndex, pageTarget, railState, revealTarget, wheelToScroll, type RailState } from "@/lib/scrollRail";
+import { cardSpan, nextCardIndex, pageTarget, parseInset, railState, revealTarget, wheelToScroll, type RailState } from "@/lib/scrollRail";
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
 const stepButton = `inline-flex h-7 w-7 items-center justify-center rounded-control border border-line bg-sub-100 text-ink-dim transition-colors hover:bg-sub-200 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-sub-100 disabled:hover:text-ink-dim ${focusRing}`;
@@ -9,6 +9,11 @@ const IDLE: RailState = { canPrev: false, canNext: false, fadeStart: false, fade
 const TEXT_ENTRY = "input, textarea, select, [contenteditable=''], [contenteditable='true']";
 const FOCUSABLE = "button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
 
+const insetOf = (el: HTMLElement) => parseInset(getComputedStyle(el).getPropertyValue("--rail-fade"));
+const spanOf = (rail: HTMLElement, card: HTMLElement) => {
+  const r = card.getBoundingClientRect();
+  return cardSpan({ left: r.left, width: r.width }, { left: rail.getBoundingClientRect().left }, rail.scrollLeft, rail.clientLeft);
+};
 const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const sameState = (a: RailState, b: RailState) => a.canPrev === b.canPrev && a.canNext === b.canNext && a.fadeStart === b.fadeStart && a.fadeEnd === b.fadeEnd;
 
@@ -67,8 +72,8 @@ export function ScrollRail({ labelledBy, as: Tag = "div", className = "", childr
   const page = (dir: "prev" | "next") => {
     const el = ref.current;
     if (!el) return;
-    const spans = Array.from(el.children).map((c) => ({ left: (c as HTMLElement).offsetLeft, width: (c as HTMLElement).offsetWidth }));
-    const left = pageTarget(spans, { scrollLeft: el.scrollLeft, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth }, dir, RAIL_INSET);
+    const spans = (Array.from(el.children) as HTMLElement[]).map((c) => spanOf(el, c));
+    const left = pageTarget(spans, { scrollLeft: el.scrollLeft, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth }, dir, insetOf(el));
     el.scrollTo({ left, behavior: reducedMotion() ? "auto" : "smooth" });
   };
 
@@ -78,7 +83,7 @@ export function ScrollRail({ labelledBy, as: Tag = "div", className = "", childr
     if (!el) return;
     const card = (Array.from(el.children) as HTMLElement[]).find((c) => c.contains(e.target as Node));
     if (!card) return;
-    const left = revealTarget({ left: card.offsetLeft, width: card.offsetWidth }, { scrollLeft: el.scrollLeft, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth });
+    const left = revealTarget(spanOf(el, card), { scrollLeft: el.scrollLeft, clientWidth: el.clientWidth, scrollWidth: el.scrollWidth }, insetOf(el));
     if (left !== null) el.scrollTo({ left, behavior: reducedMotion() ? "auto" : "smooth" });
   };
 

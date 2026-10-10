@@ -417,7 +417,7 @@ body {
 @property --rail-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @property --rail-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
 .oh-rail {
-  --rail-fade: 28px; /* keep in step with RAIL_INSET in lib/scrollRail.ts */
+  --rail-fade: 28px; /* single source: ScrollRail reads it at runtime (lib/scrollRail parseInset) */
   display: flex;
   align-items: stretch;
   gap: 12px;

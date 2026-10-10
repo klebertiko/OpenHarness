@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RAIL_INSET, nextCardIndex, pageTarget, railState, revealTarget, wheelToScroll, type RailMetrics, type Span } from "./scrollRail";
+import { RAIL_INSET, cardSpan, nextCardIndex, pageTarget, parseInset, railState, revealTarget, wheelToScroll, type RailMetrics, type Span } from "./scrollRail";
 
 const m = (scrollLeft: number, clientWidth = 500, scrollWidth = 1100): RailMetrics => ({ scrollLeft, clientWidth, scrollWidth });
 /** Five 200px cards, 12px apart, 4px lead-in: left = 4 + i * 212. */
@@ -106,5 +106,34 @@ describe("revealTarget", () => {
   });
   it("aligns a card wider than the viewport to its leading edge", () => {
     expect(revealTarget({ left: 4, width: 700 }, m(300, 500, 1420))).toBe(0);
+  });
+});
+
+describe("cardSpan", () => {
+  // Rail box at viewport x=100 with a 1px border; card painted at viewport x=132 while the rail is scrolled 40px.
+  it("converts viewport rects into scroll-content coordinates, whatever the offsetParent is", () => {
+    expect(cardSpan({ left: 132, width: 200 }, { left: 100 }, 40, 1)).toEqual({ left: 71, width: 200 });
+  });
+  it("puts an unscrolled first card at the rail's own padding, not at 0", () => {
+    // 4px padding, no border, nothing scrolled → the card starts at 4, where scroll-snap sees it.
+    expect(cardSpan({ left: 104, width: 200 }, { left: 100 }, 0, 0)).toEqual({ left: 4, width: 200 });
+  });
+  it("feeds pageTarget/revealTarget so they land on the real edge, not 4px short", () => {
+    const spans = [0, 286, 572, 858].map((_, i) => cardSpan({ left: 104 + i * 286, width: 272 }, { left: 100 }, 0, 0));
+    expect(spans.map((c) => c.left)).toEqual([4, 290, 576, 862]);
+    expect(revealTarget(spans[2], { scrollLeft: 0, clientWidth: 437, scrollWidth: 1140 })).toBe(576 + 272 - 437 + RAIL_INSET);
+    expect(pageTarget(spans, { scrollLeft: 0, clientWidth: 437, scrollWidth: 1140 }, "next")).toBe(290 - RAIL_INSET);
+  });
+});
+
+describe("parseInset", () => {
+  it("reads the --rail-fade length so CSS stays the single source", () => {
+    expect(parseInset(" 28px ")).toBe(28);
+    expect(parseInset("20px")).toBe(20);
+  });
+  it("falls back to the default when the variable is absent or not a pixel length", () => {
+    expect(parseInset("")).toBe(RAIL_INSET);
+    expect(parseInset("2rem")).toBe(RAIL_INSET);
+    expect(parseInset("nonsense")).toBe(RAIL_INSET);
   });
 });
