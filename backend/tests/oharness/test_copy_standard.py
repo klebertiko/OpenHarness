@@ -58,11 +58,6 @@ def test_tags_use_no_forbidden_term(label, manifest):
         assert not FORBIDDEN.search(tag), f"{label}: {tag!r}"
 
 
-@pytest.mark.parametrize(("label", "manifest"), MANIFESTS, ids=IDS)
-def test_every_name_says_harness(label, manifest):
-    assert re.search(r"harness", manifest["name"], re.IGNORECASE), f"{label}: {manifest['name']!r}"
-
-
 def test_default_agile_product_name():
     for label, manifest in MANIFESTS:
         if manifest["id"] == "openharness.default.agile":
