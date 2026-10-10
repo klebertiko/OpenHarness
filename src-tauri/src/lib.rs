@@ -299,6 +299,24 @@ mod tests {
         assert_eq!(main["create"], serde_json::Value::Bool(false));
     }
 
+    #[test]
+    fn main_window_leaves_drag_and_drop_to_the_page() {
+        // With Tauri's drag-drop handler on (the default), WebView2 on Windows
+        // swallows HTML5 drag events, so palette → canvas drops never fire.
+        // setup() builds the window via from_config, which honours this flag.
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let main = config["app"]["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|w| w["label"] == "main")
+            .cloned()
+            .expect("main window config");
+        let window: tauri::utils::config::WindowConfig = serde_json::from_value(main).unwrap();
+        assert!(!window.drag_drop_enabled);
+    }
+
     fn csp_directive<'a>(csp: &'a str, name: &str) -> Option<&'a str> {
         csp.split(';')
             .map(str::trim)
@@ -518,6 +536,34 @@ mod tests {
                 "fs:allow-write-text-file",
             ]
         );
+    }
+
+    #[test]
+    fn capabilities_grant_every_window_control_the_title_bar_calls() {
+        // TitleBar.tsx calls `win?.toggleMaximize?.()` etc.; each maps to a
+        // `core:window:allow-<kebab>` grant, and a missing one fails silently.
+        let title_bar = include_str!("../../frontend/src/components/shell/TitleBar.tsx");
+        let caps = include_str!("../capabilities/default.json");
+        let calls: Vec<&str> = title_bar
+            .split("win?.")
+            .skip(1)
+            .filter_map(|rest| rest.split("?.(").next())
+            .collect();
+        assert!(calls.contains(&"toggleMaximize"), "{calls:?}");
+        for call in calls {
+            let kebab: String = call
+                .chars()
+                .flat_map(|c| {
+                    if c.is_ascii_uppercase() {
+                        vec!['-', c.to_ascii_lowercase()]
+                    } else {
+                        vec![c]
+                    }
+                })
+                .collect();
+            let grant = format!("\"core:window:allow-{kebab}\"");
+            assert!(caps.contains(&grant), "missing {grant} for win.{call}()");
+        }
     }
 
     #[test]

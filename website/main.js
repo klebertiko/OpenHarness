@@ -46,7 +46,7 @@ document.querySelectorAll('[data-zoom]').forEach((button) => button.addEventList
     const target = document.querySelector('#screenshot-full');
     target.src = source.src;
     target.alt = source.alt;
-    document.querySelector('#screenshot-title').textContent = { studio: 'Harness Studio', chats: 'Chats', automate: 'Automate', pulls: 'Pull requests' }[button.dataset.zoom];
+    document.querySelector('#screenshot-title').textContent = { studio: 'Harness Studio', chats: 'Chats' }[button.dataset.zoom];
     dialog.showModal();
 }));
 document.querySelector('.dialog-close')?.addEventListener('click', () => dialog.close());

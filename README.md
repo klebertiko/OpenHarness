@@ -35,7 +35,7 @@
 
 OpenHarness is a **desktop application** (Tauri v2 + FastAPI sidecar) where you author and run **agent harnesses** — composed systems of Agents, Gates, HITL checkpoints, Skills, and Signals — against the providers you connect: Anthropic and OpenAI through their local CLIs, OpenRouter with an API key, Ollama (local or cloud), and Cursor for delegated agent tasks. See [Providers](#providers).
 
-The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle, authored in YAML 1.2 ([ADR 0003](docs/adr/0003-ohm-yaml.md)). Three harnesses ship bundled so you can open the app and see a full crew immediately:
+The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle, authored in YAML 1.2 ([ADR 0003](docs/adr/0003-ohm-yaml.md)). Three harnesses ship bundled so you can open the app and see a full crew immediately. Each opens as an editable copy:
 
 | Harness | Id | Source |
 | --- | --- | --- |
@@ -75,12 +75,12 @@ The app has three destinations, reachable with `Alt+1` to `Alt+3`.
 
 ### Studio files
 
-Starting points on the Studio overview are "Agent + review" and the bundled harnesses above. The editor bar shows the harness name, where it came from (Example, Draft or Saved harness) and whether it has unsaved changes.
+Starting points on the Studio overview are "Agent + review" and the bundled harnesses above, each with an "Open harness: …" button. The editor bar shows the harness name, where it came from (Bundled harness, Draft or Saved harness) and whether it has unsaved changes.
 
 | Action | What it does |
 | --- | --- |
-| New, Open example, Import, Export | Start a blank harness, open a bundled harness as an editable copy (the bundled one is never changed), import or export a `.ohm`. In the desktop app, Export opens the native Save dialog. |
-| Save / Save as… | Save writes a harness you already own. On an unedited example it creates an editable copy. Save as always creates a new harness and opens the copy. |
+| New, Open bundled harness, Import, Export | Start a blank harness, open a bundled harness as an editable copy (the bundled one is never changed), import or export a `.ohm`. In the desktop app, Export opens the native Save dialog. |
+| Save / Save as… | Save writes a harness you already own. On an unedited bundled harness it creates an editable copy. Save as always creates a new harness and opens the copy. |
 | Discard / Delete | Discard drops a draft, or returns a saved harness to its last saved version. Delete removes a draft or a saved harness. Both ask for confirmation. |
 | Use in chat | Makes the open harness the one the chat runs. |
 

@@ -321,30 +321,13 @@ jobs:
             "Zizmor Actions audit failed. Harden the flagged workflows. Run: ${RUN_URL}"
 
   required:
-    name: required
+    name: Security scan / required
     if: always()
     needs: [dependency-review, codeql, opengrep, trivy, secrets, workflow-security]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce required results
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python - <<'PY'
-          import json, os, sys
-          results = json.loads(os.environ["RESULTS"])
-          # Only dependency-review may be skipped, and only outside pull_request
-          # (it is PR-only; merge_group relies on the PR run having passed it).
-          skippable = set()
-          if os.environ["EVENT_NAME"] != "pull_request":
-              skippable.add("dependency-review")
-          failed = {
-              name: job["result"]
-              for name, job in results.items()
-              if job["result"] != "success" and not (job["result"] == "skipped" and name in skippable)
-          }
-          if failed:
-              print(f"Security scan jobs did not succeed: {failed}", file=sys.stderr)
-              sys.exit(1)
-          PY
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          jobs: ${{ toJSON(needs) }}
+          allowed-skips: ${{ github.event_name != 'pull_request' && 'dependency-review' || '' }}

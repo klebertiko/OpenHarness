@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useShellStore } from "@/components/shell/shellStore";
@@ -86,25 +86,26 @@ it("reports an unreachable engine and retries", async () => {
   expect(await screen.findByRole("heading", { name: "Triage loop" })).toBeTruthy();
 });
 
-it("identifies the local sample and opens the bundled framework through its loader", async () => {
+it("labels every starting point a harness and opens each through its loader", async () => {
   vi.mocked(openBundledHarness).mockResolvedValue(undefined);
   render(<StudioOverview />);
   expect(screen.getByRole("heading", { name: "Harness Studio" })).toBeTruthy();
-  expect(screen.getByText("OpenHarness sample")).toBeTruthy();
-  expect(screen.getByText("skills-framework · bundled snapshot")).toBeTruthy();
+  expect(screen.getByText("Example harness")).toBeTruthy();
+  expect(screen.getByText("Bundled harness")).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Agile Harness" })).toBeTruthy();
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Open framework" }));
+  await user.click(screen.getByRole("button", { name: "Open harness: Agile Harness" }));
   await waitFor(() => expect(openBundledHarness).toHaveBeenCalledOnce());
-  await user.click(screen.getByRole("button", { name: "Open sample" }));
+  await user.click(screen.getByRole("button", { name: "Open harness: Agent + review" }));
   await waitFor(() => expect(openStudioPreset).toHaveBeenCalledOnce());
 });
 
 it("shows a loading failure and allows retry", async () => {
   vi.mocked(openBundledHarness).mockRejectedValue(new Error("offline"));
   render(<StudioOverview />);
-  await userEvent.setup().click(screen.getByRole("button", { name: "Open framework" }));
+  await userEvent.setup().click(screen.getByRole("button", { name: "Open harness: Agile Harness" }));
   expect((await screen.findByText(/Could not load the bundled harness/))).toBeTruthy();
-  expect((screen.getByRole("button", { name: "Open framework" }) as HTMLButtonElement).disabled).toBe(false);
+  expect((screen.getByRole("button", { name: "Open harness: Agile Harness" }) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it("exposes new/import actions", async () => {
@@ -121,7 +122,7 @@ it("keeps an active run available to inspect while blocking replacement starters
   useCanvasStore.setState({ isRunning: true, harnessMeta: { id: "h1", name: "Triage loop", description: "" } });
   render(<StudioOverview />);
   await screen.findByRole("heading", { name: "Triage loop" });
-  for (const name of ["New harness", "Open .ohm", "Open sample", "Open framework", "Delete Triage loop"]) {
+  for (const name of ["New harness", "Open .ohm", "Open harness: Agent + review", "Open harness: Agile Harness", "Delete Triage loop"]) {
     expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
   }
   expect((screen.getByRole("button", { name: /Continue editing/ }) as HTMLButtonElement).disabled).toBe(false);
@@ -237,13 +238,34 @@ it("an unsaved draft can be deleted after confirming, and nothing is saved", asy
 it("lists every extra example the catalog returns and opens it as a copy", async () => {
   const deepseek = { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness", description: "Plan, code, review", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } };
   vi.mocked(fetchStudioExamples).mockResolvedValue([
-    { id: "openharness.default.agile", name: "OpenHarness Agile", description: "", bundle: { manifest: { id: "openharness.default.agile" } } },
-    { id: "sample:minimal-gate", name: "Sample: Agent + review", description: "", bundle: null, presetId: "minimal-gate" },
+    { id: "openharness.default.agile", name: "Agile Harness", description: "", bundle: { manifest: { id: "openharness.default.agile" } } },
+    { id: "sample:minimal-gate", name: "Agent + review", description: "", bundle: null, presetId: "minimal-gate" },
     deepseek,
   ] as never);
   render(<StudioOverview />);
-  await userEvent.setup().click(await screen.findByRole("button", { name: "Open DeepSeek Harness" }));
+  await userEvent.setup().click(await screen.findByRole("button", { name: "Open harness: DeepSeek Harness" }));
   expect(openStudioExample).toHaveBeenCalledWith(expect.objectContaining({ id: deepseek.id }));
-  // The two fixed cards already cover Agile and the sample; they are not listed twice.
-  expect(screen.queryByRole("button", { name: "Open OpenHarness Agile" })).toBeNull();
+  // The two fixed cards already cover the Agile Harness and the example harness; they are not listed twice.
+  expect(screen.getAllByRole("button", { name: "Open harness: Agile Harness" })).toHaveLength(1);
+});
+
+it("the starting points never call a harness a framework, sample, template, preset or Copilot", async () => {
+  vi.mocked(fetchStudioExamples).mockResolvedValue([
+    { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness (dsh)", description: "Example harness modelled on DeepSeek Harness.", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } },
+  ] as never);
+  render(<StudioOverview />);
+  const section = (await screen.findByRole("heading", { name: "Starting points" })).closest("aside")!;
+  await screen.findByRole("button", { name: "Open harness: DeepSeek Harness (dsh)" });
+  // The source project may be cited by name; nothing else may use the retired words.
+  const text = (section.textContent ?? "").replace(/skills-framework/g, "");
+  expect(text).not.toMatch(/framework|sample|template|preset|copilot/i);
+  // Card actions only (other controls may live in the section): one visible label,
+  // and the accessible name starts with it (WCAG 2.5.3, label in name).
+  const cards = Array.from(section.querySelectorAll("article")) as HTMLElement[];
+  expect(cards).toHaveLength(3);
+  for (const card of cards) {
+    const button = within(card).getByRole("button");
+    expect(button.textContent?.trim()).toBe("Open harness");
+    expect(button.getAttribute("aria-label")).toMatch(/^Open harness: \S/);
+  }
 });

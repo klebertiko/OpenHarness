@@ -6,6 +6,8 @@ import { ArrowUp, Code2, ListChecks, Search, Square } from "lucide-react";
 import { HarnessBar } from "@/components/agent/HarnessBar";
 import { ChatComposer } from "@/components/agent/ChatComposer";
 import { useChatTools } from "@/components/agent/useChatTools";
+import { usePermissionMode } from "@/components/agent/usePermissionMode";
+import { useWorkspaceTrust } from "@/components/agent/useWorkspaceTrust";
 import type { ToolPreset } from "@/components/agent/chatCommands";
 import { ChatProviderPicker } from "@/components/agent/ChatProviderPicker";
 import { WorkspacePicker } from "@/components/agent/WorkspacePicker";
@@ -68,6 +70,11 @@ export function AgentStage() {
     workspace ? { rootPath: workspace.rootPath, name: workspace.name } : null,
     provider?.id,
   );
+
+  // Permission mode of this conversation: selected here, enforced by the sidecar.
+  const permission = usePermissionMode(activeThreadId);
+  // Workspace trust (stored by the sidecar) only matters under Auto.
+  const trust = useWorkspaceTrust(chatTools.workspace?.root ?? null, permission.mode === "auto_workspace");
 
   const [instruction, setInstruction] = useState("");
   const [showRunDetail, setShowRunDetail] = useState(false);
@@ -180,7 +187,7 @@ export function AgentStage() {
 
   /** A `/` Tool was chosen: one run whose first act is the preset (contract §2.4).
       `exec` parks on the approval gate; the user sees the card before anything runs. */
-  const onPreset = (preset: ToolPreset) => {
+  const onPreset = async (preset: ToolPreset) => {
     if (live || !provider) return;
     const label =
       preset.name === "exec" ? "/exec " + preset.argv.join(" ") : preset.name === "read" ? "/read " + preset.path : "/ls";
@@ -188,13 +195,16 @@ export function AgentStage() {
     appendMessage(threadId, { role: "user", content: label });
     setInstruction("");
     savedRunFor.current = null;
+    // A brand-new conversation hands its chosen mode to the sidecar before the
+    // run starts; the sidecar then takes the stricter of its stored mode and this one.
+    const permissionMode = activeThreadId ? permission.mode : await permission.adopt(threadId);
     start({
       instruction: "",
       mode: provider.mode,
       step: false,
       cwd: workspace?.rootPath || undefined,
       providerId: provider.id,
-      tools: { preset, summarize: false },
+      tools: { preset, summarize: false, thread_id: threadId, permission_mode: permissionMode },
     });
   };
 
@@ -204,6 +214,7 @@ export function AgentStage() {
     // The thread is born from the first message, not from a "New chat" click,
     // so the list never fills with empty "New chat" rows.
     const threadId = activeThreadId ?? createThread(text.slice(0, 60));
+    if (!activeThreadId) void permission.adopt(threadId);
     appendMessage(threadId, { role: "user", content: text });
     setInstruction("");
     savedRunFor.current = null;
@@ -374,6 +385,10 @@ export function AgentStage() {
             live={live}
             tools={chatTools}
             onPreset={onPreset}
+            permissionMode={permission.mode}
+            onPermissionModeChange={(mode) => void permission.setMode(mode)}
+            permissionNotice={permission.error}
+            workspaceTrust={chatTools.workspace ? { workspaceName: chatTools.workspace.name, trusted: trust.trusted, onChange: (value) => void trust.setTrusted(value), error: trust.error } : undefined}
           />
           <div className="flex items-center gap-2 px-2.5 pb-2.5 pt-1">
             <HarnessBar />
