@@ -47,6 +47,21 @@ Fontes: registro npm (`npm view` para versão, licença e datas de publicação)
 API do GitHub (`archived`, `pushed_at`, último release) de `dagrejs/dagre` e
 `kieler/elkjs`, consultadas em 2026-10-10. Ambos os projetos estão mantidos.
 
+## Evidência no app
+
+Capturas do Studio (1131 × ~726 px) com o backend de desenvolvimento servindo os
+fixtures:
+
+- Antes: [`0007-assets/agile-before.jpg`](0007-assets/agile-before.jpg), as 9
+  placas empilhadas em 3 linhas, uma sobre a outra.
+- Depois: [`0007-assets/agile-after-fixture.jpg`](0007-assets/agile-after-fixture.jpg),
+  o exemplo abre em camadas, status "Example · Not saved yet" (as posições
+  gravadas são usadas e abrir não suja o documento).
+
+Os exemplos DeepSeek e Matt Pocock já trazem posições boas (0 sobreposições,
+0 cruzamentos de centro a centro, 0 arestas para trás nas métricas acima) e
+**não foram alterados**.
+
 ## Decisão
 
 Adotar **`@dagrejs/dagre`** (versão fixa, sem `^`) atrás de uma função pura

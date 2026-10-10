@@ -18,47 +18,83 @@
       {
         "id": "PO",
         "role": "PO",
-        "label": "PO"
+        "label": "PO",
+        "position": {
+          "x": 0,
+          "y": 84
+        }
       },
       {
         "id": "SM",
         "role": "SM",
-        "label": "SM"
+        "label": "SM",
+        "position": {
+          "x": 308,
+          "y": 84
+        }
       },
       {
         "id": "BE",
         "role": "BE",
-        "label": "BE"
+        "label": "BE",
+        "position": {
+          "x": 616,
+          "y": 168
+        }
       },
       {
         "id": "FE",
         "role": "FE",
-        "label": "FE"
+        "label": "FE",
+        "position": {
+          "x": 616,
+          "y": 0
+        }
       },
       {
         "id": "QA",
         "role": "QA",
-        "label": "QA"
+        "label": "QA",
+        "position": {
+          "x": 924,
+          "y": 84
+        }
       },
       {
         "id": "ARCH",
         "role": "ARCH",
-        "label": "ARCH"
+        "label": "ARCH",
+        "position": {
+          "x": 1232,
+          "y": 84
+        }
       },
       {
         "id": "TW",
         "role": "TW",
-        "label": "TW"
+        "label": "TW",
+        "position": {
+          "x": 1540,
+          "y": 168
+        }
       },
       {
         "id": "SEC",
         "role": "SEC",
-        "label": "SEC"
+        "label": "SEC",
+        "position": {
+          "x": 1540,
+          "y": 0
+        }
       },
       {
         "id": "HITL",
         "type": "hitl",
-        "label": "HITL"
+        "label": "HITL",
+        "position": {
+          "x": 1848,
+          "y": 0
+        }
       }
     ],
     "edges": [

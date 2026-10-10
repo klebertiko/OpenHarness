@@ -15,30 +15,57 @@ graph:
     - id: PO
       label: PO
       role: PO
+      position:
+        x: 0
+        y: 84
     - id: SM
       label: SM
       role: SM
+      position:
+        x: 308
+        y: 84
     - id: BE
       label: BE
       role: BE
+      position:
+        x: 616
+        y: 168
     - id: FE
       label: FE
       role: FE
+      position:
+        x: 616
+        y: 0
     - id: QA
       label: QA
       role: QA
+      position:
+        x: 924
+        y: 84
     - id: ARCH
       label: ARCH
       role: ARCH
+      position:
+        x: 1232
+        y: 84
     - id: TW
       label: TW
       role: TW
+      position:
+        x: 1540
+        y: 168
     - id: SEC
       label: SEC
       role: SEC
+      position:
+        x: 1540
+        y: 0
     - id: HITL
       label: HITL
       type: hitl
+      position:
+        x: 1848
+        y: 0
   edges:
     - id: PO-SM
       source: PO
