@@ -245,33 +245,39 @@ def test_claude_probe_setup_when_cli_missing(monkeypatch: pytest.MonkeyPatch) ->
     assert probe.health == "setup"
 
 
-# ── CursorCliAdapter — Windows gate (SEC-2) ────────────────────────────────
-#
-# This adapter refuses to run at all on Windows until `--sandbox enabled`
-# means something real on that platform (harness Security Gate, 2026-09-11).
-# These tests assert the gate itself; the section after monkeypatches
-# `is_windows` to False so the underlying argv/parsing logic can still be
-# exercised independently of platform.
+# ── CursorCliAdapter — Windows uses the WSL2 Linux sandbox (SEC-2) ─────────
 
 
-def test_cursor_invoke_refuses_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cursor_invoke_on_windows_routes_through_wsl(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: True)
-    adapter = CursorCliAdapter(runner=lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not spawn")))
+    monkeypatch.setattr(
+        "adapters.cli_cursor._windows_wsl_prefix",
+        lambda: ["wsl.exe", "-d", "Ubuntu-24.04", "--", "cursor-agent"],
+    )
+    captured = {}
+
+    async def fake_runner(argv, **kwargs):
+        captured["argv"] = argv
+        return CliRunResult(returncode=0, stdout=json.dumps({"result": "done"}), stderr="")
+
+    adapter = CursorCliAdapter(runner=fake_runner)
     result = asyncio.run(adapter.invoke("delegate this", _config()))
 
-    assert result.content == ""
-    assert "Windows" in result.error
-    assert "sandbox" in result.error
+    assert result.content == "done"
+    assert captured["argv"][:5] == ["wsl.exe", "-d", "Ubuntu-24.04", "--", "cursor-agent"]
+    assert captured["argv"][captured["argv"].index("--sandbox") + 1] == "enabled"
 
 
-def test_cursor_probe_refuses_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cursor_refuses_native_windows_when_wsl_runtime_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: True)
+    monkeypatch.setattr("adapters.cli_cursor._windows_wsl_prefix", lambda: None)
     adapter = CursorCliAdapter(runner=lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not spawn")))
     probe = asyncio.run(adapter.probe(_config()))
 
     assert probe.ok is False
     assert probe.health == "setup"
-    assert "Windows" in probe.detail
+    assert "WSL" in probe.detail
+    assert "sandbox" in probe.detail
 
 
 # ── CursorCliAdapter — argv/result logic (platform-independent) ───────────
@@ -291,19 +297,17 @@ def test_cursor_build_argv_never_carries_the_prompt(monkeypatch: pytest.MonkeyPa
     assert argv[argv.index("--sandbox") + 1] == "enabled"
 
 
-def test_cursor_build_argv_windows_goes_through_powershell(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cursor_build_argv_windows_goes_through_wsl_not_powershell(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("adapters.cli_cursor.is_windows", lambda: True)
-    monkeypatch.setattr("adapters.cli_cursor.find_cli_script", lambda name, ext: r"C:\cursor-agent\cursor-agent.ps1")
-    monkeypatch.setattr("adapters.cli_cursor.which", lambda name: "powershell.exe" if name == "powershell" else None)
+    monkeypatch.setattr(
+        "adapters.cli_cursor._windows_wsl_prefix",
+        lambda: ["wsl.exe", "-d", "Ubuntu-24.04", "--", "cursor-agent"],
+    )
     adapter = CursorCliAdapter()
     argv = adapter.build_argv(_config())
 
-    assert argv[0] == "powershell.exe"
-    assert "-File" in argv
-    assert argv[argv.index("-File") + 1] == r"C:\cursor-agent\cursor-agent.ps1"
-    # No shell=True anywhere in this path — argv stays a flat list of literal
-    # strings all the way through, which is what makes this safe to spawn via
-    # asyncio.create_subprocess_exec.
+    assert argv[:5] == ["wsl.exe", "-d", "Ubuntu-24.04", "--", "cursor-agent"]
+    assert "powershell.exe" not in argv
 
 
 def test_cursor_build_argv_raises_when_cli_missing(monkeypatch: pytest.MonkeyPatch) -> None:

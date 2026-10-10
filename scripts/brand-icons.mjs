@@ -46,13 +46,22 @@ const svg = (rows, cell, title) => {
 // silhouette competing with the mascot.
 function renderIcon(size) {
   const px = new Uint8Array(size * size * 4);
-  const w = GRID[0].length, h = GRID.length;
-  // Nilo is wider than tall, so width is the limit. Small slots (taskbar,
-  // Start, desktop) use the full width; large ones keep a ~6% margin. Prefer an
-  // integer cell (crisp, even pixels); fall back to nearest-neighbour when an
-  // integer cell would leave Nilo at less than 90% of the target width.
+  // Small Windows surfaces need an adaptive mark, not a uniformly shrunken
+  // desktop illustration. Use Nilo's face at 16/32 px so the eyes and beak
+  // remain identifiable; keep the complete mascot at larger sizes.
+  const sprite = size <= 32 ? FACE : GRID;
+  // Trim fully transparent edge columns so the visible mark, not the sprite
+  // box, is what fills the slot.
+  const used = [...sprite[0]].map((_, x) => sprite.some((r) => r[x] !== "."));
+  const x0 = used.indexOf(true), x1 = used.lastIndexOf(true) + 1;
+  const rows = sprite.map((r) => r.slice(x0, x1));
+  const w = rows[0].length, h = rows.length;
+  // Fill the slot: full width up to 64 px (taskbar, Start, desktop), ~94%
+  // above. Prefer an integer cell (crisp, even pixels); fall back to
+  // nearest-neighbour only when an integer cell would leave the mark under
+  // 90% of the target width.
   const target = size * (size <= 64 ? 1 : 0.94);
-  const intCell = Math.floor(target / w);
+  const intCell = Math.floor(target / Math.max(w, h));
   const drawW = intCell * w >= 0.9 * target ? intCell * w : Math.round(target);
   const drawH = Math.round((drawW * h) / w);
   const ox = Math.floor((size - drawW) / 2);
@@ -64,7 +73,7 @@ function renderIcon(size) {
       // left/right symmetric (both eyes get the same pixel widths).
       const col = (i) => Math.min(w - 1, Math.floor((i * w) / drawW));
       const gx = x < drawW / 2 ? col(x) : w - 1 - col(drawW - 1 - x);
-      const symbol = GRID[gy][gx];
+      const symbol = rows[gy][gx];
       if (symbol === ".") continue;
       px.set([...rgb(FILL[symbol]), 255], ((oy + y) * size + ox + x) * 4);
     }
@@ -182,5 +191,7 @@ out("brand/icon.png", png(1024));
 out("src-tauri/icons/32x32.png", png(32));
 out("src-tauri/icons/128x128.png", png(128));
 out("src-tauri/icons/128x128@2x.png", png(256));
-out("src-tauri/icons/icon.ico", ico([16, 24, 32, 48, 64, 256]));
+// Do not include a native 24 px frame: a 16-cell sprite can only occupy 16 px
+// there without uneven pixels. Windows scales the crisp 32 px face instead.
+out("src-tauri/icons/icon.ico", ico([16, 32, 48, 64, 256]));
 out("src-tauri/icons/icon.icns", icns([["ic07", 128], ["ic08", 256], ["ic09", 512], ["ic10", 1024]]));
