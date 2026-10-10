@@ -269,3 +269,13 @@ def test_a_yarnrc_does_not_affect_other_programs(ws):
     (ws / '.yarnrc.yml').write_text('yarnPath: ./.evil.cjs', encoding='utf-8')
     assert auto(ex('npm', 'test'), ws, trusted=True) == 'allow'
     assert auto(ex('git', 'status'), ws) == 'allow'
+
+
+@pytest.mark.parametrize('name', ['.yarnrc.yml', '.yarnrc'])
+@pytest.mark.parametrize('argv', [('yarn', 'test'), ('yarn', '--version')])
+def test_yarn_asks_when_a_yarnrc_sits_in_any_directory_between_cwd_and_the_root(name, argv, ws):
+    # Yarn searches upward from the cwd, so a rc in an intermediate directory counts too.
+    (ws / 'a' / 'b').mkdir(parents=True)
+    (ws / 'a' / name).write_text('yarnPath: ./.evil.cjs', encoding='utf-8')
+    assert auto(ex(*argv, cwd='a/b'), ws, trusted=True) == 'ask'
+    assert auto(ex('npm', 'test', cwd='a/b'), ws, trusted=True) == 'allow'

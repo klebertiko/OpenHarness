@@ -133,6 +133,14 @@ def _shadowed(program: str, *directories: Path) -> bool:
 _YARN_CONFIGS = frozenset({'.yarnrc.yml', '.yarnrc'})
 
 
+def _chain(root: Path, cwd: Path) -> list[Path]:
+    """cwd and every parent up to and including the workspace root (cwd is already inside it)."""
+    chain = [cwd]
+    while chain[-1] != root and chain[-1].parent != chain[-1]:
+        chain.append(chain[-1].parent)
+    return chain
+
+
 def _has_entry(names: frozenset, *directories: Path) -> bool:
     for directory in directories:
         try:
@@ -238,8 +246,8 @@ def _allowed_exec(call, workspace, trusted: bool) -> bool:
     if program == 'git':
         return _git_ok(args, root, cwd)
     if program in _PACKAGE_MANAGERS:
-        # Defense in depth: a yarn config in the root or cwd can redirect the binary even in a trusted workspace.
-        if program == 'yarn' and _has_entry(_YARN_CONFIGS, root, cwd):
+        # Defense in depth: a yarn config anywhere from the cwd up to the root (yarn searches upward) can redirect the binary even in a trusted workspace.
+        if program == 'yarn' and _has_entry(_YARN_CONFIGS, *_chain(root, cwd)):
             return False
         return _package_manager_ok(args, trusted)
     if program == 'pytest':
