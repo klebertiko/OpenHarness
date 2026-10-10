@@ -64,7 +64,7 @@ None known after the 2026-09-24 finish pass (`cargo fmt` on `src-tauri/src/lib.r
 
 After these workflows land on the default branch:
 
-1. Protect `main`: require PRs, CODEOWNERS review, dismiss stale approvals, block force-push/deletion.
+1. Protect `main` with the ruleset in `.github/rulesets/main.json` (merge queue, required checks, linear history, no force-push/deletion; no required reviewers).
 2. Require status checks: `Quality / required`, `Security scan / required`.
 3. Enable Code Scanning, Dependabot alerts, dependency graph, secret scanning + push protection, private vulnerability reporting.
 4. Create protected Environment `release` with required reviewers.
