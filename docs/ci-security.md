@@ -96,6 +96,21 @@ Set repository variable `ENABLE_LAYA_SHADOW=true` only when intentionally collec
 
 Promotion beyond shadow mode requires a versioned, human-labelled PT/EN corpus with immutable train/calibration/held-out splits; a deterministic baseline; per-class precision/recall and macro-F1; ECE/Brier calibration; drift and latency measurements; and predeclared abstention thresholds. High-impact and ambiguous cases remain human decisions.
 
+## Website deploy (GitHub Pages)
+
+`.github/workflows/pages.yml` publishes `website/` to https://klebertiko.github.io/OpenHarness/ with the official Actions flow: `configure-pages` → `npm run build:pages` → `upload-pages-artifact` → `deploy-pages`. It runs on pushes to `main` that touch `website/**` or the workflow itself, and on `workflow_dispatch`. The build installs no npm dependencies (`build-pages.mjs` uses Node built-ins), so Safe Chain is not needed there. The build job has `contents: read` + `pages: read`; only the deploy job gets `pages: write` + `id-token: write`, inside the `github-pages` environment (deployment branches: `main`, `gh-pages`). `concurrency: pages` never cancels a running deploy.
+
+PRs cannot break the site silently: the Quality `website` job already runs `npm run build:pages`, `test:publication`, `test:i18n` and `test:security` on every PR.
+
+Edit the site only in `website/` on `main`. Do not commit to `gh-pages` by hand.
+
+**Cut-over (one time, repo owner):**
+
+1. Merge the PR that adds `pages.yml`. While Pages is still in legacy mode (branch `gh-pages`), that first run may fail at `deploy`; the old site keeps serving.
+2. Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+3. Actions → Pages → Run workflow on `main` (or re-run the failed run). Confirm the `deploy` job is green and that `/`, `/en/`, `model.html`, `manifesto.html` (both languages) return 200 with the current content.
+4. Keep the `gh-pages` branch as a fallback until step 3 is verified. Rollback: switch Source back to "Deploy from a branch" → `gh-pages` / root. Delete `gh-pages` only after the owner decides it is no longer needed.
+
 ## Current baseline failures
 
 None known after the 2026-09-24 finish pass (`cargo fmt` on `src-tauri/src/lib.rs` and frontend ESLint unused-import cleanup). Treat the next CI run on GitHub as the live baseline — fix findings in ordinary reviewed changes. Do not weaken a gate merely to make it green.

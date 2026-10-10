@@ -12,7 +12,7 @@ const startedAt = new Date().toISOString();
 const fixture = JSON.parse(readFileSync(resolve(frontend, "src/lib/fixtures/ohm-roundtrip.json"), "utf8"));
 const bundled = {
   ...fixture,
-  manifest: { ...fixture.manifest, id: "openharness.default.agile", name: "OpenHarness Agile (skills-framework)" },
+  manifest: { ...fixture.manifest, id: "openharness.default.agile", name: "Agile Harness" },
   graph: {
     nodes: [
       { id: "writer", type: "agent", position: { x: 120, y: 90 }, data: { label: "Writer", providerIds: [] } },
@@ -117,7 +117,7 @@ try {
   await page.getByRole("button", { name: "Studio", exact: true }).click();
   await page.getByRole("heading", { name: "Harness Studio", exact: true }).waitFor();
   await page.screenshot({ path: resolve(output, "overview.png") });
-  await page.getByRole("button", { name: "Open sample", exact: true }).click();
+  await page.getByRole("button", { name: "Open harness: Agent + review", exact: true }).click();
   await page.locator('.react-flow__node[data-id="impl"]').waitFor();
   assert.equal(await page.locator(".react-flow__node").count(), 3);
   await pin("impl", "anthropic");
@@ -130,13 +130,13 @@ try {
   step = "bundled load failure and retry";
   await page.getByRole("button", { name: "Back to Studio", exact: true }).click();
   failDefault = true;
-  await page.getByRole("button", { name: "Open framework", exact: true }).click();
+  await page.getByRole("button", { name: "Open harness: Agile Harness", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "Could not load" }).waitFor();
   await page.getByRole("button", { name: "Continue editing", exact: true }).click();
   assert.deepEqual(authoring(await download("draft-after-error.ohm")), authoring(before));
   await page.getByRole("button", { name: "Back to Studio", exact: true }).click();
   failDefault = false;
-  await page.getByRole("button", { name: "Open framework", exact: true }).click();
+  await page.getByRole("button", { name: "Open harness: Agile Harness", exact: true }).click();
   await page.locator('.react-flow__node[data-id="writer"]').waitFor();
   assert.equal(await page.locator(".react-flow__node").count(), 2, "Framework must come from HTTP fixture, not frontend sketch");
 

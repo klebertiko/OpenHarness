@@ -35,7 +35,7 @@
 
 OpenHarness is a **desktop application** (Tauri v2 + FastAPI sidecar) where you author and run **agent harnesses** — composed systems of Agents, Gates, HITL checkpoints, Skills, and Signals — against the LLM providers you already pay for (Anthropic, OpenAI, OpenRouter, Ollama, Cursor, …).
 
-The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle (YAML 1.2 authoring profile; legacy JSON still readable). OpenHarness ships with one **example** Agile harness (`openharness.default.agile`) so you can open the app and see a full crew immediately. Every user authors and shares their own harnesses — the example is a starting point, not the product.
+The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle (YAML 1.2 authoring profile; legacy JSON still readable). OpenHarness ships with the **Agile Harness** (`openharness.default.agile`) and a few **example harnesses**, so you can open the app and see a full crew immediately. Each opens as an editable copy. Every user authors and shares their own harnesses — the bundled ones are starting points, not the product.
 
 Nilo is the front door — a small presence who greets you, answers what she can, and hands real work to the loaded harness or to a provider-native path. She is not a role in the crew.
 
@@ -59,7 +59,7 @@ Nilo is the front door — a small presence who greets you, answers what she can
 | --- | --- |
 | **Studio** | Visual harness authoring, validation, mock/live modes |
 | **Agent / Chats** | Direct runs and harness-bound conversations; chat tools (`/exec`, `/read`, `/ls`) with HITL approval for exec |
-| **Providers** | Wallet of connections — cloud, local, CLI adapters |
+| **Providers** | Your registered LLM backends — cloud, local, CLI adapters |
 | **Cowork** | Authorized workspace context for tool use |
 
 ### Nilo in Studio
