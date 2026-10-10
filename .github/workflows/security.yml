@@ -3,6 +3,8 @@ name: Security scan
 on:
   workflow_call:
   pull_request:
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
   schedule:
@@ -14,11 +16,14 @@ permissions:
 
 concurrency:
   group: security-scan-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Queue runs have a unique gh-readonly-queue ref; never cancel them mid-flight.
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 jobs:
   dependency-review:
     name: Dependency review
+    # PR-only: the action and the compare API need PR base/head SHAs. In merge_group
+    # this job is skipped; the PR already passed it and the aggregate below enforces that.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -237,9 +242,22 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # gitleaks-action rejects the merge_group event, so the queue runs the pinned CLI instead.
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        if: github.event_name != 'merge_group'
         env:
           GITHUB_TOKEN: ${{ github.token }}
+      - name: Gitleaks CLI (merge queue)
+        if: github.event_name == 'merge_group'
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location             https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz             --output "${RUNNER_TEMP}/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  ${RUNNER_TEMP}/gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/gitleaks.tar.gz" -C "${RUNNER_TEMP}" gitleaks
+          "${RUNNER_TEMP}/gitleaks" git --redact --verbose --log-opts="${BASE_SHA}..${HEAD_SHA}" .
 
   secrets-issue:
     name: Track Gitleaks
@@ -303,24 +321,13 @@ jobs:
             "Zizmor Actions audit failed. Harden the flagged workflows. Run: ${RUN_URL}"
 
   required:
-    name: required
+    name: Security scan / required
     if: always()
     needs: [dependency-review, codeql, opengrep, trivy, secrets, workflow-security]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce required results
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python - <<'PY'
-          import json, os, sys
-          results = json.loads(os.environ["RESULTS"])
-          allowed = {"success"}
-          if os.environ["EVENT_NAME"] != "pull_request":
-              allowed.add("skipped")
-          failed = {name: job["result"] for name, job in results.items() if job["result"] not in allowed}
-          if failed:
-              print(f"Security scan jobs did not succeed: {failed}", file=sys.stderr)
-              sys.exit(1)
-          PY
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          jobs: ${{ toJSON(needs) }}
+          allowed-skips: ${{ github.event_name != 'pull_request' && 'dependency-review' || '' }}

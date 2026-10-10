@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from oharness import codec
+from oharness import codec, examples
 from oharness.mock_run import plan_mock_run
 from oharness.models import HarnessBundle
 from oharness.validate import validate_dict
@@ -23,6 +23,38 @@ def get_default():
         return codec.load_path(DEFAULT)
     except codec.CodecError as ex:  # pragma: no cover - packaged fixture is tested directly
         raise HTTPException(status_code=500, detail=f"default bundle is invalid: {ex}") from ex
+
+
+@router.get("/examples")
+def list_example_bundles():
+    # Full bundles, so the Studio can open any example without a second call.
+    items = []
+    for entry in examples.list_examples():
+        bundle = _load_example(entry)
+        manifest = bundle["manifest"]
+        items.append({
+            "id": entry.id,
+            "name": manifest["name"],
+            "description": manifest["description"],
+            "tags": manifest.get("tags", []),
+            "bundle": bundle,
+        })
+    return {"examples": items}
+
+
+@router.get("/examples/{example_id}")
+def get_example_bundle(example_id: str):
+    entry = examples.get_example(example_id)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"unknown example harness: {example_id}")
+    return _load_example(entry)
+
+
+def _load_example(entry: examples.Example) -> dict:
+    try:
+        return examples.load_example(entry)
+    except codec.CodecError as ex:  # pragma: no cover - packaged fixtures are tested directly
+        raise HTTPException(status_code=500, detail=f"example {entry.id} is invalid: {ex}") from ex
 
 
 @router.post("/validate")

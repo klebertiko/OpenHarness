@@ -20,7 +20,6 @@ Chain, CycloneDX, OWASP Dependency-Check, and optional Laya shadow.
 | `.github/workflows/release.yml` | Tag `vX.Y.Z` → reusable Quality + Security scan → Windows NSIS + smoke + attestations |
 | `.github/workflows/laya-shadow.yml` | Advisory · Laya issue triage (`ENABLE_LAYA_SHADOW`); never merge authority |
 | `.github/dependabot.yml` | npm ×3, pip, cargo, github-actions |
-| `.github/CODEOWNERS` | `@klebertiko` on `*`, `.github/`, sandbox/security/Tauri surfaces |
 | `docs/ci-security.md` | Policy + admin checklist |
 | `scripts/laya_issue_shadow.py` | Non-authoritative Laya Router evidence writer |
 | `SECURITY.md` | Private vulnerability reporting |

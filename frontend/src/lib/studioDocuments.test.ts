@@ -4,7 +4,7 @@ import { useShellStore } from "@/components/shell/shellStore";
 import { api } from "./api";
 import type { HarnessEdge, HarnessNode } from "./types";
 import {
-  flushAutosave, hasStudioDraft, markClean, openSavedHarness, removeSavedHarness, replaceStudioCanvas, startAutosave,
+  discardStudioChanges, flushAutosave, hasStudioDraft, saveHarnessAs, saveHarnessNow, markClean, openSavedHarness, removeSavedHarness, replaceStudioCanvas, startAutosave,
   stripRuntime, useStudioDocsStore,
 } from "./studioDocuments";
 
@@ -342,4 +342,62 @@ it("reverting an edit inside the debounce window clears the unsaved flag", async
   expect(useStudioDocsStore.getState().dirty).toBe(false);
   await vi.advanceTimersByTimeAsync(1000);
   expect(h.update).not.toHaveBeenCalled();
+});
+
+it("Save on an untouched bundled example creates an editable copy and never needs a record id first", async () => {
+  useCanvasStore.getState().loadGraph([node("s")], []);
+  useCanvasStore.getState().setHarnessMeta({ id: null, name: "Example", description: "d" });
+  markClean();
+  await saveHarnessNow();
+  expect(h.create).toHaveBeenCalledOnce();
+  expect(h.create.mock.calls[0][0]).toBe("Example");
+  expect(useCanvasStore.getState().harnessMeta.id).toBe("h1");
+  // Saving again updates that copy, it does not create another.
+  await saveHarnessNow();
+  expect(h.create).toHaveBeenCalledOnce();
+});
+
+it("Save as on an unsaved example creates one copy with the new name, with no duplicate from autosave", async () => {
+  useCanvasStore.getState().loadGraph([node("s")], []);
+  useCanvasStore.getState().setHarnessMeta({ id: null, name: "Example", description: "" });
+  markClean();
+  useCanvasStore.getState().addNode(node("extra"));
+  h.create.mockResolvedValue({ id: "copy", name: "My copy" });
+  await saveHarnessAs("My copy");
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(h.create).toHaveBeenCalledOnce();
+  expect(h.create.mock.calls[0][0]).toBe("My copy");
+  expect(useCanvasStore.getState().harnessMeta).toMatchObject({ id: "copy", name: "My copy" });
+  expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(["s", "extra"]);
+});
+
+it("Save as on a saved harness keeps the original record and opens the new copy", async () => {
+  await edit(() => useCanvasStore.getState().addNode(node("a")));
+  expect(useCanvasStore.getState().harnessMeta.id).toBe("h1");
+  h.create.mockResolvedValue({ id: "h2", name: "Fork" });
+  await saveHarnessAs("Fork");
+  expect(h.create).toHaveBeenLastCalledWith("Fork", "", expect.any(Object));
+  expect(useCanvasStore.getState().harnessMeta.id).toBe("h2");
+  expect(h.delete).not.toHaveBeenCalled();
+});
+
+it("Discard drops an unsaved draft without saving it", async () => {
+  useCanvasStore.getState().addNode(node("a")); // before the autosave debounce fires
+  await discardStudioChanges();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(h.create).not.toHaveBeenCalled();
+  expect(useCanvasStore.getState().nodes).toEqual([]);
+  expect(useCanvasStore.getState().harnessMeta).toMatchObject(UNTITLED);
+  expect(useShellStore.getState().studioView).toBe("overview");
+});
+
+it("Discard on a saved harness reverts to what is on disk and does not save the edit", async () => {
+  await edit(() => useCanvasStore.getState().addNode(node("a")));
+  h.get.mockResolvedValue({ id: "h1", name: "x", description: "", created_at: "", updated_at: "", graph_json: { nodes: [node("a")], edges: [] } });
+  useCanvasStore.getState().addNode(node("b")); // pending edit
+  await discardStudioChanges();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(h.update).not.toHaveBeenCalled();
+  expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(["a"]);
+  expect(useCanvasStore.getState().harnessMeta.id).toBe("h1");
 });

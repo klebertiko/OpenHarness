@@ -3,6 +3,8 @@ name: Quality
 on:
   workflow_call:
   pull_request:
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
   workflow_dispatch:
@@ -12,7 +14,8 @@ permissions:
 
 concurrency:
   group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Queue runs have a unique gh-readonly-queue ref; never cancel them mid-flight.
+  cancel-in-progress: ${{ github.event_name != 'merge_group' }}
 
 env:
   NODE_VERSION: 22.20.0
@@ -40,6 +43,9 @@ jobs:
         run: npm exec -- eslint . --max-warnings=0
       - run: npm run typecheck
       - run: npm test
+      - name: Ruleset required checks match job names
+        working-directory: .
+        run: node --test scripts/required-checks.test.mjs
       - run: npm run build
 
   backend:
@@ -140,20 +146,12 @@ jobs:
       - run: docker compose config --quiet
 
   required:
-    name: required
+    name: Quality / required
     if: always()
     needs: [frontend, backend, rust-tauri, website, compose]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce required results
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          python - <<'PY'
-          import json, os, sys
-          results = json.loads(os.environ["RESULTS"])
-          failed = {name: job["result"] for name, job in results.items() if job["result"] != "success"}
-          if failed:
-              print(f"Required jobs did not succeed: {failed}", file=sys.stderr)
-              sys.exit(1)
-          PY
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
+        with:
+          jobs: ${{ toJSON(needs) }}

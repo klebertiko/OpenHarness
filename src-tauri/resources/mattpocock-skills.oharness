@@ -1,0 +1,464 @@
+{
+  "schemaVersion": "1.0.0",
+  "manifest": {
+    "id": "openharness.example.mattpocock-skills",
+    "name": "Matt Pocock skills",
+    "version": "0.1.0",
+    "description": "Example modelled on mattpocock/skills: setup, grill-with-docs, to-spec, to-tickets, implement (tdd), two-axis code-review, pr, human merge and retro. Source: https://github.com/mattpocock/skills.",
+    "license": "MIT",
+    "tags": [
+      "example",
+      "skills",
+      "tdd",
+      "mattpocock"
+    ]
+  },
+  "graph": {
+    "nodes": [
+      {
+        "data": {
+          "consumes": [],
+          "emits": [
+            "Repo configured"
+          ],
+          "label": "setup-matt-pocock-skills",
+          "providerIds": [],
+          "roleId": "setup",
+          "systemPrompt": "Run once per repo: ask which issue tracker to use, which triage labels apply, and where docs are saved."
+        },
+        "id": "setup",
+        "position": {
+          "x": 0,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "consumes": [
+            "Repo configured"
+          ],
+          "emits": [
+            "Aligned"
+          ],
+          "label": "grill-with-docs",
+          "providerIds": [],
+          "roleId": "griller",
+          "systemPrompt": "Grill the user about the change until every branch of the design tree is resolved, sharpening terms in GLOSSARY.md and recording ADRs inline."
+        },
+        "id": "grill",
+        "position": {
+          "x": 280,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "label": "grilling",
+          "providerIds": [],
+          "skillId": "grilling"
+        },
+        "id": "grilling",
+        "position": {
+          "x": 280,
+          "y": 0
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "label": "domain-modeling",
+          "providerIds": [],
+          "skillId": "domain-modeling"
+        },
+        "id": "domain-modeling",
+        "position": {
+          "x": 280,
+          "y": 480
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "approvalLabel": "Aligned",
+          "label": "Alignment"
+        },
+        "id": "alignment",
+        "position": {
+          "x": 560,
+          "y": 240
+        },
+        "type": "hitl"
+      },
+      {
+        "data": {
+          "consumes": [],
+          "emits": [
+            "Spec published"
+          ],
+          "label": "to-spec",
+          "providerIds": [],
+          "roleId": "spec-writer",
+          "systemPrompt": "Turn the conversation into a spec and publish it to the issue tracker. No new interview."
+        },
+        "id": "to-spec",
+        "position": {
+          "x": 840,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "consumes": [
+            "Spec published"
+          ],
+          "emits": [
+            "Tickets ready"
+          ],
+          "label": "to-tickets",
+          "providerIds": [],
+          "roleId": "ticket-writer",
+          "systemPrompt": "Break the spec into tracer-bullet tickets, each declaring its blocking edges."
+        },
+        "id": "to-tickets",
+        "position": {
+          "x": 1120,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "consumes": [
+            "Tickets ready"
+          ],
+          "emits": [
+            "Ready for review"
+          ],
+          "label": "implement",
+          "providerIds": [],
+          "roleId": "implementer",
+          "systemPrompt": "Build the tickets, driving /tdd at the pre-agreed seams, then close out with /code-review before committing."
+        },
+        "id": "implement",
+        "position": {
+          "x": 1400,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "label": "tdd",
+          "providerIds": [],
+          "skillId": "tdd"
+        },
+        "id": "tdd",
+        "position": {
+          "x": 1400,
+          "y": 0
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "label": "codebase-design",
+          "providerIds": [],
+          "skillId": "codebase-design"
+        },
+        "id": "codebase-design",
+        "position": {
+          "x": 1400,
+          "y": 480
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "label": "diagnosing-bugs",
+          "providerIds": [],
+          "skillId": "diagnosing-bugs"
+        },
+        "id": "diagnosing-bugs",
+        "position": {
+          "x": 1120,
+          "y": 0
+        },
+        "type": "skill"
+      },
+      {
+        "data": {
+          "checklist": "Standards axis (repo standards + smell baseline) · Spec axis (matches the issue/spec) · run as parallel sub-agents · fail → back to implement",
+          "consumes": [],
+          "emits": [],
+          "gateId": "code-review",
+          "label": "code-review"
+        },
+        "id": "code-review",
+        "position": {
+          "x": 1680,
+          "y": 240
+        },
+        "type": "gate"
+      },
+      {
+        "data": {
+          "consumes": [],
+          "emits": [
+            "PR opened"
+          ],
+          "label": "pr",
+          "providerIds": [],
+          "roleId": "pr-writer",
+          "systemPrompt": "Write the PR body: smallest visual summary, before/after evidence, merge-danger call (one-way or two-way door, blast radius)."
+        },
+        "id": "pr",
+        "position": {
+          "x": 1960,
+          "y": 240
+        },
+        "type": "agent"
+      },
+      {
+        "data": {
+          "approvalLabel": "Merge",
+          "label": "Human merge"
+        },
+        "id": "merge",
+        "position": {
+          "x": 2240,
+          "y": 240
+        },
+        "type": "hitl"
+      },
+      {
+        "data": {
+          "consumes": [
+            "PR opened"
+          ],
+          "emits": [],
+          "label": "retro",
+          "providerIds": [],
+          "roleId": "retro",
+          "systemPrompt": "After the session, suggest improvements to the agent's environment (navigation, checks, standards, steering files, tooling), most severe first."
+        },
+        "id": "retro",
+        "position": {
+          "x": 2520,
+          "y": 240
+        },
+        "type": "agent"
+      }
+    ],
+    "edges": [
+      {
+        "data": {
+          "kind": "flow",
+          "label": "configured",
+          "signal": "Repo configured"
+        },
+        "id": "e-setup-grill",
+        "source": "setup",
+        "sourceHandle": "out",
+        "target": "grill",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "grilling"
+        },
+        "id": "e-grilling-grill",
+        "source": "grilling",
+        "sourceHandle": "out",
+        "target": "grill",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "domain-modeling"
+        },
+        "id": "e-domain-modeling-grill",
+        "source": "domain-modeling",
+        "sourceHandle": "out",
+        "target": "grill",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "aligned",
+          "signal": "Aligned"
+        },
+        "id": "e-grill-alignment",
+        "source": "grill",
+        "sourceHandle": "out",
+        "target": "alignment",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "approve"
+        },
+        "id": "e-alignment-to-spec",
+        "source": "alignment",
+        "sourceHandle": "approve",
+        "target": "to-spec",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "spec",
+          "signal": "Spec published"
+        },
+        "id": "e-to-spec-to-tickets",
+        "source": "to-spec",
+        "sourceHandle": "out",
+        "target": "to-tickets",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "tickets",
+          "signal": "Tickets ready"
+        },
+        "id": "e-to-tickets-implement",
+        "source": "to-tickets",
+        "sourceHandle": "out",
+        "target": "implement",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "tdd"
+        },
+        "id": "e-tdd-implement",
+        "source": "tdd",
+        "sourceHandle": "out",
+        "target": "implement",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "codebase-design"
+        },
+        "id": "e-codebase-design-implement",
+        "source": "codebase-design",
+        "sourceHandle": "out",
+        "target": "implement",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "skill",
+          "signal": "diagnosing-bugs"
+        },
+        "id": "e-diagnosing-bugs-implement",
+        "source": "diagnosing-bugs",
+        "sourceHandle": "out",
+        "target": "implement",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "review",
+          "signal": "Ready for review"
+        },
+        "id": "e-implement-code-review",
+        "source": "implement",
+        "sourceHandle": "out",
+        "target": "code-review",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "pass"
+        },
+        "id": "e-code-review-pr",
+        "source": "code-review",
+        "sourceHandle": "pass",
+        "target": "pr",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "flow",
+          "label": "PR",
+          "signal": "PR opened"
+        },
+        "id": "e-pr-merge",
+        "source": "pr",
+        "sourceHandle": "out",
+        "target": "merge",
+        "targetHandle": "in"
+      },
+      {
+        "data": {
+          "kind": "accept",
+          "label": "merged"
+        },
+        "id": "e-merge-retro",
+        "source": "merge",
+        "sourceHandle": "approve",
+        "target": "retro",
+        "targetHandle": "in"
+      }
+    ]
+  },
+  "content": {
+    "prompts": {
+      "OVERVIEW": "# Matt Pocock skills — example harness\n\nSource: https://github.com/mattpocock/skills (\"Skills for Real Engineers\"). The skills are small and composable; this\nharness chains the engineering ones the way the README describes them.\n\nSkills split by who invokes them. User-invoked skills orchestrate (setup-matt-pocock-skills,\ngrill-with-docs, to-spec, to-tickets, implement, retro); model-invoked skills hold reusable\ndiscipline (grilling, domain-modeling, tdd, codebase-design, diagnosing-bugs, code-review, pr).\nA user-invoked skill may call model-invoked ones, never another user-invoked one.\n\nFlow:\n1. setup-matt-pocock-skills — once per repo: issue tracker, triage labels, docs location.\n2. grill-with-docs — align with the user (grilling) while building the shared language in\n   GLOSSARY.md and ADRs (domain-modeling). The user confirms alignment.\n3. to-spec — publish the spec to the issue tracker.\n4. to-tickets — tracer-bullet tickets with blocking edges.\n5. implement — red-green-refactor via tdd at agreed seams; codebase-design keeps modules deep;\n   diagnosing-bugs for hard bugs.\n6. code-review — two axes, Standards and Spec, as parallel sub-agents. A failing review goes\n   back to implement (folded into the gate so the canvas graph stays acyclic).\n7. pr — PR body with evidence and merge-danger call; a human merges.\n8. retro — environment improvements after the session.\n\nFor large work, `implement-spec` (subagents across the ticket frontier) and `wayfinder`\n(decision-ticket map) replace steps 4–5. Providers are left unset: pick them in the app.\n"
+    },
+    "agents": {
+      "griller": "# grill-with-docs\n\nInterview the user one question at a time until the plan is fully understood. Challenge vague terms against GLOSSARY.md, update it inline, and record hard-to-explain decisions as ADRs.\n",
+      "implementer": "# implement\n\nWork the tickets in dependency order. Use red-green-refactor (tdd) at the pre-agreed seams, keep modules deep (codebase-design), and close out with code-review before committing.\n",
+      "pr-writer": "# pr\n\nWrite the pull request body: a summary as the smallest visual that makes the change clear, before/after evidence that it works, and a merge-danger call.\n",
+      "retro": "# retro\n\nReview the session and suggest improvements to the coding agent's environment, most severe first.\n",
+      "setup": "# setup-matt-pocock-skills\n\nConfigure this repo for the engineering skills: ask which issue tracker to use (GitHub, GitLab, local files or other), which labels triage applies, and where docs are saved. Run once per repo.\n",
+      "spec-writer": "# to-spec\n\nSynthesize what has already been discussed into a spec and publish it to the configured issue tracker. Ask which modules are touched; do not start a new interview.\n",
+      "ticket-writer": "# to-tickets\n\nBreak the spec into thin tracer-bullet tickets that each cut through every layer, and declare each ticket's blocking edges.\n"
+    },
+    "skills": {
+      "code-review": "# code-review\n\nReview the diff since a fixed point on two axes in parallel sub-agents: Standards and Spec. Report them side by side.\n",
+      "codebase-design": "# codebase-design\n\nDesign deep modules: a lot of behaviour behind a small interface, placed at a clean seam and tested through that interface.\n",
+      "diagnosing-bugs": "# diagnosing-bugs\n\nBuild a feedback loop that goes red on the bug, minimise, hypothesise, instrument, fix, then add a regression test.\n",
+      "domain-modeling": "# domain-modeling\n\nBuild and sharpen the project's domain model: challenge terms against the glossary, stress-test with edge cases, update GLOSSARY.md and ADRs.\n",
+      "grilling": "# grilling\n\nThe interview primitive: ask relentlessly about a plan, decision or idea until every branch of the design tree is resolved.\n",
+      "tdd": "# tdd\n\nRed-green-refactor, one vertical slice at a time: write a failing test, make it pass, then refactor.\n"
+    },
+    "hooks": {},
+    "commands": {
+      "grill-with-docs": "Grilling session that also updates GLOSSARY.md and ADRs.",
+      "implement": "Build the spec or tickets with tdd and code-review.",
+      "retro": "Suggest environment improvements after a session.",
+      "setup-matt-pocock-skills": "Configure the repo for the engineering skills.",
+      "to-spec": "Publish the current conversation as a spec.",
+      "to-tickets": "Split a spec into tracer-bullet tickets."
+    },
+    "scripts": {}
+  },
+  "runtime": {
+    "preferred": "api",
+    "cli": null,
+    "env": [],
+    "secrets": []
+  },
+  "validation": {
+    "mockProfile": "default"
+  }
+}

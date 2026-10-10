@@ -42,6 +42,8 @@ run([
   "--workpath", join(root, "backend", "build", "pyinstaller"),
   "--specpath", join(root, "backend", "build"),
   "--add-data", `${join(root, "backend", "oharness", "fixtures", "default-agile.ohm")}${separator}oharness/fixtures`,
+  "--add-data", `${join(root, "backend", "oharness", "fixtures", "deepseek-harness.ohm")}${separator}oharness/fixtures`,
+  "--add-data", `${join(root, "backend", "oharness", "fixtures", "mattpocock-skills.ohm")}${separator}oharness/fixtures`,
   "--add-data", `${join(root, "backend", "oharness", "schema", "oharness.schema.json")}${separator}oharness/schema`,
   "--add-data", `${join(root, "backend", "studio_copilot", "catalog.json")}${separator}studio_copilot`,
   join(root, "backend", "sidecar_entry.py"),

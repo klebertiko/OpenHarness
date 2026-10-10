@@ -25,7 +25,7 @@ const initialProviders = useProviderStore.getState();
 const initialChat = useChatProviderStore.getState();
 const ok = (over = {}) => ({ summary: "Done.", ops: [], source: "offline" as const, tokens: 0, ...over });
 const renderPanel = () => render(<ReactFlowProvider><CopilotPanel /></ReactFlowProvider>);
-const composer = () => screen.getByRole("textbox", { name: /ask copilot|describe/i }) as HTMLTextAreaElement;
+const composer = () => screen.getByRole("textbox", { name: /ask nilo|describe/i }) as HTMLTextAreaElement;
 
 beforeEach(() => {
   useProviderStore.setState({ connections: [ready] });

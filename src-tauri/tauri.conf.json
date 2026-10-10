@@ -37,7 +37,11 @@
     "active": true,
     "targets": ["nsis"],
     "externalBin": ["binaries/openharness-sidecar"],
-    "resources": ["resources/default-agile.oharness"],
+    "resources": [
+      "resources/default-agile.oharness",
+      "resources/deepseek-harness.oharness",
+      "resources/mattpocock-skills.oharness"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
