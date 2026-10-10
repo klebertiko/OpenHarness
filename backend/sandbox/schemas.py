@@ -31,8 +31,17 @@ class Discover(StrictModel):
     name: Literal['discover'] = 'discover'
 
 
+PermissionMode = Literal['plan', 'ask', 'auto_workspace']
+# Opaque, client-chosen conversation key: short, no path or control characters.
+THREAD_ID_PATTERN = r'^[A-Za-z0-9_-]{1,64}$'
+
+
 class ToolsRequest(StrictModel):
     enabled: bool = False
+    # The conversation this run belongs to. Its stored mode is the ceiling;
+    # `permission_mode` may only tighten it (see sandbox.permission.effective_mode).
+    thread_id: str | None = Field(default=None, pattern=THREAD_ID_PATTERN)
+    permission_mode: PermissionMode | None = None
     preset: Annotated[Read | Exec | Discover, Field(discriminator='name')] | None = None
     summarize: bool = True
 

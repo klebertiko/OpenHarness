@@ -2,7 +2,7 @@
 import asyncio
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,9 @@ from providers.resolution import ADAPTER_BY_PROVIDER
 from routers.execution import _validated_project_cwd
 from sandbox.capabilities import capabilities as tool_capabilities
 from sandbox.discover import discover as discover_workspace
+from sandbox.permission_store import get_thread_mode, set_thread_mode
 from sandbox.read import READ_MAX_BYTES, ReadFailure, read_text
+from sandbox.schemas import THREAD_ID_PATTERN, PermissionMode
 
 router = APIRouter(prefix="/chat/tools", tags=["chat-tools"])
 
@@ -61,3 +63,26 @@ async def read(request: Request, db: AsyncSession = Depends(get_db)):
         return await asyncio.to_thread(read_text, Path(root), body.path, body.max_bytes, body.truncate)
     except ReadFailure as exc:
         return JSONResponse({"error": exc.code, "path": body.path}, status_code=exc.status)
+
+
+class PermissionUpdate(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    thread_id: str = Field(pattern=THREAD_ID_PATTERN)
+    mode: PermissionMode
+
+
+@router.get("/permission")
+async def get_permission(thread_id: str = Query(pattern=THREAD_ID_PATTERN), db: AsyncSession = Depends(get_db)):
+    """Stored permission mode of a conversation (`ask` until someone sets it)."""
+    return {"thread_id": thread_id, "mode": await get_thread_mode(db, thread_id)}
+
+
+@router.put("/permission")
+async def put_permission(request: Request, db: AsyncSession = Depends(get_db)):
+    """The composer's selector. Only the authenticated sidecar client can call this;
+    a model's tool call cannot. There is no bypass mode: unknown values are 400."""
+    try:
+        body = PermissionUpdate.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        return JSONResponse({"error": "invalid_argument"}, status_code=400)
+    return {"thread_id": body.thread_id, "mode": await set_thread_mode(db, body.thread_id, body.mode)}

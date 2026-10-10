@@ -66,6 +66,18 @@ class CoworkProject(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class ChatPermission(Base):
+    """Permission mode of one chat conversation (`plan` | `ask` | `auto_workspace`).
+
+    Enforced by the sidecar (`sandbox.permission`); the UI only selects it. A
+    missing row means `ask`. A run request can tighten but never loosen it."""
+    __tablename__ = "chat_permissions"
+
+    thread_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mode: Mapped[str] = mapped_column(String(32), nullable=False, default="ask")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class UsageRecord(Base):
     """One row per completed node/turn that actually reached a real vendor —
     the durable source of truth for tokens spent and USD cost, written once
