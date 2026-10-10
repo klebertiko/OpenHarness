@@ -64,6 +64,10 @@ _GIT_DANGEROUS_KEY = re.compile(
     r'^\s*(fsmonitor|hookspath|pager|editor|sshcommand|askpass|attributesfile|gitproxy|external|textconv|clean|smudge|process|'
     r'command|driver|helper|program|path|vcs|worktree|uploadpack|receivepack)\s*(=|$)', re.IGNORECASE)
 _SECTION = re.compile(r'^\s*\[\s*([A-Za-z0-9.-]+)')
+# Files inside .git that make git read configuration or objects from somewhere else (worktrees, linked repos).
+_GIT_REDIRECTS = ('commondir', 'config.worktree', 'gitdir')
+# An attribute that binds a path to a driver (clean/smudge/textconv/merge/diff program defined in some config).
+_GIT_DRIVER_ATTR = re.compile(r'(?:^|\s)(?:filter|diff|merge)\s*=', re.IGNORECASE)
 
 _SCRIPT_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:_.-]{0,63}$')
 _PYTEST_FLAGS = frozenset({'-q', '-qq', '-v', '-vv', '-x', '-s', '--lf', '--ff', '--co', '--collect-only', '--no-header', '-rA'})
@@ -178,14 +182,34 @@ def _has_entry(names: frozenset, root: str, *directories: str) -> bool:
     return False
 
 
+def _git_attributes_are_inert(git_dir: str) -> bool:
+    """`.git/info/attributes` must not bind any path to a filter/diff/merge driver. Absent is fine."""
+    path = os.path.join(git_dir, 'info', 'attributes')
+    try:
+        if not os.path.lexists(path):
+            return True
+        if os.path.islink(path) or not os.path.isfile(path) or os.stat(path).st_size > 65536:
+            return False
+        with open(path, encoding='utf-8', errors='replace') as handle:
+            return not any(_GIT_DRIVER_ATTR.search(line) for line in handle if not line.lstrip().startswith('#'))
+    except OSError:
+        return False
+
+
 def _git_config_is_inert(root: str) -> bool:
-    """The repo's own .git/config must not be able to start programs (filters, textconv, hooks, includes...)."""
+    """Everything git would read for this repo must be unable to start programs (filters, textconv, hooks, includes...).
+
+    Fail-closed: besides `.git/config`, any redirection (`commondir`, `config.worktree`, `gitdir` inside `.git`) or any
+    `info/attributes` driver binding makes the repo unverifiable, so the caller asks instead of auto-approving.
+    """
     git_dir = _join_inside(root, '.git')
     config = _join_inside(root, os.path.join('.git', 'config'))
     if git_dir is None or config is None:
         return False
     try:
         if os.path.islink(git_dir) or not os.path.isdir(git_dir) or os.path.islink(config) or not os.path.isfile(config) or os.stat(config).st_size > 65536:
+            return False
+        if any(os.path.lexists(os.path.join(git_dir, name)) for name in _GIT_REDIRECTS) or not _git_attributes_are_inert(git_dir):
             return False
         with open(config, encoding='utf-8', errors='replace') as handle:
             text = handle.read()
@@ -300,9 +324,13 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
     rest = list(argv[1:])
     if rest and rest[0] in _DIFFY_SUBCOMMANDS:
         rest[1:1] = ['--no-ext-diff', '--no-textconv']
+    real_root = os.path.realpath(str(root))
+    git_dir = os.path.join(real_root, '.git')
     env = {
+        # Pinned so git never follows `.git/commondir`, a `.git` file or a parent repo to a config we did not verify.
+        'GIT_DIR': git_dir, 'GIT_COMMON_DIR': git_dir, 'GIT_WORK_TREE': real_root,
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
-        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(os.path.realpath(str(root))),
+        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
     }
     return head + rest, env
 

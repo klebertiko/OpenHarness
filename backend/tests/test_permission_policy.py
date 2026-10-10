@@ -197,6 +197,78 @@ def test_auto_asks_when_the_workspace_can_shadow_the_program(planted, ws):
     assert auto(ex('git', 'status'), ws) == 'ask'
 
 
+# -- git config reached by other paths than .git/config (#112) ------------------
+FILTER_CONFIG = '[core]\n\trepositoryformatversion = 0\n[filter "x"]\n\tclean = sh -c evil\n\tsmudge = sh -c evil\n'
+
+
+def test_auto_asks_when_commondir_points_to_an_external_config_with_a_filter(ws, tmp_path_factory):
+    common = tmp_path_factory.mktemp('common')
+    (common / 'config').write_text(FILTER_CONFIG, encoding='utf-8')
+    (ws / '.git' / 'commondir').write_text(str(common), encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+@pytest.mark.parametrize('target', ['.', '../sibling', 'objects'])
+def test_auto_asks_for_any_commondir_even_a_relative_one_inside_the_repo(ws, target):
+    (ws / '.git' / 'commondir').write_text(target, encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_config_worktree_defines_a_filter(ws):
+    (ws / '.git' / 'config').write_text(SAFE_GIT_CONFIG + '[extensions]\n\tworktreeConfig = true\n', encoding='utf-8')
+    (ws / '.git' / 'config.worktree').write_text(FILTER_CONFIG, encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_for_any_config_worktree_even_without_the_extension(ws):
+    (ws / '.git' / 'config.worktree').write_text('', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_dot_git_holds_a_gitdir_pointer(ws):
+    (ws / '.git' / 'gitdir').write_text(str(ws / 'elsewhere'), encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+@pytest.mark.parametrize('rule', ['* filter=x', '*.txt diff=x', '*.txt merge=x', '*.TXT   filter=lfs -text', '[attr]foo filter=x', '* text eol=lf filter=x'])
+def test_auto_asks_when_info_attributes_activates_a_driver(ws, rule):
+    (ws / '.git' / 'info').mkdir()
+    (ws / '.git' / 'info' / 'attributes').write_text(rule + '\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_info_attributes_is_not_a_plain_file(ws, tmp_path_factory):
+    outside = tmp_path_factory.mktemp('attr') / 'attributes'
+    outside.write_text('', encoding='utf-8')
+    (ws / '.git' / 'info').mkdir()
+    try:
+        os.symlink(outside, ws / '.git' / 'info' / 'attributes')
+    except (OSError, NotImplementedError):
+        pytest.skip('file symlinks are not available on this machine')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'ask'
+
+
+def test_auto_asks_when_dot_git_is_a_file_with_a_gitdir_pointer_to_a_real_repo(tmp_path, tmp_path_factory):
+    real = tmp_path_factory.mktemp('real')
+    (real / 'config').write_text(SAFE_GIT_CONFIG, encoding='utf-8')
+    (tmp_path / '.git').write_text(f'gitdir: {real}\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), tmp_path, trusted=True) == 'ask'
+
+
+def test_auto_still_allows_plain_info_attributes_and_a_normal_repo(ws):
+    (ws / '.git' / 'info').mkdir()
+    (ws / '.git' / 'info' / 'attributes').write_text('# comment\n*.bin binary\n*.txt text eol=lf\n', encoding='utf-8')
+    assert auto(ex('git', 'status'), ws, trusted=True) == 'allow'
+
+
+def test_hardened_git_pins_the_git_directories_to_the_workspace(tmp_path):
+    _, env = hardened_git(['git', 'status'], tmp_path)
+    root = str(tmp_path.resolve())
+    git_dir = os.path.join(root, '.git')
+    assert env['GIT_DIR'] == git_dir and env['GIT_COMMON_DIR'] == git_dir
+    assert env['GIT_WORK_TREE'] == root
+
+
 def test_auto_asks_when_the_cwd_can_shadow_the_program(ws):
     (ws / 'sub' / 'pytest.cmd').write_text('', encoding='utf-8')
     assert auto(ex('pytest', cwd='sub'), ws, trusted=True) == 'ask'
