@@ -23,6 +23,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
       ["Mod+Enter", "Run harness"],
       ["Mod+S", "Save harness"],
       ["Mod+Shift+M", "Cycle execution mode"],
+      ["Shift+Tab", "Cycle chat permission mode (composer)"],
     ],
   },
   {
