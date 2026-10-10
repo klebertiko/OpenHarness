@@ -120,9 +120,13 @@ export function HarnessCanvas({ onNodeClick }: Props) {
   const lastFitSeq = useRef(fitSeq);
   useEffect(() => {
     if (fitSeq === lastFitSeq.current) return;
-    lastFitSeq.current = fitSeq;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const raf = requestAnimationFrame(() => fitView({ padding: 0.16, duration: reduce ? 0 : 320 }));
+    // Marked as handled only once the frame runs: if this effect is torn down
+    // first (a re-render), the next run still owes the fit.
+    const raf = requestAnimationFrame(() => {
+      lastFitSeq.current = fitSeq;
+      fitView({ padding: 0.16, duration: reduce ? 0 : 320 });
+    });
     return () => cancelAnimationFrame(raf);
   }, [fitSeq, fitView]);
 
