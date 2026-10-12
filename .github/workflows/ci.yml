@@ -100,6 +100,41 @@ jobs:
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-features
 
+  # The Studio/chat e2e scripts drive the static export in a headless browser.
+  # Every sidecar call is stubbed inside each script: no backend, provider or
+  # secret is involved, so this runs on fork PRs too.
+  frontend-e2e:
+    name: frontend e2e playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: ./.github/actions/setup-safe-chain
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: E2E scripts
+        env:
+          OHM_BROWSER_CHANNEL: chromium
+        run: npm run test:e2e
+      - name: Upload e2e evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-e2e-evidence
+          path: .harness/**/evidence/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
   website:
     name: website build playwright
     runs-on: ubuntu-latest
@@ -148,7 +183,7 @@ jobs:
   required:
     name: Quality / required
     if: always()
-    needs: [frontend, backend, rust-tauri, website, compose]
+    needs: [frontend, frontend-e2e, backend, rust-tauri, website, compose]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce required results

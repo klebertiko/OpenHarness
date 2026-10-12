@@ -21,6 +21,7 @@ const bundled = {
     edges: [{ id: "review", source: "writer", target: "reviewer" }],
   },
 };
+const saved = [];
 const connections = [
   { id: "anthropic", provider: "anthropic", label: "Anthropic", residence: "cloud", endpoint: "", enabled: true, secretRef: null },
   { id: "openai", provider: "openai", label: "OpenAI", residence: "cloud", endpoint: "", enabled: true, secretRef: null },
@@ -48,11 +49,13 @@ async function download(name) {
 }
 async function pin(id, provider) {
   await page.locator('.react-flow__node[data-id="' + id + '"]').click();
-  await page.getByLabel("Connection pin", { exact: true }).selectOption(provider);
+  // The pin is a Combobox (eced171), not a <select>.
+  await page.getByRole("button", { name: /^Connection pin:/ }).click();
+  await page.getByRole("option", { name: new RegExp("^" + connections.find(c => c.id === provider).label) }).click();
 }
 try {
   const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
-  browser = await chromium.launch({ channel: "msedge", headless: true });
+  browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
   context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1000 } });
   page = await context.newPage();
   page.setDefaultTimeout(12000);
@@ -68,9 +71,19 @@ try {
       "GET /health": { status: "ok" },
       "GET /cowork/projects": { projects: [] },
       "GET /providers/connections": { connections },
+      "GET /bundles/examples": { examples: [] },
     };
     if (key === "GET /bundles/default" && failDefault) {
       await route.fulfill({ status: 503, contentType: "application/json", body: '{"detail":"E2E offline fixture"}' }); return;
+    }
+    // Usage is out of scope here: answer as an offline sidecar would.
+    if (key === "GET /usage/summary") { await route.fulfill({ status: 503, contentType: "application/json", body: "{}" }); return; }
+    // Saved harnesses live in memory so the library lists what Studio saved.
+    if (key === "GET /harnesses/") { await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(saved) }); return; }
+    if (key === "POST /harnesses/") {
+      const row = { id: "e2e-harness-" + (saved.length + 1), name: request.postDataJSON().name, description: request.postDataJSON().description ?? "", created_at: null, updated_at: null };
+      saved.unshift(row);
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: row.id, name: row.name }) }); return;
     }
     if (key === "POST /execute/") {
       executions.push(request.postDataJSON());
@@ -84,7 +97,7 @@ try {
     }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
-  await page.goto("http://127.0.0.1:3000", { waitUntil: "networkidle" });
+  await page.goto(process.env.OHM_E2E_URL || "http://127.0.0.1:3000", { waitUntil: "networkidle" });
   step = "slash command menu";
   const composer = page.getByRole("textbox", { name: "Message OpenHarness" });
   await composer.fill("/");
@@ -110,7 +123,8 @@ try {
   assert.equal(await chosen.locator(".bg-signal").count(), 0);
   await chosen.click();
   await page.screenshot({ path: resolve(output, "provider-picker.png") });
-  await page.getByRole("button", { name: "Configure OpenAI", exact: true }).click();
+  // "Configure <provider>" became "Manage providers", which opens the chosen one (f34116c).
+  await page.getByRole("button", { name: /^Manage providers/ }).click();
   await page.locator("main").getByText("OpenAI", { exact: true }).first().waitFor();
 
   step = "Studio sample and draft preservation";
@@ -123,7 +137,7 @@ try {
   await pin("impl", "anthropic");
   const before = await download("draft-before.ohm");
   await page.getByRole("button", { name: "Back to Studio", exact: true }).click();
-  await page.getByRole("button", { name: "Continue editing", exact: true }).click();
+  await page.getByRole("button", { name: /^Continue editing/ }).click();
   const resumed = await download("draft-resumed.ohm");
   assert.deepEqual(authoring(resumed), authoring(before), "Back/resume must retain edits, metadata and content");
 
@@ -132,7 +146,7 @@ try {
   failDefault = true;
   await page.getByRole("button", { name: "Open harness: Agile Harness", exact: true }).click();
   await page.getByRole("alert").filter({ hasText: "Could not load" }).waitFor();
-  await page.getByRole("button", { name: "Continue editing", exact: true }).click();
+  await page.getByRole("button", { name: /^Continue editing/ }).click();
   assert.deepEqual(authoring(await download("draft-after-error.ohm")), authoring(before));
   await page.getByRole("button", { name: "Back to Studio", exact: true }).click();
   failDefault = false;
@@ -144,7 +158,7 @@ try {
   await pin("writer", "anthropic");
   await pin("reviewer", "openai");
   await page.locator('.react-flow__node[data-id="writer"]').click();
-  assert.equal(await page.getByLabel("Connection pin", { exact: true }).inputValue(), "anthropic");
+  await page.getByRole("button", { name: /^Connection pin: Anthropic/ }).waitFor();
   const pinned = await download("pinned.ohm");
   assert.deepEqual(pinned.graph.nodes.map(n => n.data.providerIds), [["anthropic"], ["openai"]]);
   assert.deepEqual(pinned.content, bundled.content);
@@ -175,14 +189,28 @@ try {
   await page.getByRole("button", { name: "Back to Studio", exact: true }).click();
   for (const width of [320, 375, 414, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    const bounds = await page.locator('section[aria-labelledby="studio-heading"]').evaluate(section => {
-      const overflow = [...section.querySelectorAll("button")].filter(button => {
-        const r = button.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth + 1;
-      }).map(button => button.textContent);
-      return { overflow, documentOverflow: document.documentElement.scrollWidth > innerWidth };
+    const overview = page.locator('section[aria-labelledby="studio-heading"]');
+    // Cards in a horizontal rail (#106) sit past the edge by design; the rail
+    // itself must fit, and each card button must come into view when scrolled to.
+    const bounds = await overview.evaluate(section => {
+      const outside = el => { const r = el.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth + 1; };
+      const overflow = [...section.querySelectorAll("button")].filter(button => !button.closest(".oh-rail") && outside(button)).map(button => button.textContent);
+      const railOverflow = [...section.querySelectorAll(".oh-rail")].filter(outside).length;
+      return { overflow, railOverflow, documentOverflow: document.documentElement.scrollWidth > innerWidth };
     });
     responsive.push({ width, ...bounds });
     assert.deepEqual(bounds.overflow, [], "Overview controls must fit at " + width);
+    assert.equal(bounds.railOverflow, 0, "Card rails must fit at " + width);
+    assert.equal(bounds.documentOverflow, false, "Page must not scroll sideways at " + width);
+    // Primary actions only (Open / Continue editing). Icon buttons such as Delete sit at the
+    // far edge of a 17rem card and are reached by scrolling the rail further.
+    for (const button of await overview.locator(".oh-rail button").filter({ hasText: /^(Open|Continue editing)/ }).all()) {
+      // Scroll to the card (the snap target), as a person or the rail's Next button does.
+      await button.evaluate(b => b.closest(".oh-rail > *").scrollIntoView({ inline: "start", block: "nearest" }));
+      await page.waitForTimeout(100);
+      const r = await button.boundingBox();
+      assert.ok(r && r.x >= 0 && r.x + r.width <= width + 1, "Rail card button must scroll into view at " + width);
+    }
     await page.screenshot({ path: resolve(output, "overview-" + width + ".png") });
   }
   step = "provider and slash menu responsive keyboard";
