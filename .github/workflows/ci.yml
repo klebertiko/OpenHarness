@@ -24,7 +24,7 @@ env:
 
 jobs:
   frontend:
-    name: eslint typecheck test build
+    name: lint typecheck test build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -40,7 +40,7 @@ jobs:
       - uses: ./.github/actions/setup-safe-chain
       - run: npm ci --ignore-scripts
       - name: Lint
-        run: npm exec -- eslint . --max-warnings=0
+        run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - name: Ruleset required checks match job names
