@@ -55,7 +55,7 @@ function WindowButton({
       onClick={onClick}
       className={[
         "grid h-titlebar w-[44px] place-items-center text-ink-mute transition-colors",
-        danger ? "hover:bg-fault hover:text-[color:var(--sub-000)]" : "hover:bg-sub-300 hover:text-ink",
+        danger ? "hover:bg-fault hover:text-(--sub-000)" : "hover:bg-sub-300 hover:text-ink",
       ].join(" ")}
     >
       {children}
@@ -90,7 +90,7 @@ export function TitleBar({
         className="oh-header-brand flex min-w-0 flex-none items-center gap-2.5 px-4"
       >
         <Mark />
-        <span className="oh-wordmark select-none text-[13px] font-[600] tracking-[-0.03em] text-ink">
+        <span className="oh-wordmark select-none text-[13px] font-semibold tracking-[-0.03em] text-ink">
           OpenHarness
         </span>
       </div>
@@ -107,7 +107,7 @@ export function TitleBar({
               spellCheck={false}
               aria-label="Harness name"
               title="Rename this harness"
-              className="oh-header-name oh-focus-inner w-full max-w-[240px] min-w-0 rounded-control border border-transparent bg-sub-200/70 px-2 py-1 text-[13px] text-ink outline-none transition-colors hover:border-line hover:bg-sub-200 focus:border-line focus:bg-sub-200"
+              className="oh-header-name oh-focus-inner w-full max-w-[240px] min-w-0 rounded-control border border-transparent bg-sub-200/70 px-2 py-1 text-[13px] text-ink outline-hidden transition-colors hover:border-line hover:bg-sub-200 focus:border-line focus:bg-sub-200"
             />
           </>
         )}

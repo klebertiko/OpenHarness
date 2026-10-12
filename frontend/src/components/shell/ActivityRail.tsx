@@ -55,7 +55,7 @@ function RailButton({
       aria-label={label}
       aria-current={active ? "page" : undefined}
       className={[
-        "flex h-9 w-full items-center gap-3 rounded-[8px] px-3 text-left text-[13px] font-[500] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal",
+        "flex h-9 w-full items-center gap-3 rounded-[8px] px-3 text-left text-[13px] font-medium outline-hidden transition-colors focus-visible:ring-1 focus-visible:ring-signal",
         // Two colours, two meanings: where you already are is teal
         // (--signal); where the pointer is, not chosen yet, is amber
         // (Nilo's beak) — hover never reads as "this is now active".

@@ -17,7 +17,7 @@ import {
 } from "@/lib/studioDocuments";
 import { fetchStudioExamples, studioOrigin, type StudioExample } from "@/lib/studioExamples";
 
-const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
+const focusRing = "focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
 const base = `inline-flex h-8 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
 const primary = `${base} bg-signal text-signal-ink hover:bg-signal-deep`;
 const secondary = `${base} border border-line bg-sub-100 text-ink hover:bg-sub-200`;
@@ -130,7 +130,7 @@ export function StudioActionsBar() {
           <ArrowLeft size={14} aria-hidden /> Back to Studio
         </button>
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
-          <h2 className="min-w-0 truncate text-[13px] font-semibold text-ink [overflow-wrap:anywhere]">{harnessMeta.name}</h2>
+          <h2 className="min-w-0 truncate text-[13px] font-semibold text-ink wrap-anywhere">{harnessMeta.name}</h2>
           <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] text-ink-mute">{ORIGIN_LABEL[origin]}</span>
           <span role="status" className={`inline-flex items-center gap-1.5 text-[12px] ${saveState === "error" ? "text-fault" : "text-ink-mute"}`}>
             <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${unsaved ? "bg-ink-faint" : "bg-signal"}`} />
@@ -207,7 +207,7 @@ export function StudioActionsBar() {
           <label htmlFor="studio-copy-name" className="text-[12px] text-ink-mute">Save a copy as</label>
           <input id="studio-copy-name" aria-label="Name of the copy" value={copyName} autoFocus onChange={(e) => setCopyName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Escape") setPending(null); }}
-            className="h-8 min-w-[12rem] max-w-[320px] flex-1 rounded-control border border-line bg-sub-200 px-2 text-[13px] text-ink outline-none focus:border-signal" />
+            className="h-8 min-w-48 max-w-[320px] flex-1 rounded-control border border-line bg-sub-200 px-2 text-[13px] text-ink outline-hidden focus:border-signal" />
           <button type="submit" disabled={busy || !copyName.trim()} className={primary}>Save copy</button>
           <button type="button" onClick={() => setPending(null)} className={quiet}>Cancel</button>
           <p className="basis-full text-[11px] text-ink-faint">
@@ -219,7 +219,7 @@ export function StudioActionsBar() {
         <div role="group" aria-label={pending === "discard" ? "Confirm discard" : "Confirm delete"}
           onKeyDown={(e) => { if (e.key === "Escape") setPending(null); }}
           className="flex flex-wrap items-center gap-3 border-t border-line-soft px-3 py-2">
-          <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">
+          <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink wrap-anywhere">
             {pending === "discard"
               ? origin === "saved"
                 ? `Discard the changes to “${harnessMeta.name}” and go back to the saved version?`

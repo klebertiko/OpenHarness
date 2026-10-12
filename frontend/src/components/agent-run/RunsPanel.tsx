@@ -137,7 +137,7 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <button
         type="button"
         onClick={onBack}
-        className="flex flex-none items-center gap-1.5 px-2.5 py-2 text-[12px] font-[500] text-ink-mute transition-colors hover:text-ink"
+        className="flex flex-none items-center gap-1.5 px-2.5 py-2 text-[12px] font-medium text-ink-mute transition-colors hover:text-ink"
       >
         <ArrowLeft size={13} strokeWidth={1.8} />
         All activity

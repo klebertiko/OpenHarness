@@ -90,7 +90,7 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
         {options.map((command, index) => <button key={command.id} id={optionId(index)} type="button" role="option" tabIndex={-1}
           aria-selected={index === selected} aria-disabled={live}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setCursor(index)} onClick={() => choose(command)}
-          className={"flex w-full items-center gap-3 rounded-control px-3 py-2 text-left outline-none " + (index === selected ? "bg-sub-300" : "hover:bg-sub-200") + (live ? " opacity-50" : "")}>
+          className={"flex w-full items-center gap-3 rounded-control px-3 py-2 text-left outline-hidden " + (index === selected ? "bg-sub-300" : "hover:bg-sub-200") + (live ? " opacity-50" : "")}>
           <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium text-ink">/{command.name}</span>
             <span className="block text-[11px] leading-4 text-ink-mute">{command.description}</span></span>
           {command.hint && <span className={"flex-none rounded-control px-1.5 py-0.5 text-[10px] " + (command.kind === "Tool" ? "bg-signal/15 text-signal" : "bg-sub-300 text-ink-mute")}>{command.hint}</span>}
@@ -129,12 +129,12 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !live) { event.preventDefault(); submit(); }
       }}
       placeholder={live ? "Waiting on this run — click Stop to send something new" : tools?.workspace ? `Ask OpenHarness… Type / for commands, skills and tools in ${tools.workspace.name}` : "Ask OpenHarness… Type / for commands and skills"}
-      className="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60" />
+      className="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-hidden placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60" />
     {permissionMode && onPermissionModeChange && <div className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-1">
       <div role="radiogroup" aria-label="Permission mode" title="Shift+Tab alterna o modo" className="inline-flex overflow-hidden rounded-control border border-line-soft">
         {PERMISSION_MODES.map(mode => <button key={mode} type="button" role="radio" aria-checked={mode === permissionMode} disabled={live}
           title={PERMISSION_HINT[mode]} onClick={() => onPermissionModeChange(mode)}
-          className={"h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 " + (mode === permissionMode ? "bg-sub-300 text-ink" : "text-ink-mute hover:bg-sub-200")}>{PERMISSION_LABEL[mode]}</button>)}
+          className={"h-6 px-2.5 text-[11px] font-[550] outline-hidden focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 " + (mode === permissionMode ? "bg-sub-300 text-ink" : "text-ink-mute hover:bg-sub-200")}>{PERMISSION_LABEL[mode]}</button>)}
       </div>
       <span className="text-[11px] text-ink-faint">{PERMISSION_SUMMARY[permissionMode]} · Shift+Tab</span>
       {permissionNotice && <p role="alert" className="w-full text-[11px] text-warn">{permissionNotice}</p>}

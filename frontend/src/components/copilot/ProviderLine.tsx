@@ -33,7 +33,7 @@ export function ProviderLine({ onUseOffline, canUseOffline }: { onUseOffline: ()
           type="button"
           disabled={!canUseOffline}
           onClick={onUseOffline}
-          className="h-6 rounded-control border border-line px-2 text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-6 rounded-control border border-line px-2 text-[12px] text-ink hover:bg-sub-300 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
         >
           Use offline draft
         </button>
@@ -55,7 +55,7 @@ export function ProviderLine({ onUseOffline, canUseOffline }: { onUseOffline: ()
           useChatSetupRequestStore.getState().requestSetup(null);
           setExpanded(true);
         }}
-        className="t-meta text-ink-mute hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+        className="t-meta text-ink-mute hover:text-ink focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal"
       >
         Answers with {provider.label} · {connection ? chatProviderStatus(connection) : "Unavailable"}
       </button>

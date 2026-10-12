@@ -38,7 +38,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
           const body = (
             <>
               <span aria-hidden className="t-meta w-3 flex-none text-center text-ink-mute">{line.glyph}</span>
-              <span className="t-body min-w-0 flex-1 break-words text-ink-dim">{line.text}</span>
+              <span className="t-body min-w-0 flex-1 wrap-break-word text-ink-dim">{line.text}</span>
             </>
           );
           return (
@@ -47,7 +47,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
                 <button
                   type="button"
                   onClick={() => reveal(line.nodeId!)}
-                  className="flex w-full items-start gap-2 rounded-control px-1.5 py-1 text-left hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+                  className="flex w-full items-start gap-2 rounded-control px-1.5 py-1 text-left hover:bg-sub-300 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal"
                 >
                   {body}
                 </button>
@@ -62,7 +62,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
         <button
           type="button"
           onClick={() => keep(turnId)}
-          className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+          className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
         >
           Keep
         </button>
@@ -71,7 +71,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
           onClick={() => undo(turnId)}
           disabled={!canUndo}
           title={canUndo ? undefined : "The graph changed since — use Undo (Mod+Z)"}
-          className="h-7 rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-7 rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-300 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
         >
           Undo
         </button>

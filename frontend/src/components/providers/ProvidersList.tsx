@@ -139,7 +139,7 @@ function BudgetStrip() {
         </span>
       </div>
       {loading && <p role="status" className="t-body text-ink-dim">Loading usage...</p>}
-      {error && <p role="alert" className="t-body mt-1 text-warn [overflow-wrap:anywhere]">Usage may be stale: {error}</p>}
+      {error && <p role="alert" className="t-body mt-1 text-warn wrap-anywhere">Usage may be stale: {error}</p>}
       {editing ? (
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
@@ -152,15 +152,15 @@ function BudgetStrip() {
               if (e.key === "Escape") setEditing(false);
             }}
             placeholder="no limit"
-            className="t-meta h-7 w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
+            className="t-meta h-7 w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-hidden focus:border-signal-deep"
           />
-          <button type="button" onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
+          <button type="button" onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal">
             Save
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="t-body flex-none rounded-control px-1 text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+            className="t-body flex-none rounded-control px-1 text-ink-faint hover:text-ink-dim focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal"
           >
             Cancel
           </button>
@@ -169,7 +169,7 @@ function BudgetStrip() {
         <button
           type="button"
           onClick={startEdit}
-          className="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          className="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal"
         >
           {budget?.limitUsd != null
             ? `of $${budget.limitUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} budget`

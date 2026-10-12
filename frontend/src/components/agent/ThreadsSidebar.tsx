@@ -67,7 +67,7 @@ export function ThreadsSidebar() {
           onKeyDown={onKeyDown}
           onFocus={(e) => e.target === e.currentTarget && setListFocused(true)}
           onBlur={(e) => e.target === e.currentTarget && setListFocused(false)}
-          className={`flex flex-col pb-2 outline-none ${listFocused ? "ring-1 ring-inset ring-signal/25" : ""}`}
+          className={`flex flex-col pb-2 outline-hidden ${listFocused ? "ring-1 ring-inset ring-signal/25" : ""}`}
         >
           {groups.map(({ label, items }) => (
             <section key={label} className="px-1.5 pt-2">
@@ -169,14 +169,14 @@ function ThreadRow({ thread, active, onSelect }: { thread: Thread; active: boole
             if (e.key === "Escape") setEditing(false);
           }}
           aria-label="Chat name"
-          className="w-full rounded-[7px] border border-signal/50 bg-sub-200 px-2.5 py-1.5 text-[13px] text-ink outline-none"
+          className="w-full rounded-[7px] border border-signal/50 bg-sub-200 px-2.5 py-1.5 text-[13px] text-ink outline-hidden"
         />
       ) : (
         <button
           type="button"
           onClick={onSelect}
           className={[
-            "flex w-full items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal",
+            "flex w-full items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left outline-hidden transition-colors focus-visible:ring-1 focus-visible:ring-signal",
             active ? "bg-sub-300/70" : "hover:bg-sub-200/70",
           ].join(" ")}
         >
@@ -211,7 +211,7 @@ function ThreadRow({ thread, active, onSelect }: { thread: Thread; active: boole
                     deleteThread(thread.id);
                     setMenuOpen(false);
                   }}
-                  className="h-7 flex-1 rounded-[6px] bg-fault px-2 text-[12px] font-[550] text-[color:var(--sub-000)]"
+                  className="h-7 flex-1 rounded-[6px] bg-fault px-2 text-[12px] font-[550] text-(--sub-000)"
                 >
                   Delete
                 </button>
@@ -266,7 +266,7 @@ function MenuItem({
       role="menuitem"
       onClick={onClick}
       className={[
-        "flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] font-[500] transition-colors",
+        "flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[12px] font-medium transition-colors",
         danger ? "text-fault hover:bg-fault/12" : "text-ink-mute hover:bg-sub-300/70 hover:text-ink",
       ].join(" ")}
     >

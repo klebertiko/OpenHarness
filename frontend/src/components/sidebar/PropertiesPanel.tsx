@@ -267,7 +267,7 @@ export function PropertiesPanel() {
     return (
       <Panel title="Inspector" className="h-full">
         <div className="flex h-full flex-col items-center justify-center gap-2 px-6">
-          <p className="text-center text-[13px] font-[600] text-ink-dim">Select a block</p>
+          <p className="text-center text-[13px] font-semibold text-ink-dim">Select a block</p>
           <p className="max-w-[190px] text-center text-[12px] leading-5 text-ink-faint">
             Inspect its connections and edit its settings here. Add a block from the Blocks panel to get started.
           </p>

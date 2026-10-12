@@ -53,7 +53,7 @@ export function ListRow({
         title={hint}
         aria-current={selected || undefined}
         className={[
-          "flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal",
+          "flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-hidden transition-colors focus-visible:ring-1 focus-visible:ring-signal",
           selected ? "bg-sub-300/70" : "hover:bg-sub-200/70",
         ].join(" ")}
       >

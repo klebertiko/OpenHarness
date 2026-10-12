@@ -66,7 +66,7 @@ export function ToolCard({ call, runId, connection }: { call: ToolCall; runId: s
         <span className="t-meta text-ink">{title}</span>
         {call.origin && <span className="t-meta text-ink-faint">· {call.origin === "model" ? "pedido pelo modelo" : "pedido por você"}</span>}
         {call.autoApproved && <span data-auto-approved className="rounded-control bg-sub-300 px-1.5 py-0.5 text-[10px] text-ink-mute">auto-aprovado: modo workspace</span>}
-        {high && <span className="rounded-control px-1.5 py-0.5 text-[10px] font-[600] uppercase" style={{ background: "var(--fault)", color: "var(--signal-ink, #fff)" }}>alto risco</span>}
+        {high && <span className="rounded-control px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "var(--fault)", color: "var(--signal-ink, #fff)" }}>alto risco</span>}
         <span className="flex-1" />
         <span className="t-meta" style={{ color: TONE[state.tone] }}>{state.label}</span>
       </div>
@@ -81,7 +81,7 @@ export function ToolCard({ call, runId, connection }: { call: ToolCall; runId: s
 
       {high && call.approval?.riskHints.length ? (
         <p className="mt-1.5 text-[12px] text-ink-mute">
-          Padrão de risco: {call.approval.riskHints.map((h) => <code key={h} data-hint className="mr-1 rounded bg-sub-100 px-1">{h}</code>)}
+          Padrão de risco: {call.approval.riskHints.map((h) => <code key={h} data-hint className="mr-1 rounded-sm bg-sub-100 px-1">{h}</code>)}
         </p>
       ) : null}
 

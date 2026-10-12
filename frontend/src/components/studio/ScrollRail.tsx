@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cardSpan, nextCardIndex, pageTarget, parseInset, railState, revealTarget, wheelToScroll, type RailState } from "@/lib/scrollRail";
 
-const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
+const focusRing = "focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
 const stepButton = `inline-flex h-7 w-7 items-center justify-center rounded-control border border-line bg-sub-100 text-ink-dim transition-colors hover:bg-sub-200 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-sub-100 disabled:hover:text-ink-dim ${focusRing}`;
 const IDLE: RailState = { canPrev: false, canNext: false, fadeStart: false, fadeEnd: false };
 const TEXT_ENTRY = "input, textarea, select, [contenteditable=''], [contenteditable='true']";
