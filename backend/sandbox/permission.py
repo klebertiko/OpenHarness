@@ -25,6 +25,8 @@ is stored per conversation by the sidecar; a run request can only tighten it
 """
 import os
 import re
+import shutil
+import subprocess
 from pathlib import Path, PureWindowsPath
 from typing import Literal
 
@@ -58,12 +60,27 @@ _GIT_COUNT_FLAG = re.compile(r'^(-\d{1,4}|-n\d{1,4}|--max-count=\d{1,4})$')
 _GIT_OPERAND = re.compile(r'^[A-Za-z0-9_@{}^~:./+\\-]+$')
 _DIFFY_SUBCOMMANDS = frozenset({'diff', 'log', 'show'})
 
-_GIT_SAFE_SECTIONS = frozenset({'core', 'remote', 'branch', 'user', 'init', 'pull', 'push', 'fetch', 'submodule', 'color'})
-# Keys that start a program, redirect the work tree/attributes or pull in more config.
-_GIT_DANGEROUS_KEY = re.compile(
-    r'^\s*(fsmonitor|hookspath|pager|editor|sshcommand|askpass|attributesfile|gitproxy|external|textconv|clean|smudge|process|'
-    r'command|driver|helper|program|path|vcs|worktree|uploadpack|receivepack)\s*(=|$)', re.IGNORECASE)
-_SECTION = re.compile(r'^\s*\[\s*([A-Za-z0-9.-]+)')
+# `section.key` names (lowercased by git; the subsection, if any, is the middle part) the repo's own
+# .git/config may set. Anything else - filters, drivers, textconv, hooks, includes, aliases, unknown keys - is refused.
+_GIT_CONFIG_ALLOWED = re.compile(
+    r'^(?:'
+    r'core\.(?:repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|symlinks|precomposeunicode|autocrlf|eol|safecrlf|longpaths|protectntfs|trustctime)'
+    r'|user\.(?:name|email)'
+    r'|init\.defaultbranch'
+    r'|pull\.(?:rebase|ff)'
+    r'|push\.default'
+    r'|fetch\.prune'
+    r'|color\.ui'
+    r'|remote\..+\.(?:url|pushurl|fetch|push)'
+    r'|branch\..+\.(?:remote|merge|rebase|description)'
+    r'|submodule\..+\.(?:url|active|branch)'
+    r')$')
+# Files inside .git that make git read configuration or objects from somewhere else (worktrees, linked repos).
+_GIT_EXE = shutil.which('git')  # resolved once, at import: the policy never searches PATH while deciding
+_EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+_GIT_REDIRECTS = ('commondir', 'config.worktree', 'gitdir')
+# An attribute that binds a path to a driver (clean/smudge/textconv/merge/diff program defined in some config).
+_GIT_DRIVER_ATTR = re.compile(r'(?:^|\s)(?:filter|diff|merge)\s*=', re.IGNORECASE)
 
 _SCRIPT_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:_.-]{0,63}$')
 _PYTEST_FLAGS = frozenset({'-q', '-qq', '-v', '-vv', '-x', '-s', '--lf', '--ff', '--co', '--collect-only', '--no-header', '-rA'})
@@ -178,8 +195,65 @@ def _has_entry(names: frozenset, root: str, *directories: str) -> bool:
     return False
 
 
+def _git_attributes_are_inert(git_dir: str) -> bool:
+    """`.git/info/attributes` must not bind any path to a filter/diff/merge driver. Absent is fine."""
+    path = os.path.join(git_dir, 'info', 'attributes')
+    try:
+        if not os.path.lexists(path):
+            return True
+        if os.path.islink(path) or not os.path.isfile(path) or os.stat(path).st_size > 65536:
+            return False
+        with open(path, encoding='utf-8', errors='replace') as handle:
+            return not any(_GIT_DRIVER_ATTR.search(line) for line in handle if not line.lstrip().startswith('#'))
+    except OSError:
+        return False
+
+
+def _is_link(path: str) -> bool:
+    isjunction = getattr(os.path, 'isjunction', None)
+    return os.path.islink(path) or bool(isjunction and isjunction(path))
+
+
+def _git_objects_are_local(git_dir: str) -> bool:
+    """No alternates and no linked object store: object reads must stay inside the workspace."""
+    objects = os.path.join(git_dir, 'objects')
+    if os.path.lexists(objects) and (_is_link(objects) or not os.path.isdir(objects)):
+        return False
+    return not os.path.lexists(os.path.join(objects, 'info', 'alternates'))
+
+
+def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
+    """Every key git itself parses out of `config`, or None when git cannot parse it. `git config -f --list`
+    only reads; with --no-includes it follows nothing and a hostile file cannot make it start a program."""
+    git = _GIT_EXE
+    if git is None:
+        return None
+    env = {key: value for key, value in os.environ.items() if not key.upper().startswith('GIT_')}
+    env.update({'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_TERMINAL_PROMPT': '0'})
+    try:
+        # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
+        # argv is a list (no shell); git is the executable resolved once at import; the call only parses the file.
+        done = subprocess.run([git, 'config', '--file', config, '--no-includes', '--null', '--list'], cwd=git_dir, env=env,  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
+                              capture_output=True, timeout=10, check=False)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    if done.returncode != 0:
+        return None
+    try:
+        text = done.stdout.decode('utf-8')
+    except UnicodeDecodeError:
+        return None
+    return [entry.split('\n', 1)[0] for entry in text.split('\0') if entry]
+
+
 def _git_config_is_inert(root: str) -> bool:
-    """The repo's own .git/config must not be able to start programs (filters, textconv, hooks, includes...)."""
+    """Everything git would read for this repo must be unable to start programs (filters, textconv, hooks, includes...).
+
+    Fail-closed: besides `.git/config`, any redirection (`commondir`, `config.worktree`, `gitdir` inside `.git`),
+    `objects/info/alternates`, or `info/attributes` driver binding makes the repo unverifiable, so the caller asks
+    instead of auto-approving. `.git/config` is parsed by git (a line parser diverges from it: several headers on one
+    line, a BOM) and every key must be on an allowlist.
+    """
     git_dir = _join_inside(root, '.git')
     config = _join_inside(root, os.path.join('.git', 'config'))
     if git_dir is None or config is None:
@@ -187,24 +261,14 @@ def _git_config_is_inert(root: str) -> bool:
     try:
         if os.path.islink(git_dir) or not os.path.isdir(git_dir) or os.path.islink(config) or not os.path.isfile(config) or os.stat(config).st_size > 65536:
             return False
-        with open(config, encoding='utf-8', errors='replace') as handle:
-            text = handle.read()
+        if any(os.path.lexists(os.path.join(git_dir, name)) for name in _GIT_REDIRECTS):
+            return False
+        if not _git_attributes_are_inert(git_dir) or not _git_objects_are_local(git_dir):
+            return False
     except OSError:
         return False
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line[0] in '#;':
-            continue
-        header = _SECTION.match(line)
-        if header:
-            if header.group(1).split('.')[0].lower() not in _GIT_SAFE_SECTIONS:
-                return False
-            line = line[line.find(']') + 1:].strip() if ']' in line else ''
-            if not line:
-                continue
-        if _GIT_DANGEROUS_KEY.match(line):
-            return False
-    return True
+    keys = _git_config_keys(config, git_dir)
+    return keys is not None and all(_GIT_CONFIG_ALLOWED.match(key) for key in keys)
 
 
 def _git_ok(args: list[str], root: str, cwd: str) -> bool:
@@ -300,9 +364,15 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
     rest = list(argv[1:])
     if rest and rest[0] in _DIFFY_SUBCOMMANDS:
         rest[1:1] = ['--no-ext-diff', '--no-textconv']
+    real_root = os.path.realpath(str(root))
+    git_dir = os.path.join(real_root, '.git')
     env = {
+        # Pinned so git never follows `.git/commondir`, a `.git` file or a parent repo to a config we did not verify.
+        'GIT_DIR': git_dir, 'GIT_COMMON_DIR': git_dir, 'GIT_WORK_TREE': real_root,
+        # Attributes (filter=/diff=) come from the empty tree, not from the working tree's .gitattributes (git >= 2.42; older git ignores it).
+        'GIT_ATTR_SOURCE': _EMPTY_TREE,
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
-        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(os.path.realpath(str(root))),
+        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
     }
     return head + rest, env
 

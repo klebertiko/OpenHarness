@@ -3,8 +3,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'C:/Users/klebe/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const output = resolve('../.harness/sprint-2026-09-15/story-STUDIO-CODEX/evidence');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const output = resolve(import.meta.dirname, '../../.harness/sprint-2026-09-15/story-STUDIO-CODEX/evidence');
 mkdirSync(output, { recursive: true });
 const fixture = JSON.parse(readFileSync('src/lib/fixtures/ohm-roundtrip.json', 'utf8'));
 const errors = [], unexpected = [], executions = [], checks = [], responsive = [];
@@ -12,7 +12,7 @@ let step = 'startup', rejectValidation = false;
 const startedAt = new Date().toISOString();
 const report = data => writeFileSync(resolve(output, 'e2e.json'), JSON.stringify({ startedAt, step, checks, errors, unexpected, executions, responsive, ...data }, null, 2));
 report({ result: 'running' });
-const browser = await chromium.launch({ channel: 'msedge', headless: true });
+const browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || 'msedge', headless: true });
 const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
 const page = await context.newPage();
 page.setDefaultTimeout(15000);
@@ -28,9 +28,11 @@ await context.route('**/*', async route => {
   const responses = {
     'GET /health': { status: 'ok' }, 'GET /bundles/default': fixture,
     'GET /cowork/projects': { projects: [] },
+    'GET /harnesses/': [], 'GET /bundles/examples': { examples: [] },
     'GET /providers/connections': { connections: [
-      { id: 'studio-a', provider: 'openai', label: 'Studio A', enabled: true, residence: 'cloud', endpoint: '', secretRef: null },
-      { id: 'studio-b', provider: 'ollama', label: 'Studio B', enabled: true, residence: 'local', endpoint: 'http://127.0.0.1:11434', secretRef: null },
+      // hydrate() only merges rows whose id is in the offline template.
+      { id: 'openai', provider: 'openai', label: 'Studio A', enabled: true, residence: 'cloud', endpoint: '', secretRef: null },
+      { id: 'ollama-local', provider: 'ollama', label: 'Studio B', enabled: true, residence: 'local', endpoint: 'http://127.0.0.1:11434', secretRef: null },
     ] },
   };
   if (key === 'POST /execute/') {
@@ -39,6 +41,7 @@ await context.route('**/*', async route => {
   }
   let body = responses[key];
   if (key === 'POST /bundles/validate') body = { ok: !rejectValidation, errors: rejectValidation ? ['Isolated invalid bundle'] : [] };
+  if (key === 'POST /harnesses/') body = { id: 'e2e-harness', name: req.postDataJSON().name };
   if (key === 'POST /bundles/mock') body = { ok: true, errors: [], steps: [{ nodeId: 'impl', role: 'agent', status: 'simulated', note: 'isolated plan' }] };
   if (!body) { unexpected.push(key); return route.fulfill({ status: 501, body: '{}' }); }
   return route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
@@ -69,8 +72,10 @@ try {
   assert.deepEqual(errors, []); checks.push('Current BaseNode sample renders without historical Play error');
   await page.locator('.react-flow__node[data-id="impl"]').click();
   await page.getByLabel('Label', { exact: true }).fill('Codex draft preserved');
-  await page.getByLabel('Connection pin', { exact: true }).selectOption('studio-a');
-  await button('Back to Studio').click(); await button('Continue editing').click();
+  // The pin is a Combobox (eced171), not a <select>.
+  await page.getByRole('button', { name: /^Connection pin:/ }).click();
+  await page.getByRole('option', { name: /^Studio A/ }).click();
+  await button('Back to Studio').click(); await page.getByRole('button', { name: /^Continue editing/ }).click();
   await page.getByText('Codex draft preserved', { exact: true }).first().waitFor();
   checks.push('Inspector edit and pin survive Back/Continue');
   step = 'Validate and simulation feedback';
@@ -89,10 +94,11 @@ try {
   await page.getByRole('button', { name: /^Run/ }).click();
   await page.getByRole('radio', { name: 'Mock', exact: true }).waitFor();
   assert.equal(executions.length, 2); assert.equal(executions[0].mode, 'mock'); assert.equal(executions[1].mode, 'live');
-  assert.deepEqual(executions[1].graph_json.nodes.find(n => n.id === 'impl').data.providerIds, ['studio-a']);
+  assert.deepEqual(executions[1].graph_json.nodes.find(n => n.id === 'impl').data.providerIds, ['openai']);
   checks.push('Mock/live serialized mode and selected pin verified; execution response stubbed');
   step = 'OHM roundtrip and rejected import';
-  const upload = bundle => page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').setInputFiles({ name: 'roundtrip.ohm', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
+  // Two .ohm inputs exist (actions bar, validate dock); the dock reports "Imported · <id>".
+  const upload = bundle => page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').nth(1).setInputFiles({ name: 'roundtrip.ohm', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
   await upload(fixture); await page.getByText('Imported · ' + fixture.manifest.id, { exact: true }).waitFor();
   const first = await download('first.ohm'); assert.deepEqual(authored(first), fixture);
   await upload(first); await page.getByText('Imported · ' + fixture.manifest.id, { exact: true }).waitFor();
