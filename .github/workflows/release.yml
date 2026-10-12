@@ -240,8 +240,12 @@ jobs:
           $pv = (Get-ItemProperty -Path "HKLM:\$key" -ErrorAction SilentlyContinue).pv
           if (-not $pv) { throw "WebView2 Runtime still missing after install" }
           Write-Host "WebView2 Runtime $pv installed"
-      - name: Smoke desktop app (sidecar health, WebView, clean exit)
-        run: npm run desktop:smoke
+      - name: Smoke desktop app (sidecar health, clean exit; WebView probe best-effort)
+        # The hosted runner starts WebView2 without --remote-debugging-port, so the
+        # DOM probe warns instead of failing here. install-desktop.ps1 keeps it required.
+        env:
+          OH_WEBVIEW_TIMEOUT_MS: "20000"
+        run: npm run desktop:smoke -- -WebViewOptional
 
       # NSIS only, no MSI: WiX needs a numeric MSI version (major.minor.patch.build,
       # https://v2.tauri.app/reference/config/#wixconfig) and cannot carry the
