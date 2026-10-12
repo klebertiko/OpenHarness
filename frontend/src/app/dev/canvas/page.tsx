@@ -36,6 +36,7 @@ export default function CanvasBench() {
   const isRunning = useCanvasStore((s) => s.isRunning);
   const actions = useHarnessActions();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Seed the dev canvas once on mount; the preset comes from the URL and the store actions are stable
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const preset =
@@ -68,7 +69,6 @@ export default function CanvasBench() {
     loadGraph(graphNodes, graphEdges);
     setHarnessMeta({ id: null, name: preset.name, description: preset.description });
     setSelectedNode("cg-critic");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const commands: Command[] = [

@@ -41,6 +41,7 @@ function Redaction({ length }: { length: number | null }) {
   const width = length === null ? 96 : Math.min(260, Math.max(48, length * 1.9));
   return (
     <span
+      role="img"
       aria-label={length === null ? "Credential value withheld; length unavailable" : `${length} characters withheld`}
       className="inline-block h-[9px] flex-none select-none rounded-[1px] bg-[repeating-linear-gradient(90deg,var(--sub-400)_0_2px,transparent_2px_4px)]"
       style={{ width }}

@@ -117,6 +117,7 @@ export default function Home() {
     openStudioPreset(p);
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: store actions are stable references; the palette rebuilds only on the state it displays
   const commands = useMemo<Command[]>(() => {
     const insert: Command[] = NODE_TEMPLATES.map((t) => ({
       id: `insert:${t.type}`,
@@ -265,7 +266,6 @@ export default function Home() {
         run: () => setKeymapOpen(true),
       },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, executionMode, isRunning, selectedNodeId, actions, isStudio, studioView, openCopilot]);
 
   const providersLeft = (

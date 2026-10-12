@@ -119,11 +119,10 @@ export function AppShell({
   const shellMode = useModeStore((s) => s.mode);
   const hydrateProviders = useProviderStore((s) => s.hydrate);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Hydration runs once, deliberately
   useEffect(() => {
     shell.hydrate();
     void hydrateProviders();
-    // Hydration runs once, deliberately.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Narrow-window policy. A stated preference is never overwritten — the

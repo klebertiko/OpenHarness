@@ -105,12 +105,12 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
   // setup. A named connection is fixed on the Providers screen; with no name
   // there is nothing to open, so show the list. `token` fires even on a
   // repeat request for the same id.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Fires only when a new setup request arrives (token); connections and handlers are read at that moment
   useEffect(() => {
     if (setupRequestToken === 0) return;
     const target = setupRequestId && connections.some((c) => c.id === setupRequestId && isChatCapable(c)) ? setupRequestId : null;
     if (target) goToProviders(target);
     else setOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setupRequestToken]);
 
   return (
