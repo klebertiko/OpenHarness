@@ -255,7 +255,7 @@ it("lists every extra example the catalog returns and opens it as a copy", async
 
 it("the starting points never call a harness a framework, sample, template, preset or Copilot", async () => {
   vi.mocked(fetchStudioExamples).mockResolvedValue([
-    { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness (dsh)", description: "Example harness modelled on DeepSeek Harness.", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } },
+    { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness (dsh)", description: "Bundled harness modelled on DeepSeek Harness.", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } },
   ] as never);
   render(<StudioOverview />);
   const section = (await screen.findByRole("heading", { name: "Starting points" })).closest("aside")!;
