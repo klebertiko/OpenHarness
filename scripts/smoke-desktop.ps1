@@ -2,9 +2,13 @@ param(
   [string]$AppPath = "",
   # Hosted CI runners start the WebView2 browser without --remote-debugging-port
   # (observed on windows-latest), so the DOM probe cannot attach there. With this
-  # switch a failed probe is reported as a warning with diagnostics instead of
-  # failing the run. Sidecar health, window close and cleanup stay mandatory;
-  # local runs (install-desktop.ps1, `npm run desktop:smoke`) keep the probe required.
+  # switch the run only tolerates that one case: check-webview.mjs exit code 3,
+  # meaning the debugging endpoint never answered. It is then reported as a
+  # warning (and in the job summary) with diagnostics. Any other probe failure
+  # (endpoint answered but no page target, wrong title, document not complete,
+  # empty body) still fails the run, as do sidecar health, window close and
+  # cleanup. Local runs (install-desktop.ps1, `npm run desktop:smoke`) keep the
+  # probe required.
   [switch]$WebViewOptional
 )
 
@@ -67,7 +71,8 @@ try {
 
   $webView = & node (Join-Path $PSScriptRoot "check-webview.mjs") $debugPort
   $webViewStatus = "rendered"
-  if ($LASTEXITCODE -ne 0) {
+  $webViewExit = $LASTEXITCODE
+  if ($webViewExit -ne 0) {
     $app.Refresh()
     $state = if ($app.HasExited) { "exited with code $($app.ExitCode)" } else { "still running" }
     $webViewProcesses = @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'")
@@ -78,11 +83,18 @@ try {
         ForEach-Object { Write-Host "  listening on $($_.LocalAddress):$($_.LocalPort)" }
     }
     Write-Host "Expected debug port: $debugPort"
-    $message = "OpenHarness WebView did not render (app $state; msedgewebview2 processes: $($webViewProcesses.Count))"
-    if (-not $WebViewOptional -or $app.HasExited) {
+    # check-webview.mjs exits 3 only when the debugging endpoint never answered;
+    # every other non-zero code means the WebView was reachable but wrong.
+    $endpointUnavailable = ($webViewExit -eq 3)
+    $message = "OpenHarness WebView did not render (probe exit $webViewExit; app $state; msedgewebview2 processes: $($webViewProcesses.Count))"
+    if (-not $WebViewOptional -or -not $endpointUnavailable -or $app.HasExited) {
       throw $message
     }
-    Write-Host "::warning title=Desktop smoke::$message; the DOM probe is optional in this run"
+    $note = "$message; the DevTools endpoint on port $debugPort never answered, so the DOM probe was skipped in this run"
+    Write-Host "::warning title=Desktop smoke::$note"
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+      Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Desktop smoke`n`n- WebView DOM probe: **unverified**. $note. Sidecar health passed."
+    }
     $webViewStatus = "unverified"
     $webView = '{}'
   }

@@ -241,8 +241,10 @@ jobs:
           if (-not $pv) { throw "WebView2 Runtime still missing after install" }
           Write-Host "WebView2 Runtime $pv installed"
       - name: Smoke desktop app (sidecar health, clean exit; WebView probe best-effort)
-        # The hosted runner starts WebView2 without --remote-debugging-port, so the
-        # DOM probe warns instead of failing here. install-desktop.ps1 keeps it required.
+        # The hosted runner starts WebView2 without --remote-debugging-port. Only
+        # that case (the debugging endpoint never answers) downgrades the DOM probe
+        # to a warning plus a job-summary line; a wrong title or an empty UI still
+        # fails. install-desktop.ps1 keeps the probe required.
         env:
           OH_WEBVIEW_TIMEOUT_MS: "20000"
         run: npm run desktop:smoke -- -WebViewOptional
@@ -284,6 +286,7 @@ jobs:
         run: |
           $files = @(
             'src-tauri\binaries\openharness-sidecar-x86_64-pc-windows-msvc.exe',
+            'src-tauri\target\release\openharness-sidecar.exe',
             'src-tauri\target\release\openharness.exe',
             $env:NSIS
           )

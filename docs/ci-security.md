@@ -42,7 +42,7 @@ Create an annotated SemVer tag, `vX.Y.Z` or a pre-release such as `v0.0.1-alpha`
 - `src-tauri/Cargo.toml`
 - `src-tauri/tauri.conf.json`
 
-The tag runs the Quality and Security gates, checks the versions, then builds every platform in the protected `release` environment. PyInstaller cannot cross-compile, so each runner builds its own sidecar (`scripts/build-sidecar.mjs`) and smoke-tests it (`scripts/smoke-sidecar.mjs`) before `tauri build`. Windows also runs the desktop smoke (`scripts/smoke-desktop.ps1 -WebViewOptional`): sidecar health, window close and sidecar cleanup are mandatory; the WebView DOM probe only warns on hosted runners, where WebView2 starts without the remote-debugging flag, and stays required in `install-desktop.ps1`.
+The tag runs the Quality and Security gates, checks the versions, then builds every platform in the protected `release` environment. PyInstaller cannot cross-compile, so each runner builds its own sidecar (`scripts/build-sidecar.mjs`) and smoke-tests it (`scripts/smoke-sidecar.mjs`) before `tauri build`. Windows also runs the desktop smoke (`scripts/smoke-desktop.ps1 -WebViewOptional`): sidecar health, window close and sidecar cleanup are mandatory; the WebView DOM probe is downgraded to a warning (and a job-summary line) only when the remote-debugging endpoint never answers, which is what happens on hosted runners where WebView2 starts without the flag. An endpoint that answers but shows no page, the wrong title or an empty UI still fails the run, and the probe stays required in `install-desktop.ps1`.
 
 | Runner | Target | Assets |
 | --- | --- | --- |
