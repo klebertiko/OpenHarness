@@ -19,6 +19,7 @@ import pytest
 
 from engine import RunControl
 from sandbox import broker as broker_module
+from sandbox import permission
 from sandbox.exec import run
 from sandbox.permission import decide, hardened_git
 from sandbox.schemas import Exec, ToolsRequest
@@ -357,3 +358,214 @@ def test_a_linked_worktree_whose_dot_git_is_a_file_still_asks_and_points_outside
     assert verdict(linked, 'git', 'log') == 'ask'
     # the pin that keeps git inside the workspace cannot name this repository either, so there is no safe way to run it
     assert run_hardened(linked, ['git', 'status'])['ok'] is False
+
+
+# =============================================================================================================
+# SEC/QA round on #125
+# =============================================================================================================
+# -- the name of a promisor remote is an operand of `git fetch`: it must not be able to be an option ---------
+HOSTILE_REMOTE_NAMES = [
+    "--upload-pack=sh -c 'touch M' #", '--force', '--upload-pack=x', '-x', '-', 'a b', 'a/b', 'a;b', '$(id)', 'é', 'ｏrigin',
+]
+
+
+@pytest.mark.parametrize('name', HOSTILE_REMOTE_NAMES)
+@pytest.mark.parametrize('variable', ['promisor = true', 'partialclonefilter = blob:none'])
+def test_a_promisor_remote_whose_name_could_be_an_option_asks(name, variable, tmp_path):
+    root = with_config(make_repo(tmp_path), f'[remote "{name}"]\n\t{variable}\n')
+    assert verdict(root, 'git', 'status') == 'ask'
+
+
+@pytest.mark.parametrize('name', ['origin', 'up.stream', 'my_remote-1', 'Origin', 'fork2'])
+def test_ordinary_remote_names_are_still_admitted_for_the_promisor_keys(name, tmp_path):
+    root = with_config(make_repo(tmp_path), f'[remote "{name}"]\n\tpromisor = true\n\tpartialclonefilter = tree:0\n')
+    assert verdict(root, 'git', 'status') == 'allow'
+
+
+def test_a_remote_named_like_an_upload_pack_option_does_not_run_its_program_when_the_name_is_the_only_flaw(partial_clone, tmp_path):
+    """The SEC repro, end to end: the policy asks, so the broker never starts git for it."""
+    _, clone = partial_clone
+    markers = tmp_path / 'name-markers'
+    markers.mkdir()
+    script = tmp_path / 'name-payload.py'
+    script.write_text(PAYLOAD, encoding='utf-8')
+    program = f'"{sys.executable.replace(chr(92), "/")}" "{script.as_posix()}" "{markers.as_posix()}" name'
+    name = f'--upload-pack={program} #'.replace('"', '\\"')  # inside a subsection only `\` and `"` are escaped
+    with_config(clone, f'[remote "{name}"]\n\tpromisor = true\n')
+    assert verdict(clone, 'git', 'show', 'HEAD:f.txt') == 'ask'  # `ask` parks the call on the approval gate: git is never started
+    assert list(markers.iterdir()) == []
+
+
+# -- promisor keys only on a git that has GIT_NO_LAZY_FETCH (2.45.0) ------------------------------------------
+PROMISOR_CONFIGS = ['[remote "origin"]\n\tpromisor = true\n', '[remote "origin"]\n\tpartialclonefilter = blob:none\n']
+
+
+@pytest.mark.parametrize('config', PROMISOR_CONFIGS)
+@pytest.mark.parametrize('version,expected', [((2, 44, 0), 'ask'), ((2, 44, 9), 'ask'), ((2, 45, 0), 'allow'), ((2, 53, 0), 'allow'),
+                                              ((3, 0, 0), 'allow'), ((2, 32, 0), 'ask'), ((), 'ask')])
+def test_promisor_keys_need_a_git_that_has_the_lazy_fetch_switch(config, version, expected, tmp_path, monkeypatch):
+    root = with_config(make_repo(tmp_path), config)
+    monkeypatch.setattr(permission, '_git_version', lambda: version)
+    assert verdict(root, 'git', 'status') == expected
+
+
+@pytest.mark.parametrize('version', [(2, 44, 0), ()])
+def test_the_git_version_does_not_matter_for_a_repo_without_promisor_keys(version, tmp_path, monkeypatch):
+    root = with_config(make_repo(tmp_path), '[core]\n\tfscache = true\n[gc]\n\tauto = 0\n')
+    monkeypatch.setattr(permission, '_git_version', lambda: version)
+    assert verdict(root, 'git', 'status') == 'allow'
+
+
+@pytest.mark.parametrize('text,expected', [('git version 2.53.0.windows.1', (2, 53, 0)), ('git version 2.45.0\n', (2, 45, 0)),
+                                           ('git version 2.9', (2, 9, 0)), ('git version 2.46.0-rc1', (2, 46, 0)),
+                                           ('', ()), ('fatal: not git', ()), ('git version x.y', ())])
+def test_git_version_parsing_fails_closed(text, expected):
+    assert permission._parse_git_version(text) == expected
+
+
+def test_the_real_git_version_is_a_cached_tuple_of_ints():
+    version = permission._git_version()
+    assert isinstance(version, tuple) and all(isinstance(part, int) for part in version) and version[:1] == (2,)
+    assert permission._git_version() is version
+
+
+# -- ASCII only: Unicode digits and case folds are not git numbers or booleans --------------------------------
+UNICODE_VALUES = [
+    ('gc', 'auto', '٢'), ('gc', 'auto', '１２'), ('gc', 'bigPackThreshold', '5\u212a'), ('gc', 'bigPackThreshold', '١٢k'),
+    ('gc', 'autoDetach', 'tru\u0435'), ('gc', 'pruneExpire', '2.week\u017f.ago'), ('gc', 'pruneExpire', '٢.weeks.ago'),
+    ('gc', 'packRefs', 'no\u017ftbare'), ('core', 'fscache', '\u0661'), ('core', 'untrackedCache', 'ke\u0435p'),
+    ('remote "origin"', 'partialclonefilter', 'tree:\u0661'), ('remote "origin"', 'partialclonefilter', 'blob:limit=\u0661'),
+    ('remote "origin"', 'partialclonefilter', 'blob:limit=1\u212a'), ('branch "main"', 'vscode-merge-base', 'origin/ma\u0456n'),
+    ('lfs', 'repositoryformatversion', '\u0660'),
+]
+
+
+@pytest.mark.parametrize('section,variable,value', UNICODE_VALUES)
+def test_a_value_that_only_looks_like_a_number_or_a_word_in_unicode_asks(section, variable, value, tmp_path):
+    root = with_config(make_repo(tmp_path), f'[{section}]\n\t{variable} = {value}\n')
+    assert verdict(root, 'git', 'status') == 'ask'
+
+
+# -- one table: a key with no value grammar is not admitted ---------------------------------------------------
+def test_a_key_without_a_value_rule_fails_closed(monkeypatch):
+    assert permission._git_config_value_ok('core.fscache', 'true') is True
+    monkeypatch.setattr(permission, '_GIT_CONFIG_RULES', ())
+    assert permission._git_config_value_ok('core.fscache', 'true') is False
+    assert permission._git_config_value_ok('totally.unknown', 'x') is False
+
+
+SAMPLE_ALLOWED_KEYS = [
+    'core.repositoryformatversion', 'core.filemode', 'core.bare', 'core.logallrefupdates', 'core.ignorecase', 'core.symlinks',
+    'core.precomposeunicode', 'core.autocrlf', 'core.eol', 'core.safecrlf', 'core.longpaths', 'core.protectntfs', 'core.trustctime',
+    'core.fscache', 'core.untrackedcache', 'core.sparsecheckout', 'user.name', 'user.email', 'init.defaultbranch', 'pull.rebase',
+    'pull.ff', 'push.default', 'fetch.prune', 'color.ui', 'remote.origin.url', 'remote.origin.pushurl', 'remote.origin.fetch',
+    'remote.origin.push', 'remote.origin.promisor', 'remote.origin.partialclonefilter', 'branch.main.remote', 'branch.main.merge',
+    'branch.main.rebase', 'branch.main.description', 'branch.main.vscode-merge-base', 'submodule.x.url', 'submodule.x.active',
+    'submodule.x.branch', 'gc.auto', 'gc.autopacklimit', 'gc.autodetach', 'gc.bigpackthreshold', 'gc.writecommitgraph',
+    'gc.aggressivedepth', 'gc.aggressivewindow', 'gc.packrefs', 'gc.pruneexpire', 'gc.reflogexpire', 'gc.reflogexpireunreachable',
+    'gc.worktreepruneexpire', 'lfs.repositoryformatversion',
+]
+
+
+@pytest.mark.parametrize('key', SAMPLE_ALLOWED_KEYS)
+def test_every_allowed_key_has_a_rule_and_the_allowlist_is_built_from_the_rules(key):
+    assert permission._GIT_CONFIG_ALLOWED.match(key)
+    assert permission._git_config_rule(key) is not None
+
+
+def test_a_key_the_rules_do_not_know_is_not_in_the_allowlist():
+    assert not permission._GIT_CONFIG_ALLOWED.match('core.fsmonitor')
+    assert permission._git_config_rule('core.fsmonitor') is None
+
+
+# -- with a promisor the URL is reachable by a lazy fetch: it needs a grammar too -----------------------------
+BAD_URLS = ['ext::sh -c touch% M', 'ext:sh', 'EXT::x', '-oProxyCommand=x', '--upload-pack=sh', 'https://h/x\\y', 'C:\\secrets\\repo',
+            'fd::7', 'foo::bar', 'ftp://h/x', 'ssh+x://h/x', 'https://h/x y', 'javascript:alert(1)', 'h:\\x', 'ssh://h/x\nfoo']
+GOOD_URLS = ['https://example.com/x.git', 'http://example.com/x.git', 'ssh://git@example.com/x.git', 'git://example.com/x.git',
+             'git@github.com:o/r.git', 'file:///tmp/up', 'file:///C:/Users/x/up', '/srv/git/up', 'C:/Users/x/up', '../up', './up']
+
+
+@pytest.mark.parametrize('url', BAD_URLS)
+@pytest.mark.parametrize('variable', ['url', 'pushurl'])
+def test_with_a_promisor_a_remote_url_that_names_a_program_or_an_odd_transport_asks(url, variable, tmp_path):
+    escaped = url.replace('\\', '\\\\').replace('\n', '\\n')
+    root = with_config(make_repo(tmp_path), f'[remote "origin"]\n\tpromisor = true\n\t{variable} = "{escaped}"\n')
+    assert verdict(root, 'git', 'status') == 'ask'
+
+
+@pytest.mark.parametrize('url', GOOD_URLS)
+def test_with_a_promisor_ordinary_remote_urls_are_admitted(url, tmp_path):
+    root = with_config(make_repo(tmp_path), f'[remote "origin"]\n\turl = {url}\n\tpromisor = true\n\tpushurl = {url}\n')
+    assert verdict(root, 'git', 'status') == 'allow'
+
+
+@pytest.mark.parametrize('url', ['ext::sh -c x', 'C:\\x', 'ftp://h/x'])
+def test_without_a_promisor_the_remote_url_keeps_its_old_behaviour(url, tmp_path):
+    """No lazy fetch can reach the url: the verdict is the one #114 shipped (any value)."""
+    escaped = url.replace('\\', '\\\\')
+    root = with_config(make_repo(tmp_path), f'[remote "origin"]\n\turl = "{escaped}"\n')
+    assert verdict(root, 'git', 'status') == 'allow'
+
+
+# -- a vscode-merge-base is a well-formed ref name ------------------------------------------------------------
+BAD_REFS = ['a/../../b', 'a/..', '../a', 'a//b', 'a/', '/a', 'a.lock', 'a/b.lock/c', 'a@{1}', '@', 'a..b', 'a.', '.a', 'a/.b', 'a/b.',
+            'a/./b', '-a', 'a b', 'a' * 201]
+GOOD_REFS = ['origin/main', 'upstream/release/1.2', 'main', 'feature/x-y_z', 'v1.0.0', 'users/a@b/topic', 'origin/a.b']
+
+
+@pytest.mark.parametrize('ref', BAD_REFS)
+def test_a_vscode_merge_base_that_is_not_a_well_formed_ref_asks(ref, tmp_path):
+    root = with_config(make_repo(tmp_path), f'[branch "main"]\n\tvscode-merge-base = "{ref}"\n')
+    assert verdict(root, 'git', 'status') == 'ask'
+
+
+@pytest.mark.parametrize('ref', GOOD_REFS)
+def test_a_vscode_merge_base_that_is_a_well_formed_ref_is_admitted(ref, tmp_path):
+    root = with_config(make_repo(tmp_path), f'[branch "main"]\n\tvscode-merge-base = {ref}\n')
+    assert verdict(root, 'git', 'status') == 'allow'
+
+
+# -- each guard alone is behavioural proof, not just argv/env -------------------------------------------------
+def _without_pair(cmd, pair):
+    out = list(cmd)
+    for index in range(len(out) - 2, -1, -1):
+        if out[index] == '-c' and out[index + 1] == pair:
+            del out[index:index + 2]
+            return out
+    raise AssertionError(f'{pair} not in {cmd}')
+
+
+def _show_missing_blob(clone, *, transport_guard, lazy_switch):
+    cmd, pins = hardened_git(['git', 'show', 'HEAD:f.txt'], clone)
+    if not transport_guard:
+        cmd = _without_pair(cmd, 'protocol.allow=never')
+    if not lazy_switch:
+        pins = {key: value for key, value in pins.items() if key != 'GIT_NO_LAZY_FETCH'}
+    return asyncio.run(run(cmd, clone, 30, env={**SETUP_ENV, **pins}))
+
+
+def test_the_transport_guard_alone_stops_the_lazy_fetch(partial_clone):
+    _, clone = partial_clone
+    before = packs(clone)
+    result = _show_missing_blob(clone, transport_guard=True, lazy_switch=False)
+    assert result['ok'] is False and 'hello from the promisor' not in result['result']
+    assert 'not allowed' in result['result']  # git tried and the transport policy refused it
+    assert packs(clone) == before
+
+
+def test_the_lazy_fetch_switch_alone_stops_the_lazy_fetch(partial_clone):
+    if permission._git_version() < (2, 45, 0):
+        pytest.skip('GIT_NO_LAZY_FETCH needs git 2.45')
+    _, clone = partial_clone
+    before = packs(clone)
+    result = _show_missing_blob(clone, transport_guard=False, lazy_switch=True)
+    assert result['ok'] is False and 'hello from the promisor' not in result['result']
+    assert 'not allowed' not in result['result']  # no attempt at all
+    assert packs(clone) == before
+
+
+def test_with_both_guards_removed_the_blob_is_fetched(partial_clone):
+    """Control for the two tests above: it is those two guards, and nothing else, that stop the fetch."""
+    _, clone = partial_clone
+    result = _show_missing_blob(clone, transport_guard=False, lazy_switch=False)
+    assert result['ok'] is True and 'hello from the promisor' in result['result']
