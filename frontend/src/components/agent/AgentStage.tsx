@@ -258,7 +258,7 @@ export function AgentStage() {
           <div className="oh-agent-welcome mx-auto flex w-full max-w-[680px] flex-col pt-[clamp(4rem,13vh,9rem)]">
             <div className="mb-8 flex items-end justify-between gap-8">
               <div className="max-w-[560px]">
-                <h1 className="t-display text-[clamp(2rem,3.6vw,3rem)] font-[600] leading-[1.08] text-ink">
+                <h1 className="t-display text-[clamp(2rem,3.6vw,3rem)] font-semibold leading-[1.08] text-ink">
                   What are we working on?
                 </h1>
                 <p className="mt-3 text-[14px] leading-6 text-ink-mute">Describe a task, or pick one to start.</p>
@@ -309,7 +309,7 @@ export function AgentStage() {
                   m.role === "user" ? "self-end px-4 py-3 oh-agent-message--user" : "self-start pl-4 oh-agent-message--assistant",
                 ].join(" ")}
               >
-                <span className="text-[11px] font-[600] tracking-[0.02em] text-ink-faint">
+                <span className="text-[11px] font-semibold tracking-[0.02em] text-ink-faint">
                   {m.role === "user"
                     ? "You"
                     : m.providerLabel

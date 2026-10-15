@@ -244,7 +244,7 @@ export function CredentialSeal({
             setPrefixOk(prefixMatches(v, expected));
           }}
           onKeyDown={(e) => e.key === "Enter" && void submit()}
-          className="oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_10rem] rounded-control border border-line-soft bg-sub-200 px-2 tracking-[0.16em] text-ink outline-none focus:border-signal-deep"
+          className="oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_10rem] rounded-control border border-line-soft bg-sub-200 px-2 tracking-[0.16em] text-ink outline-hidden focus:border-signal-deep"
         />
         <Btn onClick={() => void submit()} primary disabled={!len || !prefixOk || busy}>
           {busy ? "Storing…" : "Store"}
@@ -305,7 +305,7 @@ function Row({ k, v }: { k: string; v: string }) {
   return (
     <>
       <dt className="t-body text-ink-faint">{k}</dt>
-      <dd className="t-meta text-ink-dim [overflow-wrap:anywhere]">{v}</dd>
+      <dd className="t-meta text-ink-dim wrap-anywhere">{v}</dd>
     </>
   );
 }
@@ -329,7 +329,7 @@ export function Btn({
       onClick={onClick}
       disabled={disabled}
       className={[
-        "t-body inline-flex h-8 flex-none items-center gap-1.5 whitespace-nowrap rounded-control border px-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40",
+        "t-body inline-flex h-8 flex-none items-center gap-1.5 whitespace-nowrap rounded-control border px-3 transition-colors focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40",
         primary
           ? "border-signal bg-signal font-medium text-signal-ink hover:bg-signal-deep disabled:hover:bg-signal"
           : tone === "fault"

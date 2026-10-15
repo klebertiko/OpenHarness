@@ -61,7 +61,7 @@ it("lists the models the endpoint served, and says where the list came from (F4)
   expect(screen.queryByText(/allowed/i)).toBeNull();
 });
 
-it("saves an edited endpoint on blur and reports the outcome (F3)", async () => {
+it("saves an edited endpoint on blur-sm and reports the outcome (F3)", async () => {
   const saveEndpoint = vi.fn().mockResolvedValue(true);
   show(connection({}), { saveEndpoint });
   const field = screen.getByRole("textbox", { name: "Ollama local endpoint" });

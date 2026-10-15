@@ -161,9 +161,9 @@ export function useFieldAssist(nodeId: string, field: AssistField): AssistContro
 }
 
 const quietBtn =
-  "h-6 rounded-control border border-line px-2 text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40";
+  "h-6 rounded-control border border-line px-2 text-[12px] text-ink hover:bg-sub-300 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40";
 const primaryBtn =
-  "h-6 rounded-control bg-signal px-2.5 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40";
+  "h-6 rounded-control bg-signal px-2.5 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40";
 
 export function AssistToggle({ ctl }: { ctl: AssistController }) {
   return (
@@ -173,7 +173,7 @@ export function AssistToggle({ ctl }: { ctl: AssistController }) {
       disabled={ctl.disabled}
       title={ctl.disabled ? "Stop the run to edit this field" : undefined}
       onClick={() => ctl.setOpen(!ctl.open)}
-      className="inline-flex h-5 items-center gap-1 rounded-control px-1.5 text-[12px] text-ink-mute hover:bg-sub-300 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-5 items-center gap-1 rounded-control px-1.5 text-[12px] text-ink-mute hover:bg-sub-300 hover:text-ink focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
     >
       <PenLine size={12} aria-hidden />
       Assist
@@ -200,7 +200,7 @@ export function AssistRow({ ctl }: { ctl: AssistController }) {
     return (
       <div className="mt-1.5 space-y-2">
         {typeof response.text === "string" && (
-          <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-[10px] border border-line bg-sub-300 p-2.5 font-sans text-body leading-relaxed text-ink">{response.text}</pre>
+          <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap wrap-break-word rounded-[10px] border border-line bg-sub-300 p-2.5 font-sans text-body leading-relaxed text-ink">{response.text}</pre>
         )}
         {response.source === "offline" && <span className="t-meta text-ink-faint">Offline draft</span>}
         {notes.length > 0 && (
@@ -247,7 +247,7 @@ export function AssistRow({ ctl }: { ctl: AssistController }) {
                 ctl.run("draft");
               }
             }}
-            className="h-7 min-w-0 flex-1 rounded-control border border-line-soft bg-sub-200 px-2 text-title text-ink placeholder:text-ink-faint hover:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+            className="h-7 min-w-0 flex-1 rounded-control border border-line-soft bg-sub-200 px-2 text-title text-ink placeholder:text-ink-faint hover:border-line focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal"
           />
           <button type="button" className={primaryBtn} disabled={!ctl.intent.trim()} onClick={() => ctl.run("draft")}>Draft</button>
         </div>

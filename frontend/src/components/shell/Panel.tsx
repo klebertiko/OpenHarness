@@ -19,7 +19,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`flex min-h-0 min-w-0 flex-col bg-sub-100 shadow-[inset_0_1px_0_0_oklch(1_0_0_/_0.04)] ${className}`}>
+    <section className={`flex min-h-0 min-w-0 flex-col bg-sub-100 shadow-[inset_0_1px_0_0_oklch(1_0_0/0.04)] ${className}`}>
       <header className="flex h-panelhead flex-none items-center gap-2 border-b border-line px-3">
         <h2 className="t-title truncate text-ink">{title}</h2>
         <span className="flex-1" />

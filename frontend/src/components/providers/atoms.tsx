@@ -126,12 +126,12 @@ export function Fact({
     <div className="min-w-0 border-t border-line-soft pt-2">
       <dt className="t-body text-ink-mute">{term}</dt>
       <dd
-        className={`t-title mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 [overflow-wrap:anywhere] ${FACT_TONE[tone]}`}
+        className={`t-title mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 wrap-anywhere ${FACT_TONE[tone]}`}
       >
         {mark}
         {value}
       </dd>
-      {note && <dd className="t-body mt-0.5 text-ink-faint [overflow-wrap:anywhere]">{note}</dd>}
+      {note && <dd className="t-body mt-0.5 text-ink-faint wrap-anywhere">{note}</dd>}
     </div>
   );
 }
@@ -217,7 +217,7 @@ export function Chip({
         CHIP_TONE[tone],
         active ? "border-signal-deep bg-sub-300" : "border-line bg-sub-200",
         onClick
-          ? "hover:border-ink-faint hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          ? "hover:border-ink-faint hover:bg-sub-300 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-signal"
           : "",
       ].join(" ")}
     >

@@ -183,7 +183,7 @@ export function CommandPalette({
                and a signal rectangle around the only field in a modal states
                something the user already knows. The tick to its left is the
                marker. */
-            className="t-title h-full flex-1 bg-transparent text-ink outline-none focus-visible:outline-none placeholder:text-ink-faint"
+            className="t-title h-full flex-1 bg-transparent text-ink outline-hidden focus-visible:outline-hidden placeholder:text-ink-faint"
           />
           <span className="t-meta flex-none tabular-nums text-ink-faint">
             {matches.length.toString().padStart(2, "0")}

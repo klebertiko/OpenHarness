@@ -37,7 +37,7 @@ export function Gate({
     return (
       <div className="mt-1.5 flex items-baseline gap-2">
         <span
-          className="h-[9px] w-[2px] flex-none translate-y-[1px] rounded-[1px]"
+          className="h-[9px] w-[2px] flex-none translate-y-px rounded-[1px]"
           style={{ background: rejected ? "var(--fault)" : "var(--ink-faint)" }}
           aria-hidden
         />

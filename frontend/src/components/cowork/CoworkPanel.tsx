@@ -98,27 +98,27 @@ export function CoworkPanel() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Project name"
-            className="h-[28px] rounded-control border border-line bg-sub-200 px-2 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-ink-mute"
+            className="h-[28px] rounded-control border border-line bg-sub-200 px-2 text-[12px] text-ink outline-hidden placeholder:text-ink-faint focus:border-ink-mute"
           />
           <input
             value={rootPath}
             onChange={(e) => setRootPath(e.target.value)}
             placeholder="Folder path (e.g. D:/workspaces/research)"
-            className="h-[28px] rounded-control border border-line bg-sub-200 px-2 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-ink-mute"
+            className="h-[28px] rounded-control border border-line bg-sub-200 px-2 text-[12px] text-ink outline-hidden placeholder:text-ink-faint focus:border-ink-mute"
           />
           <textarea
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
             rows={2}
             placeholder="Standing instructions…"
-            className="resize-none rounded-control border border-line bg-sub-200 px-2 py-1.5 text-[12px] text-ink outline-none placeholder:text-ink-faint focus:border-ink-mute"
+            className="resize-none rounded-control border border-line bg-sub-200 px-2 py-1.5 text-[12px] text-ink outline-hidden placeholder:text-ink-faint focus:border-ink-mute"
           />
           <label className="flex items-center gap-1.5 text-[11px] text-ink-mute">
             <input
               type="checkbox"
               checked={harnessOverride}
               onChange={(e) => setHarnessOverride(e.target.checked)}
-              className="accent-[var(--signal)]"
+              className="accent-(--signal)"
             />
             Harness enabled for this project
           </label>

@@ -76,7 +76,7 @@ function Resizer({
       className="group relative z-10 w-[5px] flex-none cursor-col-resize bg-transparent"
       style={{ marginInline: "-2px" }}
     >
-      <span className="pointer-events-none absolute inset-y-0 left-[2px] w-px bg-line transition-colors group-hover:bg-ink-faint group-data-[dragging]:bg-signal" />
+      <span className="pointer-events-none absolute inset-y-0 left-[2px] w-px bg-line transition-colors group-hover:bg-ink-faint group-data-dragging:bg-signal" />
     </div>
   );
 }
