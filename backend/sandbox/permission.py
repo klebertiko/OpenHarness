@@ -59,6 +59,7 @@ _GIT_FLAGS = frozenset({
 _GIT_COUNT_FLAG = re.compile(r'^(-\d{1,4}|-n\d{1,4}|--max-count=\d{1,4})$')
 _GIT_OPERAND = re.compile(r'^[A-Za-z0-9_@{}^~:./+\\-]+$')
 _DIFFY_SUBCOMMANDS = frozenset({'diff', 'log', 'show'})
+_SUBMODULE_SCANNERS = frozenset({'status', 'diff'})
 
 # `section.key` names (lowercased by git; the subsection, if any, is the middle part) the repo's own
 # .git/config may set. Anything else - filters, drivers, textconv, hooks, includes, aliases, unknown keys - is refused.
@@ -360,16 +361,23 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
     if not argv or _normalize_program(argv[0]) != 'git':
         return list(argv), {}
     head = ['git', '-c', 'core.fsmonitor=', '-c', 'core.pager=cat', '-c', 'diff.external=',
-            '-c', f'core.hooksPath={os.devnull}', '--no-pager', '--no-optional-locks']
+            '-c', f'core.hooksPath={os.devnull}',
+            # Defense in depth for the GIT_DIR pin below: git only enters a bare repository it is told about explicitly.
+            '-c', 'safe.bareRepository=explicit', '--no-pager', '--no-optional-locks']
     rest = list(argv[1:])
     if rest and rest[0] in _DIFFY_SUBCOMMANDS:
         rest[1:1] = ['--no-ext-diff', '--no-textconv']
+    if rest and rest[0] in _SUBMODULE_SCANNERS:
+        # A gitlink in the index makes `status`/`diff` start `git status` INSIDE that directory, which reads the nested
+        # repo's own config and info/attributes (filter.*.process runs). `dirty` compares only the recorded commit.
+        rest[1:1] = ['--ignore-submodules=dirty']
     real_root = os.path.realpath(str(root))
     git_dir = os.path.join(real_root, '.git')
     env = {
         # Pinned so git never follows `.git/commondir`, a `.git` file or a parent repo to a config we did not verify.
         'GIT_DIR': git_dir, 'GIT_COMMON_DIR': git_dir, 'GIT_WORK_TREE': real_root,
-        # Attributes (filter=/diff=) come from the empty tree, not from the working tree's .gitattributes (git >= 2.42; older git ignores it).
+        # Attributes (filter=/diff=) come from the empty tree, not from the working tree's .gitattributes (git >= 2.42; older git ignores it,
+        # and stays inert: the verified config and the neutral global/system config define no driver - see test_sandbox_nested_git.py).
         'GIT_ATTR_SOURCE': _EMPTY_TREE,
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
         'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
