@@ -63,9 +63,12 @@ _SUBMODULE_SCANNERS = frozenset({'status', 'diff'})
 
 # `section.key` names (lowercased by git; the subsection, if any, is the middle part) the repo's own
 # .git/config may set. Anything else - filters, drivers, textconv, hooks, includes, aliases, unknown keys - is refused.
+# A key that takes free text is also bound to a value grammar in `_GIT_CONFIG_VALUES`; a key that is
+# only a switch or a number is held to it there as well, so a value is never trusted just because its key is.
 _GIT_CONFIG_ALLOWED = re.compile(
     r'^(?:'
     r'core\.(?:repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|symlinks|precomposeunicode|autocrlf|eol|safecrlf|longpaths|protectntfs|trustctime)'
+    r'|core\.(?:fscache|untrackedcache|sparsecheckout)'
     r'|user\.(?:name|email)'
     r'|init\.defaultbranch'
     r'|pull\.(?:rebase|ff)'
@@ -73,9 +76,33 @@ _GIT_CONFIG_ALLOWED = re.compile(
     r'|fetch\.prune'
     r'|color\.ui'
     r'|remote\..+\.(?:url|pushurl|fetch|push)'
+    r'|remote\..+\.(?:promisor|partialclonefilter)'
     r'|branch\..+\.(?:remote|merge|rebase|description)'
+    r'|branch\..+\.vscode-merge-base'
     r'|submodule\..+\.(?:url|active|branch)'
+    r'|gc\.(?:auto|autopacklimit|autodetach|bigpackthreshold|writecommitgraph|aggressivedepth|aggressivewindow|packrefs'
+    r'|pruneexpire|reflogexpire|reflogexpireunreachable|worktreepruneexpire)'
+    r'|lfs\.repositoryformatversion'
     r')$')
+_CFG_BOOL = r'(?:true|false|yes|no|on|off|0|1)'
+_CFG_NUMBER = r'-?\d{1,12}[kKmMgG]?'
+_CFG_DATE = r'(?:now|never|\d{1,10}|\d{1,6}\.(?:second|minute|hour|day|week|month|year)s?\.ago)'
+# (key pattern, value pattern): the value must `fullmatch` (case-insensitive) when the key matches; a key with no value
+# (`[core] fscache`) is the boolean true and is accepted only where a boolean is. Only tokens - no spaces, no `;`, `$`,
+# quotes, backslashes or newlines - so nothing here can be a command line, a path or a URL.
+_GIT_CONFIG_VALUES = tuple((re.compile(key), re.compile(value, re.IGNORECASE), bare) for key, value, bare in (
+    (r'core\.(?:fscache|sparsecheckout)', _CFG_BOOL, True),
+    (r'core\.untrackedcache', rf'(?:{_CFG_BOOL}|keep)', True),
+    (r'branch\..+\.vscode-merge-base', r'[A-Za-z0-9][A-Za-z0-9._@+/-]{0,199}', False),
+    (r'remote\..+\.promisor', _CFG_BOOL, True),
+    # Only the filter specs git documents without a path, an object name or a nested spec (`sparse:`, `combine:`, `object:` stay out).
+    (r'remote\..+\.partialclonefilter', r'(?:blob:none|blob:limit=\d{1,12}[kKmMgG]?|tree:\d{1,6})', False),
+    (r'gc\.(?:auto|autopacklimit|aggressivedepth|aggressivewindow|bigpackthreshold)', _CFG_NUMBER, False),
+    (r'gc\.(?:autodetach|writecommitgraph)', _CFG_BOOL, True),
+    (r'gc\.packrefs', rf'(?:{_CFG_BOOL}|notbare)', True),
+    (r'gc\.(?:pruneexpire|reflogexpire|reflogexpireunreachable|worktreepruneexpire)', _CFG_DATE, False),
+    (r'lfs\.repositoryformatversion', r'0', False),
+))
 # Files inside .git that make git read configuration or objects from somewhere else (worktrees, linked repos).
 _GIT_EXE = shutil.which('git')  # resolved once, at import: the policy never searches PATH while deciding
 _EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
@@ -224,7 +251,8 @@ def _git_objects_are_local(git_dir: str) -> bool:
 
 
 def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
-    """Every key git itself parses out of `config`, or None when git cannot parse it. `git config -f --list`
+    """Every key git itself parses out of `config`, or None when git cannot parse it or a value breaks the
+    grammar its key is bound to (`_GIT_CONFIG_VALUES`). `git config -f --list`
     only reads; with --no-includes it follows nothing and a hostile file cannot make it start a program."""
     git = _GIT_EXE
     if git is None:
@@ -244,7 +272,23 @@ def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
         text = done.stdout.decode('utf-8')
     except UnicodeDecodeError:
         return None
-    return [entry.split('\n', 1)[0] for entry in text.split('\0') if entry]
+    keys = []
+    for entry in text.split('\0'):
+        if not entry:
+            continue
+        key, separator, value = entry.partition('\n')
+        if not _git_config_value_ok(key, value if separator else None):
+            return None
+        keys.append(key)
+    return keys
+
+
+def _git_config_value_ok(key: str, value: str | None) -> bool:
+    """A key bound to a value grammar must carry a value that fully matches it (`None` is a key written with no `=`)."""
+    for key_pattern, value_pattern, bare_is_true in _GIT_CONFIG_VALUES:
+        if key_pattern.fullmatch(key):
+            return bare_is_true if value is None else value_pattern.fullmatch(value) is not None
+    return True
 
 
 def _git_config_is_inert(root: str) -> bool:
@@ -363,7 +407,12 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
     head = ['git', '-c', 'core.fsmonitor=', '-c', 'core.pager=cat', '-c', 'diff.external=',
             '-c', f'core.hooksPath={os.devnull}',
             # Defense in depth for the GIT_DIR pin below: git only enters a bare repository it is told about explicitly.
-            '-c', 'safe.bareRepository=explicit', '--no-pager', '--no-optional-locks']
+            '-c', 'safe.bareRepository=explicit',
+            # A promisor remote (`remote.*.promisor`, admitted above) lets a read-only command fetch a missing object from `remote.*.url`.
+            # No transport is allowed, so no command started here contacts a server or reads another repository (git >= 2.44 also
+            # honours GIT_NO_LAZY_FETCH below, which skips the attempt altogether).
+            '-c', 'protocol.allow=never',
+            '--no-pager', '--no-optional-locks']
     rest = list(argv[1:])
     if rest and rest[0] in _DIFFY_SUBCOMMANDS:
         rest[1:1] = ['--no-ext-diff', '--no-textconv']
@@ -380,7 +429,7 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
         # and stays inert: the verified config and the neutral global/system config define no driver - see test_sandbox_nested_git.py).
         'GIT_ATTR_SOURCE': _EMPTY_TREE,
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
-        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
+        'GIT_OPTIONAL_LOCKS': '0', 'GIT_NO_LAZY_FETCH': '1', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
     }
     return head + rest, env
 
