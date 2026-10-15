@@ -13,9 +13,8 @@ import sys
 
 import pytest
 
-import sandbox.broker
 from engine import RunControl
-from sandbox.broker import ToolBroker
+from sandbox import broker as broker_module
 from sandbox.exec import run
 from sandbox.permission import decide, hardened_git
 from sandbox.schemas import Exec, ToolsRequest
@@ -116,6 +115,18 @@ def plant(bench, repo_dir, git_dir):
     git(git_dir, 'update-ref', 'HEAD', signed, env=pin)
 
 
+def make_seed(tmp_path):
+    """A one-commit repository that the bare and submodule kinds clone from."""
+    seed = tmp_path / 'seed'
+    seed.mkdir()
+    git(seed, 'init', '-q')
+    for name in ('b.txt', 'c.txt'):
+        (seed / name).write_text('one\n', encoding='utf-8')
+    git(seed, 'add', 'b.txt', 'c.txt')
+    git(seed, 'commit', '-q', '-m', 'nested commit')
+    return seed
+
+
 def make_workspace(tmp_path, kind, bench):
     """Root repo (inert config, one commit, a dirty tracked file, a hostile .gitattributes) plus `sub/` of `kind`."""
     root = tmp_path / 'ws'
@@ -125,20 +136,12 @@ def make_workspace(tmp_path, kind, bench):
     git(root, 'add', 'a.txt')
     git(root, 'commit', '-q', '-m', 'root commit')
     sub = root / 'sub'
-    if kind in ('bare', 'submodule'):
-        seed = tmp_path / 'seed'
-        seed.mkdir()
-        git(seed, 'init', '-q')
-        for name in ('b.txt', 'c.txt'):
-            (seed / name).write_text('one\n', encoding='utf-8')
-        git(seed, 'add', 'b.txt', 'c.txt')
-        git(seed, 'commit', '-q', '-m', 'nested commit')
     if kind == 'bare':
-        git(tmp_path, 'clone', '-q', '--bare', str(seed), str(sub))
+        git(tmp_path, 'clone', '-q', '--bare', str(make_seed(tmp_path)), str(sub))
         plant(bench, None, sub)
     elif kind == 'submodule':
         # The real layout: `sub/.git` is a file and the submodule's config lives in the root's `.git/modules/sub`.
-        git(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', str(seed), 'sub')
+        git(root, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', str(make_seed(tmp_path)), 'sub')
         git(root, 'commit', '-q', '-m', 'add submodule')
         plant(bench, sub, root / '.git' / 'modules' / 'sub')
         for name in ('b.txt', 'c.txt'):
@@ -168,7 +171,7 @@ def make_workspace(tmp_path, kind, bench):
 def run_auto(root, argv, cwd='sub'):
     """The production path: broker -> decide -> hardened_git -> exec.run, in auto_workspace mode."""
     control = RunControl('nested-git')
-    broker = ToolBroker(str(root), 'ollama', control, ToolsRequest(enabled=True), permission_mode='auto_workspace')
+    broker = broker_module.ToolBroker(str(root), 'ollama', control, ToolsRequest(enabled=True), permission_mode='auto_workspace')
 
     async def collect():
         return [event async for event in broker.call('exec', {'argv': argv, 'cwd': cwd, 'timeout_s': 30}, origin='preset')]
@@ -204,13 +207,13 @@ def hostile_global_config(tmp_path, monkeypatch):
 def attr_source(request, monkeypatch):
     """`GIT_ATTR_SOURCE` as production sets it, or dropped: git < 2.42 does not know the variable."""
     if request.param == 'ignored':
-        real = sandbox.broker.hardened_git
+        real = broker_module.hardened_git
 
         def without_attr_source(argv, root):
             cmd, env = real(argv, root)
             env.pop('GIT_ATTR_SOURCE', None)
             return cmd, env
-        monkeypatch.setattr(sandbox.broker, 'hardened_git', without_attr_source)
+        monkeypatch.setattr(broker_module, 'hardened_git', without_attr_source)
     return request.param
 
 
