@@ -1,6 +1,6 @@
-# Design — OpenHarness
+# Design — OHarness
 
-A locked design system for OpenHarness. The product is an everyday agent
+A locked design system for OHarness. The product is an everyday agent
 workspace; its Studio is a visual Graph Engineering instrument.
 
 ## Genre

@@ -12,7 +12,7 @@ const startedAt = new Date().toISOString();
 const fixture = JSON.parse(readFileSync(resolve(frontend, "src/lib/fixtures/ohm-roundtrip.json"), "utf8"));
 const bundled = {
   ...fixture,
-  manifest: { ...fixture.manifest, id: "openharness.default.agile", name: "Agile Harness" },
+  manifest: { ...fixture.manifest, id: "oharness.default.agile", name: "Agile Harness" },
   graph: {
     nodes: [
       { id: "writer", type: "agent", position: { x: 120, y: 90 }, data: { label: "Writer", providerIds: [] } },
@@ -99,7 +99,7 @@ try {
   });
   await page.goto(process.env.OHM_E2E_URL || "http://127.0.0.1:3000", { waitUntil: "networkidle" });
   step = "slash command menu";
-  const composer = page.getByRole("textbox", { name: "Message OpenHarness" });
+  const composer = page.getByRole("textbox", { name: "Message OHarness" });
   await composer.fill("/");
   await page.getByRole("listbox", { name: "Commands and skills" }).waitFor();
   await composer.press("ArrowDown");
@@ -227,7 +227,7 @@ try {
     await menu.press("ArrowUp");
     await page.screenshot({ path: resolve(output, "provider-" + width + ".png") });
     await menu.press("Escape");
-    const draft = page.getByRole("textbox", { name: "Message OpenHarness" });
+    const draft = page.getByRole("textbox", { name: "Message OHarness" });
     await draft.fill("/");
     const commands = page.getByRole("listbox", { name: "Commands and skills" });
     const cb = await commands.boundingBox();

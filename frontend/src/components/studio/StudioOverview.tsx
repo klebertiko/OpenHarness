@@ -61,7 +61,7 @@ export function StudioOverview() {
   useEffect(() => {
     let alive = true;
     void fetchStudioExamples().then(
-      (all) => { if (alive) setExtraExamples(all.filter((e) => !e.presetId && !/^openharness\.default\b/.test(e.id))); },
+      (all) => { if (alive) setExtraExamples(all.filter((e) => !e.presetId && !/^oharness\.default\b/.test(e.id))); },
       () => {},
     );
     return () => { alive = false; };

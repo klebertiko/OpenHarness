@@ -1,14 +1,14 @@
-# OpenHarness DX/UX — Chat-first Desktop Implementation Plan
+# OHarness DX/UX — Chat-first Desktop Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make OpenHarness feel like Cursor/Claude/Codex desktop: Chat home with threads, harness bar above composer, Providers (no Wallet), Studio for graph validate-without-tokens, Tauri as the official run path, Nightwolf-style brand icons.
+**Goal:** Make OHarness feel like Cursor/Claude/Codex desktop: Chat home with threads, harness bar above composer, Providers (no Wallet), Studio for graph validate-without-tokens, Tauri as the official run path, Nightwolf-style brand icons.
 
 **Architecture:** Keep Agent/Studio mode split. Reshape Agent into master–detail (threads | chat). Move Cowork/Automations/Git off Chat tabs into command palette. Surface provider auto-probe (Claude → Cursor → API → mock) on a composer chip. Rename all user-facing “Wallet” to “Providers”. Wire `brand/` into Tauri icons and a root `desktop` script.
 
 **Tech Stack:** Next.js frontend, FastAPI sidecar, Zustand, Vitest, pytest, Tauri v2, existing `runtime/cli_probe.py` + provider store.
 
-**Spec:** `docs/superpowers/specs/2026-09-09-openharness-dx-ux-design.md`  
+**Spec:** `docs/superpowers/specs/2026-09-09-oharness-dx-ux-design.md`  
 **Design tokens / brand:** `design.md`, `brand/README.md`
 
 ## Global Constraints
@@ -262,9 +262,9 @@ test("panel title is Providers not Wallet", () => {
 
 ## Execution handoff
 
-After this plan is saved, implement with **subagent-driven-development** (user preference from earlier OpenHarness work) unless the user asks for executing-plans inline.
+After this plan is saved, implement with **subagent-driven-development** (user preference from earlier OHarness work) unless the user asks for executing-plans inline.
 
-**Plan complete and saved to `docs/superpowers/plans/2026-09-09-openharness-dx-ux-desktop.md`. Two execution options:**
+**Plan complete and saved to `docs/superpowers/plans/2026-09-09-oharness-dx-ux-desktop.md`. Two execution options:**
 
 1. **Subagent-Driven (recommended)** — fresh subagent per task + reviewer  
 2. **Inline** — executing-plans in this session  
