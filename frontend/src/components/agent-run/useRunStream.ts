@@ -15,7 +15,7 @@ export interface RunController {
   live: boolean;
   /** Cancel any stream and return to a blank run (used by New chat). */
   reset: () => void;
-  start: (opts: { instruction: string; mode: string; step: boolean; cwd?: string; providerId?: string; tools?: DirectRunPayload["tools"] }) => void;
+  start: (opts: { instruction: string; mode: string; step: boolean; cwd?: string; providerId?: string; model?: string; tools?: DirectRunPayload["tools"] }) => void;
   stop: () => void;
   advance: () => void;
   resolveGate: (decision: "approve" | "reject", note: string) => void;
@@ -80,6 +80,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
       step,
       cwd,
       providerId,
+      model,
       tools,
     }: {
       instruction: string;
@@ -87,6 +88,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
       step: boolean;
       cwd?: string;
       providerId?: string;
+      model?: string;
       tools?: DirectRunPayload["tools"];
     }) => {
       const generation = ++generationRef.current;
@@ -142,7 +144,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
         );
       } else {
         abortRef.current = startDirectRun(
-          { instruction, mode, step, cwd, connection_id: providerId, ...(tools ? { tools } : {}) },
+          { instruction, mode, step, cwd, connection_id: providerId, ...(model ? { model } : {}), ...(tools ? { tools } : {}) },
           onEvent,
           onClose
         );

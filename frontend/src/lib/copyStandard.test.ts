@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { fetchStudioExamples } from "./studioExamples";
+import { BUNDLED_HARNESS_COMMAND_GROUP, fetchStudioExamples } from "./studioExamples";
 import { HARNESS_PRESETS } from "./templates";
 
 /**
@@ -28,4 +28,9 @@ it("every built-in harness (preset) is named and described as a harness", () => 
     expect(noForbidden(p.name), p.name).toBe(true);
     expect(noForbidden(p.description), p.description).toBe(true);
   }
+});
+
+it("the command palette groups the bundled harnesses under the same label as the Studio actions bar (#113)", () => {
+  expect(BUNDLED_HARNESS_COMMAND_GROUP).toBe("Open bundled harness");
+  expect(noForbidden(BUNDLED_HARNESS_COMMAND_GROUP)).toBe(true);
 });

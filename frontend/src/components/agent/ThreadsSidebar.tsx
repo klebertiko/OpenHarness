@@ -17,9 +17,11 @@ export function ThreadsSidebar() {
   const activeThreadId = useThreadStore((s) => s.activeThreadId);
   const startNewChat = useThreadStore((s) => s.startNewChat);
   const selectThread = useThreadStore((s) => s.selectThread);
+  const [query, setQuery] = useState("");
+  const matches = (thread: Thread) => thread.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
 
-  const open = useMemo(() => threads.filter((t) => !t.archived), [threads]);
-  const archived = useMemo(() => threads.filter((t) => t.archived), [threads]);
+  const open = threads.filter((t) => !t.archived && matches(t));
+  const archived = threads.filter((t) => t.archived && matches(t));
   const groups = useMemo(() => groupByRecency(open), [open]);
 
   const [listFocused, setListFocused] = useState(false);
@@ -28,6 +30,7 @@ export function ThreadsSidebar() {
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest('input, [role="menu"]')) return;
       if (open.length === 0 || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
       e.preventDefault();
       const ids = open.map((t) => t.id);
@@ -57,8 +60,13 @@ export function ThreadsSidebar() {
         </button>
       </div>
 
+      <div className="px-2 py-2">
+        <input type="search" aria-label="Search chats" placeholder="Search chats" value={query} onChange={(event) => setQuery(event.target.value)}
+          className="h-8 w-full min-w-0 rounded-control border border-line-soft bg-sub-100 px-2 text-[12px] text-ink outline-none focus-visible:ring-1 focus-visible:ring-signal" />
+      </div>
+
       {open.length === 0 && archived.length === 0 ? (
-        <p className="px-3 py-3 text-[12px] text-ink-mute">No chats yet. Start one and it shows up here.</p>
+        <p role="status" className="px-3 py-3 text-[12px] text-ink-mute">{query.trim() ? "No matching chats." : "No chats yet. Start one and it shows up here."}</p>
       ) : (
         <div
           role="listbox"
@@ -86,7 +94,7 @@ export function ThreadsSidebar() {
           ))}
 
           {archived.length > 0 && (
-            <details className="mt-2 px-1.5">
+            <details key={query.trim() ? "search" : "all"} open={query.trim() ? true : undefined} className="mt-2 px-1.5">
               <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-[550] text-ink-faint marker:content-none hover:text-ink-mute">
                 Archived · {archived.length}
               </summary>
