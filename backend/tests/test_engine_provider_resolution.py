@@ -57,7 +57,7 @@ def _connections() -> dict[str, dict]:
             "residence": "cloud",
             "endpoint": "https://api.anthropic.com",
             "enabled": True,
-            "secretRef": "oharness/anthropic",
+            "secretRef": "oharness/anthropic",  # gitleaks:allow
         },
         "openai-disabled": {
             "id": "openai-disabled",

@@ -48,7 +48,7 @@ def client(monkeypatch: pytest.MonkeyPatch):
             "residence": "cloud",
             "endpoint": "https://api.anthropic.com",
             "enabled": True,
-            "secretRef": "oharness/anthropic",
+            "secretRef": "oharness/anthropic",  # gitleaks:allow
         }
     }
     monkeypatch.setattr("providers.resolution.get_adapter", lambda name: _StubAdapter())

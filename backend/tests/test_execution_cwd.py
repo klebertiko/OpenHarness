@@ -54,7 +54,7 @@ def client(monkeypatch: pytest.MonkeyPatch):
             "residence": "cloud",
             "endpoint": "https://api.anthropic.com",
             "enabled": True,
-            "secretRef": "oharness/anthropic",
+            "secretRef": "oharness/anthropic",  # gitleaks:allow
         }
     }
     # Two different `get_adapter` bindings: the graph walk resolves through

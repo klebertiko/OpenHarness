@@ -57,7 +57,7 @@ def client(monkeypatch: pytest.MonkeyPatch):
             "residence": "cloud",
             "endpoint": "https://api.anthropic.com",
             "enabled": True,
-            "secretRef": "oharness/anthropic",
+            "secretRef": "oharness/anthropic",  # gitleaks:allow
         },
         # residence: "local" -- used by the P2-4 unpriced-model tests below to
         # confirm a genuinely-free local connection is never refused just

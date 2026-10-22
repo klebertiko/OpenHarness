@@ -48,7 +48,7 @@ def _connections(model="claude-sonnet-5"):
             "residence": "cloud",
             "endpoint": "https://api.anthropic.com",
             "enabled": True,
-            "secretRef": "oharness/anthropic",
+            "secretRef": "oharness/anthropic",  # gitleaks:allow
             "defaultModel": model,
         }
     }
