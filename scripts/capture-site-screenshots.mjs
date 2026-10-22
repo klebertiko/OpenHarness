@@ -9,8 +9,7 @@
 //   node scripts/capture-site-screenshots.mjs [outDir]
 //
 // The site serves WebP: convert the PNGs (e.g. Pillow: Image.open(f).convert('RGB').save(out, 'WEBP', quality=84, method=6)).
-// Env: OH_SIDECAR (default: the installed openharness-sidecar.exe, or backend run
-// with python), PLAYWRIGHT_MODULE, OH_BROWSER_CHANNEL (default msedge), OH_API_PORT.
+// Env: OH_SIDECAR (default: the installed sidecar exe, or backend/sidecar_entry.py), PLAYWRIGHT_MODULE, OH_BROWSER_CHANNEL (default msedge), OH_API_PORT.
 // Port 1420 is allowed by the sidecar CORS list (tauri dev origin); 8765 is never used.
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
@@ -53,7 +52,9 @@ await new Promise((ok, fail) => { web.once("error", fail); web.listen(webPort, "
 
 
 const dataDir = mkdtempSync(join(tmpdir(), "oh-capture-data-"));
-const installed = join(process.env.LOCALAPPDATA ?? "", "Programs", "OpenHarness", "openharness-sidecar.exe");
+const programs = join(process.env.LOCALAPPDATA ?? "", "Programs");
+const installed = [join(programs, "OHarness", "oharness-sidecar.exe"), join(programs, "OpenHarness", "openharness-sidecar.exe")]
+  .find((candidate) => existsSync(candidate)) ?? "";
 const sidecarPath = process.env.OH_SIDECAR ?? installed;
 if (!existsSync(sidecarPath)) throw new Error(`Sidecar not found: ${sidecarPath} (set OH_SIDECAR).`);
 // The packaged sidecar is a PyInstaller onefile: it re-spawns itself, so killing only
@@ -64,7 +65,11 @@ const minimalEnv = Object.fromEntries(
   ["PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "HOME", "USERPROFILE"]
     .filter((key) => process.env[key] !== undefined).map((key) => [key, process.env[key]]),
 );
-const sidecar = spawn(sidecarPath, [], {
+// OH_SIDECAR may also be backend/sidecar_entry.py (run with OH_PYTHON, default "python"):
+// use it to capture a source checkout that is newer than the installed app.
+const fromSource = sidecarPath.endsWith(".py");
+const sidecar = spawn(fromSource ? (process.env.OH_PYTHON ?? "python") : sidecarPath, fromSource ? [sidecarPath] : [], {
+  cwd: fromSource ? dirname(sidecarPath) : undefined,
   env: { ...minimalEnv, OH_PORT: String(apiPort), OH_SIDECAR_TOKEN: token, OH_DATA_DIR: dataDir, OH_SECRETS: "memory" },
   stdio: "ignore",
 });
