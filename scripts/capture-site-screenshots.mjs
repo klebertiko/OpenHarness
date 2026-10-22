@@ -12,6 +12,7 @@
 // Env: OH_SIDECAR (default: the installed sidecar exe, or backend/sidecar_entry.py), PLAYWRIGHT_MODULE, OH_BROWSER_CHANNEL (default msedge), OH_API_PORT.
 // Port 1420 is allowed by the sidecar CORS list (tauri dev origin); 8765 is never used.
 import { spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -31,8 +32,11 @@ const require = createRequire(join(root, "frontend", "package.json"));
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 
 const apiPort = Number(process.env.OH_API_PORT ?? 18080);
+if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535 || apiPort === 8765) {
+  throw new Error("OH_API_PORT must be an unprivileged port other than 8765 (reserved for another local service).");
+}
 const webPort = 1420;
-const token = "capture-token-not-a-secret";
+const token = randomBytes(24).toString("hex"); // per run; only this throw-away sidecar accepts it
 const types = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
   ".txt": "text/plain", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".ico": "image/x-icon",
@@ -51,16 +55,19 @@ const web = createServer((req, res) => {
 await new Promise((ok, fail) => { web.once("error", fail); web.listen(webPort, "127.0.0.1", ok); });
 
 
-const dataDir = mkdtempSync(join(tmpdir(), "oh-capture-data-"));
-const programs = join(process.env.LOCALAPPDATA ?? "", "Programs");
-const installed = [join(programs, "OHarness", "oharness-sidecar.exe"), join(programs, "OpenHarness", "openharness-sidecar.exe")]
-  .find((candidate) => existsSync(candidate)) ?? "";
+const programs = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, "Programs") : "";
+const installed = programs
+  ? [join(programs, "OHarness", "oharness-sidecar.exe"), join(programs, "OpenHarness", "openharness-sidecar.exe")]
+      .find((candidate) => existsSync(candidate)) ?? ""
+  : "";
 const sidecarPath = process.env.OH_SIDECAR ?? installed;
 if (!existsSync(sidecarPath)) throw new Error(`Sidecar not found: ${sidecarPath} (set OH_SIDECAR).`);
 // The packaged sidecar is a PyInstaller onefile: it re-spawns itself, so killing only
 // the first PID would leak the listener. Never start on a port something else holds.
 const portBusy = await fetch(`http://127.0.0.1:${apiPort}/health`).then(() => true, () => false);
 if (portBusy) throw new Error(`Port ${apiPort} is already in use; set OH_API_PORT.`);
+// Created last, right before the spawn: nothing between here and the try block can throw.
+const dataDir = mkdtempSync(join(tmpdir(), "oh-capture-data-"));
 const minimalEnv = Object.fromEntries(
   ["PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "HOME", "USERPROFILE"]
     .filter((key) => process.env[key] !== undefined).map((key) => [key, process.env[key]]),
