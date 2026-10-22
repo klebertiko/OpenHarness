@@ -13,22 +13,28 @@ What it guarantees, for every call:
 * repository-controlled code cannot start: hooks are redirected to an empty directory, the filesystem monitor is off, and every
   ``filter.<name>.{clean,smudge,process}`` the repository defines is blanked (``filters=True``). If a filter driver name cannot
   be neutralised exactly, the call is refused rather than run (fail closed);
-* a timeout bounds every call.
+* a timeout bounds every call and ends the whole process tree (a Windows job object from ``sandbox/process_tree.py``; a process group elsewhere).
 
 What it cannot neutralise is listed in docs/adr/0008-workspace-manager.md (a repository's own ``.git`` contents are still read by git).
 """
 from __future__ import annotations
 
+import logging
 import os
 import shutil
+import signal
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from adapters.cli_shared import scrub_env
+from sandbox.process_tree import ProcessTree
 
 from .errors import WorkspaceError
 
+log = logging.getLogger(__name__)
+CREATE_NO_WINDOW = 0x08000000
 DEFAULT_TIMEOUT_S = 30.0
 MAX_STDOUT = 64 * 1024 * 1024
 _FILTER_VARS = ("clean", "smudge", "process")
@@ -108,20 +114,55 @@ class GitRunner:
 
     def _execute(self, args: list[str], cwd: Path, timeout: float, input: bytes | None, env: dict[str, str] | None) -> GitResult:
         argv = [self.git_path, *self._base_config(), "--no-pager", *args]
+        options: dict[str, Any] = {"creationflags": CREATE_NO_WINDOW} if os.name == "nt" else {"start_new_session": True}
+        tree = ProcessTree()  # Windows job object: ends git AND whatever it started; elsewhere a process group does the same
+        proc: subprocess.Popen | None = None
         try:
             # The single process-spawning call site of the Workspace Manager. argv is a list (no shell), git is an absolute path,
             # the environment is rebuilt from an allowlist, stdin is closed and the call is time-bounded. Expected OpenGrep finding:
             # dangerous-subprocess-use-audit (it flags any subprocess use; the reasons above are why it is controlled).
-            done = subprocess.run(argv, cwd=str(cwd), env=self._environment(env), input=input,
-                                  stdin=None if input is not None else subprocess.DEVNULL,
-                                  capture_output=True, timeout=timeout, check=False)
-        except subprocess.TimeoutExpired as exc:
-            raise WorkspaceError("git_timeout", f"git {args[0]} did not finish within {timeout:g}s", 504) from exc
+            proc = subprocess.Popen(argv, cwd=str(cwd), env=self._environment(env),
+                                    stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options)
+            try:
+                tree.attach(proc.pid)
+            except OSError as exc:  # the timeout then falls back to the direct child and the process group
+                log.warning("git could not be placed in a job object: %s", exc)
+            try:
+                stdout, stderr = proc.communicate(input, timeout=timeout)
+            except subprocess.TimeoutExpired as exc:
+                self._kill_tree(proc, tree)
+                raise WorkspaceError("git_timeout", f"git {args[0]} did not finish within {timeout:g}s", 504) from exc
         except (OSError, ValueError) as exc:
             raise WorkspaceError("git_unavailable", f"git could not be started: {exc}", 503) from exc
-        if len(done.stdout) > MAX_STDOUT:
+        finally:
+            if proc is not None and proc.poll() is None:
+                self._kill_tree(proc, tree)
+            tree.close()
+        if len(stdout) > MAX_STDOUT:
             raise WorkspaceError("git_output_too_large", f"git {args[0]} produced more than {MAX_STDOUT} bytes", 507)
-        return GitResult(done.returncode, done.stdout, done.stderr.decode("utf-8", "replace"))
+        return GitResult(proc.returncode, stdout, stderr.decode("utf-8", "replace"))
+
+    @staticmethod
+    def _kill_tree(proc: "subprocess.Popen", tree: ProcessTree) -> None:
+        """End git and everything it started, then reap it. Never waits on a pipe a stray descendant might still hold."""
+        tree.terminate()  # Windows: every process in the job (sandbox/process_tree.py)
+        if os.name != "nt":
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError) as exc:  # the group is already gone, or not ours to signal
+                log.debug("process group %s not signalled: %s", proc.pid, exc)
+        try:
+            proc.kill()
+        except OSError as exc:  # already exited
+            log.debug("git process %s not killed: %s", proc.pid, exc)
+        try:
+            proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            for stream in (proc.stdin, proc.stdout, proc.stderr):
+                if stream:
+                    stream.close()
+            proc.wait(timeout=5)
 
     def run(self, cwd: Path | str, args: list[str], *, timeout: float = DEFAULT_TIMEOUT_S, input: bytes | None = None,
             env: dict[str, str] | None = None, check: bool = True, filters: bool = False) -> GitResult:

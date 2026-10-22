@@ -77,7 +77,8 @@ def test_ignored_files_are_reported_but_do_not_block_a_clean_removal(svc, repo):
     Path(info["path"], "build.log").write_text("noise", encoding="utf-8")
     report = svc.removal_check(str(repo.path), info["id"])
     assert report["changes"]["ignored_entries"] == 1 and not report["pending_work"]
-    assert svc.remove(str(repo.path), info["id"], report["confirmation_token"])["removed"]
+    outcome = svc.remove(str(repo.path), info["id"], report["confirmation_token"])
+    assert outcome["removed"]
     assert not os.path.exists(info["path"])
 
 
@@ -361,7 +362,8 @@ def test_a_locked_worktree_needs_an_explicit_release(svc, repo, wt):
         svc.remove(str(repo.path), info["id"], report["confirmation_token"])
     assert caught.value.code == "workspace_locked" and caught.value.status == 409
     assert os.path.isdir(info["path"])
-    assert svc.remove(str(repo.path), info["id"], report["confirmation_token"], release_lock=True)["removed"]
+    outcome = svc.remove(str(repo.path), info["id"], report["confirmation_token"], release_lock=True)
+    assert outcome["removed"]
     assert not os.path.exists(info["path"])
 
 

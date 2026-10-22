@@ -9,16 +9,38 @@ The client names the *source repository* and a ref; it never names a destination
 """
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from workspaces.errors import WorkspaceError
 from workspaces.gitrun import GitFailure
 from workspaces.service import WorkspaceService
 
-router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+def _no_non_finite(constant: str):
+    raise ValueError(f"{constant} is not valid JSON")
+
+
+async def strict_json(request: Request) -> None:
+    """Refuse ``NaN``/``Infinity`` in a body with a 422 before validation runs.
+
+    Python's JSON parser accepts them, and pydantic then echoes the offending value into its error report, which the response
+    encoder cannot serialise: a 500 for what is plainly a client mistake.
+    """
+    raw = await request.body()
+    if not raw:
+        return
+    try:
+        json.loads(raw, parse_constant=_no_non_finite)
+    except ValueError as exc:
+        if "is not valid JSON" in str(exc):
+            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN and Infinity are not valid JSON numbers"}) from exc
+        # any other parse failure is reported by FastAPI's own body handling
+
+
+router = APIRouter(prefix="/workspaces", tags=["workspaces"], dependencies=[Depends(strict_json)])
 
 
 def get_service() -> WorkspaceService:

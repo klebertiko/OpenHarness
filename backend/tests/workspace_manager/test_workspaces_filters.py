@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 
-from workspaces_support import Repo
 
 FILTER_NAMES = ["evil", "A.B.c", 'q"uote', "ünï", "has#hash", "semi;colon", "sp ace"]
 TREE_READING = {"status", "add", "diff", "checkout", "switch", "restore", "reset", "stash", "clean", "ls-files", "merge", "apply"}

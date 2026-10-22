@@ -31,7 +31,8 @@ def test_selection_is_persisted_and_flagged_in_the_listing(svc, repo, oh_env, ru
 
 
 def test_the_principal_worktree_can_be_selected(svc, repo):
-    assert svc.select(str(repo.path), "main")["selected"]
+    outcome = svc.select(str(repo.path), "main")
+    assert outcome["selected"]
     assert canonical(svc.selected()["cwd"]) == canonical(repo.path)
 
 

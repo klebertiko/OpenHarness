@@ -84,7 +84,8 @@ def test_dirty_removal_over_http_returns_the_rescue(client, repo):
 
 def test_clearing_the_selection(client, repo):
     client.put("/workspaces/selected", json={"repo": str(repo.path), "id": "main"})
-    assert client.delete("/workspaces/selected").status_code == 204
+    outcome = client.delete("/workspaces/selected")
+    assert outcome.status_code == 204
     assert client.get("/workspaces/selected").json()["selected"] is None
 
 
@@ -108,8 +109,10 @@ def test_validation_and_lookup_errors(client, repo, oh_env):
     assert client.get("/workspaces", params={"repo": str(oh_env.tmp)}).json()["detail"]["code"] == "not_a_repository"
     missing = client.post("/workspaces/ws-0000000000000000/removal-check", json={"repo": str(repo.path)})
     assert missing.status_code == 404 and missing.json()["detail"]["code"] == "workspace_not_found"
-    assert client.put("/workspaces/selected", json={"repo": str(repo.path), "id": "nope"}).status_code == 404
-    assert client.post("/workspaces/main/remove", json={"repo": str(repo.path)}).status_code == 422
+    outcome = client.put("/workspaces/selected", json={"repo": str(repo.path), "id": "nope"})
+    assert outcome.status_code == 404
+    outcome = client.post("/workspaces/main/remove", json={"repo": str(repo.path)})
+    assert outcome.status_code == 422
 
 
 def test_protected_and_stale_removals_map_to_403_and_409(client, repo):
