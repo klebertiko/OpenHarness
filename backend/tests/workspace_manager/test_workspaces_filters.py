@@ -97,3 +97,68 @@ def test_every_git_call_that_reads_a_worktree_neutralises_filters(svc, repo, mar
     assert offenders == []
     assert any(subcommand(a)[:2] == ["worktree", "remove"] for a, _ in calls)
     assert marker_bench.ran() == []
+
+
+# ----------------------------------------------------------------------- a filter driver with an EMPTY name (`[filter ""]`, `filter=`)
+
+
+def empty_name_repo(repo, marker_bench):
+    """`.gitattributes` says ``filter=`` (empty value) and the configuration defines ``[filter ""]``: key ``filter..clean``."""
+    repo.write(".gitattributes", "*.w filter=\n")
+    repo.write("a.w", "payload\n")
+    repo.git("add", ".gitattributes", "a.w")
+    repo.git("commit", "-q", "-m", "attrs")
+    for var in ("clean", "smudge", "process"):
+        repo.git("config", f"filter..{var}", marker_bench.command(var))
+
+
+def test_the_empty_driver_name_is_neutralised_by_the_runner(runner, repo, marker_bench):
+    empty_name_repo(repo, marker_bench)
+    (repo.path / "a.w").write_text("changed\n", encoding="utf-8")
+    repo.write("b.w", "new\n")
+    runner.run(repo.path, ["status", "--porcelain=v2", "-z", "--untracked-files=all"], filters=True)
+    runner.run(repo.path, ["add", "--all"], filters=True)
+    assert marker_bench.ran() == []
+
+
+def test_creating_a_workspace_runs_no_empty_name_filter(svc, repo, marker_bench):
+    empty_name_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="empty-create")
+    assert marker_bench.ran() == [] and Path(info["path"]).is_dir()
+
+
+def test_list_and_status_run_no_empty_name_filter(svc, repo, marker_bench):
+    empty_name_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="empty-list")
+    path = Path(info["path"])
+    svc.list(str(repo.path))  # clean
+    touch_stat = path / "a.w"
+    touch_stat.write_bytes(touch_stat.read_bytes())
+    svc.list(str(repo.path))
+    (path / "a.w").write_text("changed\n", encoding="utf-8")
+    (path / "n.w").write_text("untracked\n", encoding="utf-8")
+    svc.list(str(repo.path))  # dirty
+    svc.removal_check(str(repo.path), info["id"])
+    assert marker_bench.ran() == []
+
+
+def test_removing_a_clean_worktree_runs_no_empty_name_filter(svc, repo, marker_bench):
+    empty_name_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="empty-clean")
+    target = Path(info["path"]) / "a.w"
+    target.write_bytes(target.read_bytes())
+    report = svc.removal_check(str(repo.path), info["id"])
+    svc.remove(str(repo.path), info["id"], report["confirmation_token"])
+    assert marker_bench.ran() == [] and not Path(info["path"]).exists()
+
+
+def test_removing_a_dirty_worktree_runs_no_empty_name_filter(svc, repo, marker_bench):
+    empty_name_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="empty-dirty")
+    path = Path(info["path"])
+    (path / "a.w").write_text("changed\n", encoding="utf-8")
+    (path / "n.w").write_text("untracked\n", encoding="utf-8")
+    report = svc.removal_check(str(repo.path), info["id"])
+    result = svc.remove(str(repo.path), info["id"], report["confirmation_token"])
+    assert marker_bench.ran() == [] and result["rescue"]["ref"]
+    assert repo.out("show", f"{result['rescue']['ref']}:n.w") == "untracked"

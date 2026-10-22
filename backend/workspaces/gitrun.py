@@ -100,7 +100,7 @@ class GitRunner:
             if not key.startswith("filter."):
                 continue
             name, _, var = key[len("filter."):].rpartition(".")
-            if var not in (*_FILTER_VARS, "required") or not name:
+            if var not in (*_FILTER_VARS, "required"):
                 continue
             if "=" in name or any(ord(ch) < 0x20 for ch in name):
                 raise WorkspaceError("unsafe_repository", "the repository defines a filter driver whose name cannot be neutralised", 409)
