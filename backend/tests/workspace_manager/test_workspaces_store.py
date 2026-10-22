@@ -70,7 +70,7 @@ def test_a_corrupt_file_is_set_aside_and_state_restarts_empty(tmp_path):
     assert any(p.name.startswith("state.json.corrupt") for p in tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("payload", ["[]", '{"version": 99}', '{"version": 1, "workspaces": []}', '{"version": 1, "workspaces": {}, "selected": 5}'])
+@pytest.mark.parametrize("payload", ["[]", '{"version": 99}', '{"version": 1, "workspaces": []}'])
 def test_a_file_with_the_wrong_shape_is_treated_as_corrupt(tmp_path, payload):
     path = tmp_path / "state.json"
     path.write_text(payload, encoding="utf-8")
@@ -87,3 +87,23 @@ def test_concurrent_writers_do_not_lose_updates(tmp_path):
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert len(json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))["workspaces"]["repo"]) == 25
+
+
+@pytest.mark.parametrize("quarantine", ["text", 5, {"a": 1}, None])
+def test_a_quarantine_that_is_not_a_list_reads_as_empty(tmp_path, quarantine):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps({"version": 1, "workspaces": {"k": {"bad": {"id": "x"}}}, "selected": None, "quarantine": quarantine}), encoding="utf-8")
+    state = StateStore(path).read()
+    assert state["workspaces"] == {"k": {}} and len(state["quarantine"]) == 1
+    StateStore(path).mutate(lambda s: s)  # and a write after it works
+    assert not list(tmp_path.glob("state.json.corrupt-*"))
+
+
+@pytest.mark.parametrize("selected", ["text", 5, ["a"], True])
+def test_a_selection_of_the_wrong_type_drops_only_the_selection(tmp_path, selected):
+    path = tmp_path / "state.json"
+    kept = {ws_id(1): record(ws_id(1))}
+    path.write_text(json.dumps({"version": 1, "workspaces": {"k": kept}, "selected": selected}), encoding="utf-8")
+    state = StateStore(path).read()
+    assert state["selected"] is None and state["workspaces"] == {"k": kept} and state["quarantine"] == [{"selected": selected}]
+    assert not list(tmp_path.glob("state.json.corrupt-*")) and path.exists()

@@ -38,8 +38,7 @@ def _lock_for(path: Path) -> threading.RLock:
 
 
 def _well_formed(state: Any) -> bool:
-    return (isinstance(state, dict) and state.get("version") == VERSION and isinstance(state.get("workspaces"), dict)
-            and (state.get("selected") is None or isinstance(state.get("selected"), dict)))
+    return isinstance(state, dict) and state.get("version") == VERSION and isinstance(state.get("workspaces"), dict)
 
 
 def _valid_record(ident: object, rec: object) -> bool:
@@ -68,11 +67,13 @@ def _sanitize(state: dict[str, Any]) -> dict[str, Any]:
             if not _valid_record(ident, rec):
                 quarantined.append({"repo_key": key, "id": ident, "record": rec})
                 del group[ident]
-    if state.get("selected") is not None and not _valid_selection(state["selected"]):
+    if state.get("selected") is not None and not _valid_selection(state["selected"]):  # of any type: only the selection is dropped
         quarantined.append({"selected": state["selected"]})
+    if not _valid_selection(state.get("selected")):
         state["selected"] = None
     if quarantined:
-        state["quarantine"] = [*state.get("quarantine", []), *quarantined][-MAX_QUARANTINE:]
+        earlier = state.get("quarantine")
+        state["quarantine"] = [*(earlier if isinstance(earlier, list) else []), *quarantined][-MAX_QUARANTINE:]
     return state
 
 

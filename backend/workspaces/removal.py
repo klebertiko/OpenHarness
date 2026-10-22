@@ -320,11 +320,17 @@ class RemovalMixin:
         directory is also what makes git forget the worktree; nothing else of the repository is touched (no ``worktree prune``,
         which would drop other worktrees' stale entries).
         """
-        remove_tree(entry.path)
+        failure: OSError | None = None
+        try:
+            remove_tree(entry.path)
+        except OSError as exc:  # e.g. a file another process holds open (Windows): git forgets the worktree anyway, as `worktree remove` did,
+            failure = exc       # and what is left is an `orphaned` workspace the manager finishes with the same two phases
         if state.admin_dir:
             if self._admin_dir(ctx, entry) != state.admin_dir:  # still the very directory that was inspected, found from the repository side
                 raise WorkspaceError("unsafe_destination", "the worktree's administrative directory changed during removal; it was left alone", 409)
             remove_tree(state.admin_dir)
+        if failure:
+            raise failure
 
     def remove(self, repo: str, workspace_id: str, token: str, release_lock: bool = False) -> dict[str, Any]:
         ctx = self._open(repo)
