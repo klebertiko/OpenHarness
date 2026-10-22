@@ -2,14 +2,17 @@
 <link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="bundle.css">
 <style>body{margin:0;background:var(--sub-000);color:var(--ink-dim);font:400 12px/1.5 var(--font-ui)}.card{border-bottom:1px solid var(--line-soft)}.h{padding:6px 16px;font:400 10.5px var(--font-mono);color:var(--ink-mute)}</style></head><body>
 <div id="app"></div>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="bundle.js"></script>
+<!-- Local preview harness: innerHTML only receives the fixed names list and sibling preview files from this repo, never external input. -->
+<!-- nosemgrep: opengrep-rules.html.security.audit.insecure-document-method -->
 <script>
 var q=new URLSearchParams(location.search);document.documentElement.dataset.theme=q.get('theme')||'dark';
 var names=['Cover','Button','Input','Badge','Panel','ListRow','Kbd','Nilo'];window.__errors=[];
 window.addEventListener('error',function(e){window.__errors.push(e.message)});
-names.forEach(function(n){var d=document.createElement('div');d.className='card';d.innerHTML='<div class="h">'+n+'</div><div id="m-'+n+'"></div>';document.getElementById('app').appendChild(d);
+names.forEach(function(n){var d=document.createElement('div');d.className='card';
+d.innerHTML='<div class="h">'+n+'</div><div id="m-'+n+'"></div>';document.getElementById('app').appendChild(d);
 fetch(n+'/preview.html').then(r=>r.text()).then(function(t){var host=document.getElementById('m-'+n);
  var body=/<body>([\s\S]*)<\/body>/.exec(t)[1];var scripts=[];body=body.replace(/<script>([\s\S]*?)<\/script>/g,function(_,s){scripts.push(s);return''});
  var style=(/<style>([\s\S]*?)<\/style>/.exec(t)||[])[1]||'';var st=document.createElement('style');st.textContent=style.replace(/(^|})\s*svg\s*\{/g,'$1 #m-'+n+' svg{').replace(/(^|})\s*(html,)?body\s*\{/g,'$1 #m-'+n+'{');document.head.appendChild(st);

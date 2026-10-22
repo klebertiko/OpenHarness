@@ -26,8 +26,7 @@ svg{display:block;width:960px;height:288px}
 <text class="tag" x="48" y="262">An agent workspace with a portable harness.</text>
 </svg>
 <script>
-var g=document.getElementById('dots'),s='';
-for(var r=0;r<6;r++)for(var c=0;c<12;c++){var x=744+c*16,y=200+r*16;if(x<960)s+='<circle class="dot" cx="'+x+'" cy="'+y+'" r="2"/>';}
-g.innerHTML=s;
+var g=document.getElementById('dots'),ns='http://www.w3.org/2000/svg';
+for(var r=0;r<6;r++)for(var c=0;c<12;c++){var x=744+c*16,y=200+r*16;if(x<960){var d=document.createElementNS(ns,'circle');d.setAttribute('class','dot');d.setAttribute('cx',x);d.setAttribute('cy',y);d.setAttribute('r',2);g.appendChild(d);}}
 </script>
 </body></html>
