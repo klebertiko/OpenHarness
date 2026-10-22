@@ -4,7 +4,9 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowUp, Code2, ListChecks, Search, Square } from "lucide-react";
 
 import { HarnessBar } from "@/components/agent/HarnessBar";
-import { ChatComposer } from "@/components/agent/ChatComposer";
+import { ChatComposer, presetFromSlashText } from "@/components/agent/ChatComposer";
+import { MessageActions } from "./MessageActions";
+import { ModelPicker } from "@/components/providers/ModelPicker";
 import { useChatTools } from "@/components/agent/useChatTools";
 import { usePermissionMode } from "@/components/agent/usePermissionMode";
 import { useWorkspaceTrust } from "@/components/agent/useWorkspaceTrust";
@@ -76,10 +78,18 @@ export function AgentStage() {
   // Workspace trust (stored by the sidecar) only matters under Auto.
   const trust = useWorkspaceTrust(chatTools.workspace?.root ?? null, permission.mode === "auto_workspace");
 
-  const [instruction, setInstruction] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftKey = activeThreadId ?? "new";
+  const instruction = drafts[draftKey] ?? "";
+  const setInstruction = (value: string) => setDrafts((current) => ({ ...current, [draftKey]: value }));
+  const [modelChoices, setModelChoices] = useState<Record<string, string>>({});
+  const selectedModel = provider ? modelChoices[provider.id] ?? "" : "";
+  const connection = connections.find((c) => c.id === provider?.id) ?? null;
+  const runOwner = useRef<{ threadId: string; instruction: string; providerLabel?: string } | null>(null);
   const [showRunDetail, setShowRunDetail] = useState(false);
   const savedRunFor = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [following, setFollowing] = useState(true);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const applySuggestion = (prompt: string) => {
@@ -92,9 +102,8 @@ export function AgentStage() {
   }, [hydrated, hydrate]);
 
   useEffect(() => {
-    setInstruction("");
     setShowRunDetail(false);
-    savedRunFor.current = null;
+    setFollowing(true);
   }, [activeThreadId]);
 
   const messages = useMemo(() => {
@@ -116,6 +125,11 @@ export function AgentStage() {
     graph,
     harnessEnabled: enabled,
   });
+  const ownerThreadId = runOwner.current?.threadId ?? activeThreadId;
+  const runInCurrentChat = ownerThreadId === activeThreadId;
+  const liveAnswer = run.plan.flatMap((segment) => segment.blocks
+    .filter((block) => block.kind === "text")
+    .map((block) => block.text)).join("\n\n");
 
   // One "run detail" control per run. A finished run saved on a chat message is
   // offered by that message (HistoricalRunDetail); the stage only offers it for
@@ -123,8 +137,8 @@ export function AgentStage() {
   const stageDetailId = useId();
   const runSavedOnMessage = Boolean(run.runId) && messages.some((m) => m.runId === run.runId);
   const showStageDetailControl =
-    live ||
-    ((run.status === "complete" || run.status === "error" || run.status === "stopped") &&
+    (runInCurrentChat && live) ||
+    (runInCurrentChat && (run.status === "complete" || run.status === "error" || run.status === "stopped") &&
       !runSavedOnMessage);
 
   const pendingToolApproval = run.plan.some((segment) =>
@@ -138,9 +152,11 @@ export function AgentStage() {
     if (pendingToolApproval) setShowRunDetail(true);
   }, [pendingToolApproval]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Navigation must not cancel a turn that still belongs to another chat.
   useEffect(() => {
-    if (activeThreadId !== null) return;
+    if (activeThreadId !== null || live) return;
     reset();
+    runOwner.current = null;
     composerRef.current?.focus();
   }, [activeThreadId, reset]);
 
@@ -150,7 +166,7 @@ export function AgentStage() {
 
   // Persist assistant reply onto the thread when a run finishes.
   useEffect(() => {
-    if (!activeThreadId) return;
+    if (!ownerThreadId) return;
     if (live) return;
     if (!run.runId) return;
     if (run.status !== "complete" && run.status !== "error" && run.status !== "stopped") {
@@ -160,30 +176,40 @@ export function AgentStage() {
     const text = summarizeRunOutput(run);
     if (!text) return;
     savedRunFor.current = run.runId;
-    appendMessage(activeThreadId, {
+    // Deleting a chat while it runs must not resurrect its message bucket.
+    if (!useThreadStore.getState().threads.some((thread) => thread.id === ownerThreadId)) return;
+    appendMessage(ownerThreadId, {
       role: "assistant",
       content: text,
-      // Only worth naming when Auto picked it — a person's own pick is
-      // already named by the chip, so repeating it on every reply would be
-      // noise rather than information.
-      providerLabel: provider && !provider.chosen ? provider.label : undefined,
+      // A harness may pin/fail over to a connection other than the chat default.
+      // Prefer runtime evidence; the selected connection labels direct turns only.
+      providerLabel: (() => {
+        const segment = [...run.plan].reverse().find((segment) => segment.output?.trim());
+        const actual = connections.find((connection) => connection.id === segment?.connectionId);
+        if (actual) return [actual.label, segment?.model].filter(Boolean).join(" · ");
+        if (runOwner.current) return runOwner.current.providerLabel
+          ? [runOwner.current.providerLabel, segment?.model].filter(Boolean).join(" · ") : segment?.model || undefined;
+        return provider && !provider.chosen ? provider.label : undefined;
+      })(),
       // Harness-graph runs persist a replayable event log server-side
       // (ExecutionLog); a direct/no-harness turn does not, so this id
       // 404s there — HistoricalRunDetail handles that by simply not
       // offering the toggle rather than erroring.
       runId: run.runId ?? undefined,
     });
-  }, [activeThreadId, appendMessage, live, run, provider]);
+  }, [ownerThreadId, appendMessage, live, run, provider, connections]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, live, run.status]);
+    if (following) bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length, live, run.status, liveAnswer, following]);
 
+  const slashPreset = presetFromSlashText(instruction);
   const canStart =
     !live &&
     !!provider &&
     instruction.trim().length > 0 &&
-    (!enabled || graph.nodes.length > 0);
+    !(slashPreset && "warning" in slashPreset) &&
+    (!enabled || graph.nodes.length > 0 || Boolean(slashPreset && "preset" in slashPreset));
 
   /** A `/` Tool was chosen: one run whose first act is the preset (contract §2.4).
       `exec` parks on the approval gate; the user sees the card before anything runs. */
@@ -193,6 +219,7 @@ export function AgentStage() {
       preset.name === "exec" ? "/exec " + preset.argv.join(" ") : preset.name === "read" ? "/read " + preset.path : "/ls";
     const threadId = activeThreadId ?? createThread(label.slice(0, 60));
     appendMessage(threadId, { role: "user", content: label });
+    runOwner.current = { threadId, instruction: label, providerLabel: provider.label };
     setInstruction("");
     savedRunFor.current = null;
     // A brand-new conversation hands its chosen mode to the sidecar before the
@@ -204,18 +231,21 @@ export function AgentStage() {
       step: false,
       cwd: workspace?.rootPath || undefined,
       providerId: provider.id,
+      model: selectedModel || undefined,
       tools: { preset, summarize: false, thread_id: threadId, permission_mode: permissionMode },
     });
   };
 
   const onStart = () => {
     if (!canStart || !provider) return;
+    if (slashPreset && "preset" in slashPreset) { void onPreset(slashPreset.preset); return; }
     const text = instruction.trim();
     // The thread is born from the first message, not from a "New chat" click,
     // so the list never fills with empty "New chat" rows.
     const threadId = activeThreadId ?? createThread(text.slice(0, 60));
     if (!activeThreadId) void permission.adopt(threadId);
     appendMessage(threadId, { role: "user", content: text });
+    runOwner.current = { threadId, instruction: text, providerLabel: !enabled ? provider.label : undefined };
     setInstruction("");
     savedRunFor.current = null;
     // Chat is never mock: it runs against the connected provider. `provider.id`
@@ -229,6 +259,7 @@ export function AgentStage() {
       step: false,
       cwd: workspace?.rootPath || undefined,
       providerId: provider.id,
+      model: !enabled ? selectedModel || undefined : undefined,
     });
   };
 
@@ -253,7 +284,14 @@ export function AgentStage() {
 
   return (
     <div className="oh-agent-stage flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12">
+      {live && !runInCurrentChat && <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-line-soft px-4 py-2 text-[12px] text-ink-mute">
+        <span>A turn is still running in another chat.</span>
+        <button type="button" onClick={() => ownerThreadId && useThreadStore.getState().selectThread(ownerThreadId)} className="rounded-control px-2 py-1 text-signal focus-visible:ring-2 focus-visible:ring-signal">Return to running chat</button>
+      </div>}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12" onScroll={(event) => {
+        const element = event.currentTarget;
+        setFollowing(element.scrollHeight - element.scrollTop - element.clientHeight < 100);
+      }}>
         {messages.length === 0 && !live ? (
           <div className="oh-agent-welcome mx-auto flex w-full max-w-[680px] flex-col pt-[clamp(4rem,13vh,9rem)]">
             <div className="mb-8 flex items-end justify-between gap-8">
@@ -305,7 +343,7 @@ export function AgentStage() {
               <div
                 key={m.id}
                 className={[
-                  "flex max-w-[88%] flex-col gap-2",
+                  "flex min-w-0 max-w-[95%] sm:max-w-[88%] flex-col gap-2",
                   m.role === "user" ? "self-end px-4 py-3 oh-agent-message--user" : "self-start pl-4 oh-agent-message--assistant",
                 ].join(" ")}
               >
@@ -318,12 +356,13 @@ export function AgentStage() {
                 </span>
                 <div
                   className={[
-                    "whitespace-pre-wrap text-[15px] leading-7",
+                    "whitespace-pre-wrap text-[15px] leading-7 [overflow-wrap:anywhere]",
                     m.role === "user" ? "text-ink" : "text-ink-dim",
                   ].join(" ")}
                 >
                   {m.content}
                 </div>
+                <MessageActions content={m.content} onReuse={!live ? () => applySuggestion(m.content) : undefined} />
                 {m.role === "assistant" && m.runId && (
                   <HistoricalRunDetail
                     runId={m.runId}
@@ -338,7 +377,7 @@ export function AgentStage() {
               </div>
             ))}
 
-            {live && (
+            {live && runInCurrentChat && (
               <div className="flex flex-col gap-1">
                 <ThinkingStatus
                   state={gateSeg ? "waiting" : "thinking"}
@@ -346,6 +385,7 @@ export function AgentStage() {
                   elapsed={elapsed}
                   tokens={run.totals.tokens}
                 />
+                {liveAnswer && <div role="region" aria-label="Live answer" className="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-ink-dim [overflow-wrap:anywhere]">{liveAnswer}</div>}
                 {gateSeg && (
                   <div className="mt-2">
                     <Gate segment={gateSeg} onResolve={resolveGate} />
@@ -353,6 +393,12 @@ export function AgentStage() {
                 )}
               </div>
             )}
+
+            {runInCurrentChat && (run.status === "error" || run.status === "stopped") && <div role={run.status === "error" ? "alert" : "status"} className="rounded-control border border-line-soft p-3 text-[13px] text-ink-mute">
+              <p>{run.status === "error" ? "The turn failed. Check the provider connection, then reuse your instruction to try again." : "The turn stopped. You can reuse your instruction when ready."}</p>
+              {run.notices?.map((notice, index) => <p key={index} className="mt-1 [overflow-wrap:anywhere]">{notice}</p>)}
+              {runOwner.current?.instruction && <button type="button" onClick={() => applySuggestion(runOwner.current!.instruction)} className="mt-2 rounded-control border border-line px-2 py-1 text-ink focus-visible:ring-2 focus-visible:ring-signal">Reuse instruction</button>}
+            </div>}
 
             {showStageDetailControl && (
               <RunDetailToggle
@@ -374,6 +420,7 @@ export function AgentStage() {
       </div>
 
       <div className="flex-none px-3 pb-4 pt-2 sm:px-6">
+        {!following && <div className="mb-2 text-center"><button type="button" onClick={() => setFollowing(true)} className="rounded-control border border-line bg-sub-100 px-3 py-1 text-[12px] text-ink focus-visible:ring-2 focus-visible:ring-signal">Jump to latest</button></div>}
         <div className="oh-agent-composer mx-auto max-w-[820px]">
           <ChatComposer
             key={activeThreadId ?? "no-thread"}
@@ -390,10 +437,20 @@ export function AgentStage() {
             permissionNotice={permission.error}
             workspaceTrust={chatTools.workspace ? { workspaceName: chatTools.workspace.name, trusted: trust.trusted, onChange: (value) => void trust.setTrusted(value), error: trust.error } : undefined}
           />
-          <div className="flex items-center gap-2 px-2.5 pb-2.5 pt-1">
+          {chatTools.loading && <p role="status" className="px-4 py-1 text-[11px] text-ink-faint">Checking workspace tools…</p>}
+          {chatTools.error && <p role="status" className="px-4 py-1 text-[11px] text-warn">Workspace tools unavailable. Text chat is still available. {chatTools.error}</p>}
+          {chatTools.capabilities && <p className="px-4 py-1 text-[11px] text-ink-faint">{chatTools.capabilities.reason === "ok" ? "Workspace tools available in / commands" : chatTools.capabilities.reason === "cli-adapter" ? "Workspace tools are managed by this provider’s CLI" : "This connection does not offer workspace tools"}</p>}
+          <div className="flex flex-wrap items-center gap-2 px-2.5 pb-2.5 pt-1">
+            <fieldset disabled={live} aria-label="Run settings" className="contents disabled:opacity-60">
             <HarnessBar />
-            <ChatProviderPicker onConnect={() => goToProviders("providers")} />
+            <ChatProviderPicker disabled={live} onConnect={() => goToProviders("providers")} />
             <WorkspacePicker />
+            {provider && !enabled && <div className="min-w-0 max-w-full sm:max-w-[220px]">
+              <ModelPicker connection={connection} value={selectedModel} onChange={(model) => setModelChoices((current) => ({ ...current, [provider.id]: model }))}
+                label="Model for next turn" inheritLabel="Connection default" inheritDetail={connection?.defaultModel || "The provider CLI chooses its model"} disabled={live}
+                triggerClassName="h-8 max-w-full px-2 text-[11px] text-ink-dim" />
+            </div>}
+            </fieldset>
             <span className="flex-1" />
             {missing ? (
               <button
@@ -430,6 +487,7 @@ export function AgentStage() {
               </button>
             )}
           </div>
+          <p className="px-4 pb-2 text-[11px] text-ink-faint">{enabled ? "Harness agents use their pinned models or connection defaults. " : `Model: ${selectedModel || connection?.defaultModel || "provider default"}. `}Each turn sends your instruction; earlier messages are not included automatically.</p>
         </div>
       </div>
     </div>

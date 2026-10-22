@@ -13,6 +13,9 @@ export interface StudioExample {
   presetId?: string;
 }
 
+/** Command-palette group for opening a bundled harness; same wording as the Studio actions bar. */
+export const BUNDLED_HARNESS_COMMAND_GROUP = "Open bundled harness";
+
 export const SAMPLE_PRESET_ID = "minimal-gate";
 
 function sampleExample(): StudioExample | null {

@@ -1,0 +1,79 @@
+{
+  "result": "passed",
+  "checks": [
+    "Send completes and request carries explicit model/connection",
+    "Copy success/denial feedback and reuse only edits composer",
+    "503 failure exposes instruction reuse with no execution",
+    "Usage refresh recovers and failed budget retains editable input for retry"
+  ],
+  "requests": [
+    {
+      "instruction": "Synthetic QA prompt",
+      "mode": "local",
+      "step": false,
+      "connection_id": "ollama-local",
+      "model": "qa-model"
+    },
+    {
+      "instruction": "Recover this synthetic instruction",
+      "mode": "local",
+      "step": false,
+      "connection_id": "ollama-local",
+      "model": "qa-model"
+    }
+  ],
+  "responsive": [
+    {
+      "width": 320,
+      "overflow": false,
+      "composer": {
+        "x": 65,
+        "y": 639.25,
+        "width": 242,
+        "height": 64
+      }
+    },
+    {
+      "width": 375,
+      "overflow": false,
+      "composer": {
+        "x": 65,
+        "y": 695.1875,
+        "width": 297,
+        "height": 64
+      }
+    },
+    {
+      "width": 414,
+      "overflow": false,
+      "composer": {
+        "x": 65,
+        "y": 759.125,
+        "width": 336,
+        "height": 64
+      }
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "composer": {
+        "x": 242,
+        "y": 759.125,
+        "width": 501,
+        "height": 64
+      }
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "composer": {
+        "x": 419.5,
+        "y": 815.0625,
+        "width": 818,
+        "height": 64
+      }
+    }
+  ],
+  "unexpected": [],
+  "errors": []
+}

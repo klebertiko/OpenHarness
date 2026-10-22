@@ -8,3 +8,14 @@
 # Synthetic high-entropy value used to prove Studio field serialization drops
 # apiKey. It is test data only and never leaves the in-memory test graph.
 b87f20e4f73841a3c570152e2cf1e350fb9c4ea9:frontend/src/components/sidebar/FieldAssist.test.tsx:generic-api-key:71
+
+# Sandbox output-redaction fixtures (commit adf02de, 2026-09-24). Each value is a
+# synthetic, secret-shaped string that proves the redactor hides it: ascending
+# alphabet runs (sk-, AKIA, xoxb- prefixes) and a literal "value" private-key body.
+# Checked by shape, never printed; not live credentials.
+adf02dee896e58ef272b99eb0f7f660fc103c246:backend/tests/features/chat-tools-sandbox.feature:generic-api-key:56
+adf02dee896e58ef272b99eb0f7f660fc103c246:backend/tests/test_sandbox_secrets.py:aws-access-token:18
+adf02dee896e58ef272b99eb0f7f660fc103c246:backend/tests/test_sandbox_secrets.py:private-key:18
+
+# Same scenario as above, copied into the sprint evidence record (commit dd4e186).
+dd4e1864fcd50cd81f3b0d193535d08406cd9ffb:.harness/sprint-2026-09-18/story-CHAT-TOOLS-CONTRACT/features/chat-tools-sandbox.feature:generic-api-key:56
