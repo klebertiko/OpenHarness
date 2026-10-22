@@ -6,6 +6,7 @@ the worktree location is built here, from a generated id, under the managed root
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import threading
 from contextlib import contextmanager
@@ -18,11 +19,12 @@ from .config import Settings
 from .errors import WorkspaceError
 from .gitrun import GitFailure, GitRunner
 from .gitstate import WorktreeEntry, parse_status_v2, parse_worktree_list
-from .paths import ManagedRoot, canonical, new_workspace_id, repo_dir_name, valid_workspace_id
+from .paths import ManagedRoot, canonical, is_link, new_workspace_id, repo_dir_name, valid_workspace_id
 from .removal import RemovalMixin
 from .store import StateStore
 from .validation import validate_branch_name, validate_ref
 
+log = logging.getLogger(__name__)
 _REPO_LOCKS: dict[str, threading.RLock] = {}
 _REPO_LOCKS_GUARD = threading.Lock()
 ADD_TIMEOUT_S = 300.0
@@ -72,8 +74,14 @@ class WorkspaceService(RemovalMixin):
         path = Path(repo)
         if not path.is_absolute():
             raise WorkspaceError("invalid_repo", "repo must be an absolute path", 400)
-        real = Path(os.path.realpath(path))
-        if not real.is_dir():
+        if os.name == "nt" and ":" in repo[len(path.drive):]:
+            raise WorkspaceError("invalid_repo", "repo must not name an alternate data stream or contain ':'", 400)
+        try:
+            real = Path(os.path.realpath(path))
+            is_directory = real.is_dir()
+        except (OSError, ValueError) as exc:  # e.g. PermissionError for a path the OS refuses to resolve
+            raise WorkspaceError("invalid_repo", "repo cannot be resolved to a directory", 400) from exc
+        if not is_directory:
             raise WorkspaceError("invalid_repo", "repo is not an existing directory", 400)
         done = self.runner.run(real, ["rev-parse", "--path-format=absolute", "--git-common-dir", "--show-toplevel"], check=False)
         lines = done.text().splitlines()
@@ -87,8 +95,39 @@ class WorkspaceService(RemovalMixin):
         done = self.runner.run(ctx.cwd, ["worktree", "list", "--porcelain", "-z"])
         return [wt for wt in parse_worktree_list(done.stdout) if not wt.bare]
 
-    def _registry(self, ctx: RepoContext) -> dict[str, dict[str, Any]]:
+    def _stored(self, ctx: RepoContext) -> dict[str, dict[str, Any]]:
+        """The records the store holds for this repository (malformed ones were already quarantined by the store)."""
         return dict(self.store.read()["workspaces"].get(ctx.key, {}))
+
+    def _managed_dir(self, ctx: RepoContext, ident: str) -> str:
+        return os.path.join(ManagedRoot(self.settings.managed_root).path, ctx.repo_dir, ident)
+
+    def _is_managed_location(self, ctx: RepoContext, path: str, ident: str) -> bool:
+        """``path`` is, textually and after resolving, exactly ``<managed root>/<this repository's dir>/<ident>`` with no link on the way."""
+        if not valid_workspace_id(ident):
+            return False
+        expected = self._managed_dir(ctx, ident)
+        norm = os.path.normcase(os.path.normpath(path))
+        parent = os.path.dirname(expected)
+        return (norm == os.path.normcase(os.path.normpath(expected)) and not is_link(parent) and not is_link(path)
+                and canonical(path) == canonical(parent) + os.sep + os.path.normcase(ident))
+
+    def _registry(self, ctx: RepoContext, entries: list[WorktreeEntry] | None = None) -> dict[str, dict[str, Any]]:
+        """Stored records plus every linked worktree git lists that sits where this repository's managed worktrees live.
+
+        The state file only adds information (when, from which ref); losing it must not turn managed worktrees into strangers.
+        A worktree is adopted when its path is exactly ``<root>/<repo dir>/<generated id>`` for THIS repository (the repo dir carries a
+        hash of the repository's identity), so another repository's worktrees and arbitrary paths never qualify.
+        """
+        merged = self._stored(ctx)
+        known = {canonical(rec["path"]) for rec in merged.values()}
+        for position, wt in enumerate(self._worktrees(ctx) if entries is None else entries):
+            ident = os.path.basename(os.path.normpath(wt.path))
+            if position == 0 or ident in merged or canonical(wt.path) in known or not self._is_managed_location(ctx, wt.path, ident):
+                continue
+            merged[ident] = {"id": ident, "path": os.path.normpath(wt.path), "branch": _short_branch(wt.branch), "base_ref": None,
+                             "base_commit": None, "created_at": None, "adopted": True}
+        return merged
 
     def _status(self, path: str):
         return parse_status_v2(self.runner.run(
@@ -116,7 +155,7 @@ class WorkspaceService(RemovalMixin):
             "branch": _short_branch(wt.branch), "detached": wt.detached or wt.branch is None, "head": wt.head,
             "state": state, "dirty": None if changes is None else state == "dirty", "changes": changes,
             "locked": wt.locked, "lock_reason": wt.lock_reason, "prunable": wt.prunable, "prunable_reason": wt.prunable_reason,
-            "missing": missing, "selected": ident == selected_id,
+            "missing": missing, "selected": ident == selected_id, "orphaned": False,
         }
         if managed:
             info.update({k: record.get(k) for k in ("created_at", "base_ref", "base_commit")})
@@ -124,12 +163,12 @@ class WorkspaceService(RemovalMixin):
 
     def _infos(self, ctx: RepoContext, with_status: bool = True) -> list[dict[str, Any]]:
         entries = self._worktrees(ctx)
-        registry = self._registry(ctx)
+        registry = self._registry(ctx, entries)
         chosen = self.store.read()["selected"]
         selected_id = chosen["id"] if chosen and chosen.get("repo_key") == ctx.key else None
         infos = [self._describe(wt, n, registry, selected_id, with_status) for n, wt in enumerate(entries)]
-        live = {canonical(wt.path) for wt in entries}
-        stale = [ident for ident, rec in registry.items() if canonical(rec["path"]) not in live and not os.path.lexists(rec["path"])]
+        stale = self._stale(ctx, entries)
+        infos += self._orphans(ctx, entries, selected_id)
         if stale:  # registry entries whose worktree git no longer knows and whose directory is gone: drop the orphan metadata
             def forget(state):
                 group = state["workspaces"].get(ctx.key, {})
@@ -137,6 +176,31 @@ class WorkspaceService(RemovalMixin):
                     group.pop(ident, None)
             self.store.mutate(forget)
         return infos
+
+    def _stale(self, ctx: RepoContext, entries: list[WorktreeEntry]) -> list[str]:
+        """Stored records git no longer knows and whose directory is gone too: nothing left to show or finish."""
+        live = {canonical(wt.path) for wt in entries}
+        return [ident for ident, rec in self._stored(ctx).items() if canonical(rec["path"]) not in live and not os.path.lexists(rec["path"])]
+
+    def _orphans(self, ctx: RepoContext, entries: list[WorktreeEntry], selected_id: str | None = None) -> list[dict[str, Any]]:
+        """Recorded workspaces whose directory is still under the managed root while git has no entry for them (a removal that stopped halfway)."""
+        live = {canonical(wt.path) for wt in entries}
+        found = []
+        for ident, rec in self._stored(ctx).items():
+            if canonical(rec["path"]) in live or not os.path.lexists(rec["path"]):
+                continue
+            expected = self._managed_dir(ctx, ident)
+            if not valid_workspace_id(ident) or os.path.normcase(os.path.normpath(rec["path"])) != os.path.normcase(os.path.normpath(expected)):
+                continue  # a record that does not point into this repository's managed directory is never offered for cleaning
+            if is_link(os.path.dirname(expected)):
+                continue
+            found.append({
+                "id": ident, "path": os.path.normpath(rec["path"]), "kind": "linked", "managed": True, "branch": rec.get("branch"),
+                "detached": rec.get("branch") is None, "head": None, "state": "orphaned", "dirty": None, "changes": None, "locked": False,
+                "lock_reason": "", "prunable": False, "prunable_reason": "", "missing": False, "selected": ident == selected_id,
+                "orphaned": True, "created_at": rec.get("created_at"), "base_ref": rec.get("base_ref"), "base_commit": rec.get("base_commit"),
+            })
+        return found
 
     # ------------------------------------------------------------------ list / select
 
@@ -155,7 +219,9 @@ class WorkspaceService(RemovalMixin):
         ctx = self._open(repo)
         with self._locked(ctx):
             info = self._find(ctx, workspace_id)
-            if info["missing"] or info["prunable"]:
+            if info["kind"] != "main" and not info["managed"]:
+                raise WorkspaceError("workspace_not_selectable", "only the principal worktree and workspaces this manager created can be selected", 403)
+            if info["missing"] or info["prunable"] or info["orphaned"]:
                 raise WorkspaceError("workspace_missing", "the workspace directory is gone and cannot be selected", 409)
             main = next(i for i in self._infos(ctx, with_status=False) if i["kind"] == "main")
             record = {"repo": main["path"], "repo_key": ctx.key, "id": workspace_id, "selected_at": _now()}
@@ -177,7 +243,9 @@ class WorkspaceService(RemovalMixin):
                 info = self._find(ctx, chosen["id"])
         except WorkspaceError as exc:
             return {"selected": None, "cwd": None, "stale": {"id": chosen.get("id"), "repo": chosen.get("repo"), "reason": exc.code}}
-        if info["missing"] or info["prunable"]:
+        if info["kind"] != "main" and not info["managed"]:
+            return {"selected": None, "cwd": None, "stale": {"id": chosen["id"], "repo": chosen["repo"], "reason": "workspace_not_selectable"}}
+        if info["missing"] or info["prunable"] or info["orphaned"]:
             return {"selected": None, "cwd": None, "stale": {"id": chosen["id"], "repo": chosen["repo"], "reason": "workspace_missing"}}
         info["selected"] = True
         return {"selected": info, "cwd": info["path"], "stale": None}
@@ -193,6 +261,7 @@ class WorkspaceService(RemovalMixin):
             raise WorkspaceError("invalid_ref", "git does not accept this as a ref name", 400)
         if branch is not None and self.runner.run(ctx.cwd, ["check-ref-format", f"refs/heads/{branch}"], check=False).returncode != 0:
             raise WorkspaceError("invalid_branch", "git does not accept this as a branch name", 400)
+        self._refuse_ambiguous(ctx, ref)
         resolved = self.runner.run(ctx.cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"], check=False)
         commit = resolved.text().strip()
         if resolved.returncode != 0 or not commit:
@@ -223,12 +292,23 @@ class WorkspaceService(RemovalMixin):
                 raise
             return self._find(ctx, ident)
 
+    def _refuse_ambiguous(self, ctx: RepoContext, ref: str) -> None:
+        """A short name that is both a tag and a branch (or remote-tracking branch) would silently resolve to the tag: ask for a full ref."""
+        if ref.startswith("refs/"):
+            return
+        names = (f"refs/tags/{ref}", f"refs/heads/{ref}", f"refs/remotes/{ref}")
+        listing = self.runner.run(ctx.cwd, ["for-each-ref", "--format=%(refname)", *names], check=False).text().split()
+        if len({name for name in listing if name in names}) > 1:
+            raise WorkspaceError("ambiguous_ref", f"{ref!r} names more than one ref ({', '.join(sorted(set(listing) & set(names)))}); "
+                                 "pass the full ref name", 409)
+
     def _allocate(self, ctx: RepoContext) -> tuple[Path, bool]:
         """Pick and prepare a destination: proven inside the managed root, outside every worktree of the repository."""
         probe = ManagedRoot(self.settings.managed_root)
-        registered = {canonical(rec["path"]) for rec in self._registry(ctx).values()}
+        worktrees = self._worktrees(ctx)
+        registered = {canonical(rec["path"]) for rec in self._registry(ctx, worktrees).values()}
         root_c = canonical(probe.path)
-        for wt in self._worktrees(ctx):
+        for wt in worktrees:
             wc = canonical(wt.path)
             if wc in registered:
                 continue
@@ -256,5 +336,5 @@ class WorkspaceService(RemovalMixin):
         if created_parent:
             try:
                 dest.parent.rmdir()
-            except OSError:
-                pass
+            except OSError as exc:  # the directory still holds something (another workspace of this repository): it stays
+                log.debug("kept managed directory %s after rollback: %s", dest.parent, exc)

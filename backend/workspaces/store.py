@@ -8,14 +8,21 @@ one, never half of one.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import threading
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
+from .paths import valid_workspace_id
+
+log = logging.getLogger(__name__)
+
 T = TypeVar("T")
 VERSION = 1
+MAX_QUARANTINE = 50
+_OPTIONAL_TEXT = ("branch", "base_ref", "base_commit", "created_at")
 _LOCKS: dict[str, threading.RLock] = {}
 _LOCKS_GUARD = threading.Lock()
 
@@ -35,6 +42,40 @@ def _well_formed(state: Any) -> bool:
             and (state.get("selected") is None or isinstance(state.get("selected"), dict)))
 
 
+def _valid_record(ident: object, rec: object) -> bool:
+    """A registry record is trusted only with this exact shape: the generated id it is filed under, an absolute path, text-or-null extras."""
+    return (isinstance(rec, dict) and isinstance(ident, str) and rec.get("id") == ident and valid_workspace_id(ident)
+            and isinstance(rec.get("path"), str) and bool(rec["path"]) and chr(0) not in rec["path"] and os.path.isabs(rec["path"])
+            and all(rec.get(key) is None or isinstance(rec.get(key), str) for key in _OPTIONAL_TEXT))
+
+
+def _valid_selection(chosen: object) -> bool:
+    return isinstance(chosen, dict) and all(isinstance(chosen.get(key), str) and chosen[key] for key in ("repo", "repo_key", "id"))
+
+
+def _sanitize(state: dict[str, Any]) -> dict[str, Any]:
+    """Drop what cannot be trusted from a well-formed file, keeping the dropped parts under ``quarantine`` for inspection.
+
+    The view is cleaned on every read; the file itself is only rewritten by the next mutation.
+    """
+    quarantined: list[dict[str, Any]] = []
+    for key, group in list(state["workspaces"].items()):
+        if not isinstance(group, dict):
+            quarantined.append({"repo_key": key, "group": group})
+            del state["workspaces"][key]
+            continue
+        for ident, rec in list(group.items()):
+            if not _valid_record(ident, rec):
+                quarantined.append({"repo_key": key, "id": ident, "record": rec})
+                del group[ident]
+    if state.get("selected") is not None and not _valid_selection(state["selected"]):
+        quarantined.append({"selected": state["selected"]})
+        state["selected"] = None
+    if quarantined:
+        state["quarantine"] = [*state.get("quarantine", []), *quarantined][-MAX_QUARANTINE:]
+    return state
+
+
 class StateStore:
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -52,14 +93,14 @@ class StateStore:
         if not _well_formed(state):
             self._set_aside()
             return _empty()
-        return state
+        return _sanitize(state)
 
     def _set_aside(self) -> None:
         """Keep an unreadable file for inspection instead of overwriting or deleting it."""
         try:
             os.replace(self.path, self.path.with_name(f"{self.path.name}.corrupt-{secrets.token_hex(3)}"))
-        except OSError:
-            pass
+        except OSError as exc:  # the file stays where it is and is rewritten by the next mutation; nothing else can be done here
+            log.warning("could not set aside the unreadable workspace state file: %s", exc)
 
     def _write(self, state: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,8 +114,8 @@ class StateStore:
         except BaseException:
             try:
                 tmp.unlink()
-            except OSError:
-                pass
+            except OSError as exc:  # the original error is what matters; a stray temp file is harmless
+                log.debug("could not remove temporary state file %s: %s", tmp, exc)
             raise
 
     def read(self) -> dict[str, Any]:

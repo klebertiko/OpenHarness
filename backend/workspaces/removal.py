@@ -27,7 +27,7 @@ from typing import Any
 from .errors import WorkspaceError
 from .gitrun import GitFailure
 from .gitstate import StatusReport, WorktreeEntry, parse_status_v2
-from .links import LinkInfo, is_under, scan_tree, unlink_link
+from .links import LinkInfo, TreeScan, is_under, remove_tree, scan_tree, unlink_link
 from .paths import ManagedRoot, canonical, is_link
 
 TOKEN_TTL_S = 600
@@ -67,6 +67,20 @@ class InspectionState:
         return self.dirty or self.unpushed["count"] > 0
 
 
+@dataclass
+class OrphanState:
+    path: str
+    scan: TreeScan
+    fingerprint: str
+
+
+def _readlink(path: str) -> str:
+    try:
+        return os.readlink(path)
+    except OSError:
+        return "(unreadable)"
+
+
 def rescue_pathspecs(links: list[LinkInfo]) -> bytes:
     """NUL-separated pathspecs for ``git add --all``: the whole tree, except every link (never followed, never embedded)."""
     return b"".join(entry.encode("utf-8", "surrogateescape") + NUL
@@ -94,11 +108,15 @@ class RemovalMixin:
     # ------------------------------------------------------------------ inspection
 
     def _resolve_entry(self, ctx, workspace_id: str) -> tuple[WorktreeEntry, dict[str, Any]]:
-        registry = self._registry(ctx)
-        for position, wt in enumerate(self._worktrees(ctx)):
+        entries = self._worktrees(ctx)
+        registry = self._registry(ctx, entries)
+        for position, wt in enumerate(entries):
             info = self._describe(wt, position, registry, None, with_status=False)
             if info["id"] == workspace_id:
                 return wt, info
+        for info in self._orphans(ctx, entries):
+            if info["id"] == workspace_id:
+                return WorktreeEntry(path=info["path"], branch=None), info
         raise WorkspaceError("workspace_not_found", "no such workspace in this repository", 404)
 
     def _unpushed(self, ctx, entry: WorktreeEntry) -> dict[str, Any]:
@@ -215,6 +233,8 @@ class RemovalMixin:
         ctx = self._open(repo)
         with self._locked(ctx):
             entry, info = self._resolve_entry(ctx, workspace_id)
+            if info["orphaned"]:
+                return self._orphan_check(ctx, workspace_id, info)
             state = self._inspect(ctx, entry)["state"]
             blockers = self._blockers(info, state)
             report = state.report
@@ -249,6 +269,8 @@ class RemovalMixin:
         ctx = self._open(repo)
         with self._locked(ctx):
             entry, info = self._resolve_entry(ctx, workspace_id)
+            if info["orphaned"]:
+                return self._orphan_remove(ctx, workspace_id, info, token)
             if self._blockers(info):
                 raise WorkspaceError("protected_workspace", "this workspace is not one the manager created and may not be removed", 403,
                                      blockers=self._blockers(info))
@@ -294,6 +316,52 @@ class RemovalMixin:
             branch = info["branch"]
             return {"removed": True, "id": workspace_id, "path": info["path"], "rescue": rescue, "branch_kept": branch,
                     "links": [link.as_dict() for link in state.links]}
+
+    # ------------------------------------------------------------------ orphaned workspaces
+
+    def _orphan_state(self, ctx, info: dict[str, Any]) -> OrphanState:
+        """What is left on disk of a workspace git no longer knows. Read without git and without following any link."""
+        root = os.path.normcase(os.path.normpath(os.fspath(ManagedRoot(self.settings.managed_root).path)))
+        path = os.path.normpath(info["path"])
+        if not os.path.normcase(path).startswith(root + os.sep):
+            raise WorkspaceError("unsafe_destination", "this directory is not under the managed root; refusing to clean it", 409)
+        scan = scan_tree(path, digest=True) if not is_link(path) else TreeScan(links=[LinkInfo("", _readlink(path), "link", True)], digest="link")
+        return OrphanState(path=path, scan=scan, fingerprint=hashlib.sha256(f"orphan|{scan.digest}".encode("utf-8")).hexdigest())
+
+    def _orphan_check(self, ctx, workspace_id: str, info: dict[str, Any]) -> dict[str, Any]:
+        state = self._orphan_state(ctx, info)
+        rescues = self.runner.run(ctx.cwd, ["for-each-ref", "--format=%(refname)", f"{RESCUE_PREFIX}{workspace_id}",
+                                            f"{RESCUE_PREFIX}{workspace_id}-*"], check=False).text().split()
+        return {
+            "workspace": info, "orphaned": True, "removable": True, "blockers": [],
+            "leftover": {"entries": state.scan.entries, "paths": state.scan.sample, "paths_truncated": state.scan.entries > len(state.scan.sample)},
+            "links": [link.as_dict() for link in state.scan.links], "rescue_refs": rescues,
+            "note": "git no longer lists this workspace; what remains in its directory is deleted without following links. "
+                    "Any rescue ref listed was made before the removal started.",
+            "locked": False, "lock_reason": "", "needs_lock_release": False, "missing": False, "pending_work": False, "will_preserve": False,
+            "rescue_ref": None, "unpushed": {"count": 0, "branch": info.get("branch"), "has_upstream": False, "commits": []},
+            "confirmation_token": self._issue_token(ctx, workspace_id, state), "expires_in": TOKEN_TTL_S,
+        }
+
+    def _orphan_remove(self, ctx, workspace_id: str, info: dict[str, Any], token: str) -> dict[str, Any]:
+        state = self._orphan_state(ctx, info)
+        self._verify_token(token, ctx, workspace_id, state)
+        try:
+            for link in state.scan.links:
+                if link.path:
+                    unlink_link(state.path, link)
+            remove_tree(state.path)
+        except OSError as exc:
+            raise WorkspaceError("remove_failed", "the leftover directory could not be fully removed", 409, detail=str(exc)[:300]) from exc
+
+        def forget(data):
+            data["workspaces"].get(ctx.key, {}).pop(workspace_id, None)
+            chosen = data["selected"]
+            if chosen and chosen.get("repo_key") == ctx.key and chosen.get("id") == workspace_id:
+                data["selected"] = None
+        self.store.mutate(forget)
+        return {"removed": True, "id": workspace_id, "path": info["path"], "rescue": None, "branch_kept": info.get("branch"),
+                "orphaned": True, "links": [link.as_dict() for link in state.scan.links]}
 
     # ------------------------------------------------------------------ preservation
 

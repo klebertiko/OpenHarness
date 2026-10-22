@@ -55,8 +55,10 @@ def test_create_from_a_tag(svc, repo):
 def test_create_from_a_commit_id_full_or_abbreviated(svc, repo):
     first = repo.out("rev-parse", "HEAD")
     repo.commit("later.txt")
-    assert svc.create(str(repo.path), first)["head"] == first
-    assert svc.create(str(repo.path), first[:9])["head"] == first
+    outcome = svc.create(str(repo.path), first)
+    assert outcome["head"] == first
+    outcome = svc.create(str(repo.path), first[:9])
+    assert outcome["head"] == first
 
 
 def test_create_with_a_new_branch(svc, repo):
@@ -112,7 +114,8 @@ def test_an_id_collision_is_retried_and_then_reported(svc, repo, monkeypatch):
     assert caught.value.code == "id_collision" and caught.value.status == 409
     ids = iter([first["id"], first["id"], "ws-00000000000000aa"])
     monkeypatch.setattr(svc, "_new_id", lambda: next(ids))
-    assert svc.create(str(repo.path), "main")["id"] == "ws-00000000000000aa"
+    outcome = svc.create(str(repo.path), "main")
+    assert outcome["id"] == "ws-00000000000000aa"
 
 
 @pytest.mark.parametrize("bad", ["", "relative/path", "\\\\server\\share\\r", "x\0y", "C:", "missing-dir"])
@@ -301,8 +304,16 @@ def test_worktrees_made_outside_the_manager_are_listed_but_not_managed(svc, repo
     assert canonical(entry["path"]) == canonical(other)
 
 
-def test_a_worktree_under_the_managed_root_that_we_did_not_register_is_not_managed(svc, repo, oh_env):
+def test_a_generated_id_worktree_of_this_repository_is_adopted_when_the_registry_is_empty(svc, repo, oh_env):
     created = svc.create(str(repo.path), "main")
     StateStore(oh_env.settings.state_path).mutate(lambda s: s["workspaces"].clear())
     entry = next(i for i in svc.list(str(repo.path)) if i["kind"] == "linked")
-    assert not entry["managed"] and entry["id"] != created["id"] and entry["id"].startswith("ext-")
+    assert entry["managed"] and entry["id"] == created["id"]
+
+
+def test_a_hand_made_worktree_under_the_managed_root_is_not_managed(svc, repo, oh_env):
+    svc.create(str(repo.path), "main")  # makes the repository directory under the root
+    repo_dir = next(p for p in oh_env.settings.managed_root.iterdir())
+    repo.git("worktree", "add", "--detach", "--", str(repo_dir / "hand-made"), "HEAD")
+    entry = next(i for i in svc.list(str(repo.path)) if i["path"].endswith("hand-made"))
+    assert not entry["managed"] and entry["id"].startswith("ext-")

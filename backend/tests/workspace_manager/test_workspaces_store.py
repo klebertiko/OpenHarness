@@ -10,6 +10,18 @@ import pytest
 from workspaces.store import StateStore
 
 
+WS_A = "ws-00000000000000aa"
+SELECTED = {"repo": "R:/repo", "repo_key": "r", "id": WS_A}
+
+
+def ws_id(n: int) -> str:
+    return f"ws-{n:016x}"
+
+
+def record(ident: str) -> dict:
+    return {"id": ident, "path": os.path.abspath(os.sep + ident), "branch": None}
+
+
 def test_a_missing_file_reads_as_empty_state(tmp_path):
     state = StateStore(tmp_path / "state.json").read()
     assert state == {"version": 1, "workspaces": {}, "selected": None}
@@ -17,13 +29,13 @@ def test_a_missing_file_reads_as_empty_state(tmp_path):
 
 def test_updates_persist_across_instances(tmp_path):
     path = tmp_path / "data" / "state.json"
-    StateStore(path).mutate(lambda s: s["workspaces"].setdefault("repo1", {}).update({"ws-a": {"path": "p"}}))
-    assert StateStore(path).read()["workspaces"]["repo1"]["ws-a"] == {"path": "p"}
+    StateStore(path).mutate(lambda s: s["workspaces"].setdefault("repo1", {}).update({WS_A: record(WS_A)}))
+    assert StateStore(path).read()["workspaces"]["repo1"][WS_A] == record(WS_A)
 
 
 def test_a_failing_mutation_writes_nothing(tmp_path):
     store = StateStore(tmp_path / "state.json")
-    store.mutate(lambda s: s.update(selected={"repo_key": "r", "id": "ws-a"}))
+    store.mutate(lambda s: s.update(selected=SELECTED))
 
     def boom(state):
         state["selected"] = None
@@ -31,13 +43,13 @@ def test_a_failing_mutation_writes_nothing(tmp_path):
 
     with pytest.raises(RuntimeError):
         store.mutate(boom)
-    assert store.read()["selected"] == {"repo_key": "r", "id": "ws-a"}
+    assert store.read()["selected"] == SELECTED
 
 
 def test_a_failed_write_keeps_the_previous_file_and_leaves_no_temp(tmp_path, monkeypatch):
     path = tmp_path / "state.json"
     store = StateStore(path)
-    store.mutate(lambda s: s.update(selected={"repo_key": "r", "id": "ws-a"}))
+    store.mutate(lambda s: s.update(selected=SELECTED))
     before = path.read_bytes()
 
     def broken_replace(src, dst):
@@ -69,7 +81,7 @@ def test_concurrent_writers_do_not_lose_updates(tmp_path):
     store = StateStore(tmp_path / "state.json")
 
     def register(n):
-        store.mutate(lambda s: s["workspaces"].setdefault("repo", {}).update({f"ws-{n}": {"n": n}}))
+        store.mutate(lambda s: s["workspaces"].setdefault("repo", {}).update({ws_id(n): record(ws_id(n))}))
 
     threads = [threading.Thread(target=register, args=(n,)) for n in range(25)]
     [t.start() for t in threads]
