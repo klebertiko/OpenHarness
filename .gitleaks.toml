@@ -20,15 +20,16 @@ paths = [
   '''backend/sandbox/secrets\.py''',
 ]
 
-# Studio e2e evidence files (.ohm fixtures with a placeholder "secretRef": "vaultref:fixture")
-# that commit c38758c added by mistake and f78fbf1 removed. Both conditions must hold, so
-# the exception covers nothing else in that commit or in the tree.
+# The rebrand commit renamed the placeholder secret references in backend tests
+# ("openharness/..." to "oharness/..."), which the generic-api-key rule reads as
+# keys. They are labels for a keychain entry, not values. Commit AND path, so the
+# exception covers nothing else; it can go once the rebrand lands on main.
 [[allowlists]]
-description = "Accidentally committed e2e evidence fixtures (removed in the next commit)"
+description = "Renamed placeholder secretRef labels in backend tests (rebrand commit)"
 condition = "AND"
 commits = [
-  '''c38758c13f0431a0ff94d383c11de68deca74ea5''',
+  '''50c77979834276cfd7f9e50105bee2fe8478afa0''',
 ]
 paths = [
-  '''\.harness/sprint-[^/]+/story-[^/]+/evidence/.*''',
+  '''backend/tests/test_[a-z_]+\.py''',
 ]
