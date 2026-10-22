@@ -1,0 +1,1564 @@
+
+ RUN  v4.1.11 C:/Users/klebe/AppData/Local/Temp/openharness-qa-ab567a542950401bb7fc4112cbfc06b8
+
+xx··x··x·xxxx
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/agent/ChatComposer.recovery.test.tsx > retains the command and exposes recovery when a workspace skill read fails
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="relative min-w-0"
+    >
+      <textarea
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-label="Message OpenHarness"
+        class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+        placeholder="Ask OpenHarness… Type / for commands, skills and tools in Isolated"
+        rows="2"
+      />
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <div
+        class="relative min-w-0"
+      >
+        <textarea
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-label="Message OpenHarness"
+          class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+          placeholder="Ask OpenHarness… Type / for commands, skills and tools in Isolated"
+          rows="2"
+        />
+      </div>
+    </div>
+  </body>
+</html>
+ ❯ waitForWrapper ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/components/agent/ChatComposer.recovery.test.tsx:18:9
+     16|   render(<Composer readSkill={vi.fn().mockRejectedValue(new Error("off…
+     17|   fireEvent.click(screen.getByRole("option", { name: /skill:review/ })…
+     18|   await waitFor(() => expect(screen.getByRole("alert").textContent).to…
+       |         ^
+     19|   expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).t…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/components/agent/ChatComposer.recovery.test.tsx > does not overwrite newer typing when a skill read completes late
+AssertionError: expected 'stale skill' to be 'Newer draft' // Object.is equality
+
+Expected: "Newer draft"
+Received: "stale skill"
+
+ ❯ src/components/agent/ChatComposer.recovery.test.tsx:27:70
+     25|   fireEvent.change(screen.getByRole("textbox"), { target: { value: "Ne…
+     26|   await act(async () => resolveRead("stale skill"));
+     27|   expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).t…
+       |                                                                      ^
+     28| });
+     29|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/components/agent/MessageActions.test.tsx > copies the exact text and only confirms after the clipboard accepts it
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy message"
+
+There are no accessible roles. But there might be some inaccessible roles. If you wish to access them, then set the `hidden` option to `true`. Learn more about this here: https://testing-library.com/docs/dom-testing-library/api-queries#byrole
+
+Ignored nodes: comments, script, style
+<body>
+  <div />
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/MessageActions.test.tsx:8:26
+      6|   const copy = vi.spyOn(navigator.clipboard, "writeText").mockResolved…
+      7|   render(<MessageActions content="<script>not HTML</script>" />);
+      8|   fireEvent.click(screen.getByRole("button", { name: "Copy message" })…
+       |                          ^
+      9|   await waitFor(() => expect(screen.getByRole("status").textContent).t…
+     10|   expect(copy).toHaveBeenCalledWith("<script>not HTML</script>");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/components/agent/MessageActions.test.tsx > shows a manual recovery when clipboard access fails and reuse only fills a draft
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy message"
+
+There are no accessible roles. But there might be some inaccessible roles. If you wish to access them, then set the `hidden` option to `true`. Learn more about this here: https://testing-library.com/docs/dom-testing-library/api-queries#byrole
+
+Ignored nodes: comments, script, style
+<body>
+  <div />
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/MessageActions.test.tsx:16:26
+     14|   const reuse = vi.fn();
+     15|   render(<MessageActions content="hello" onReuse={reuse} />);
+     16|   fireEvent.click(screen.getByRole("button", { name: "Copy message" })…
+       |                          ^
+     17|   await waitFor(() => expect(screen.getByRole("alert").textContent).to…
+     18|   expect(screen.queryByRole("status")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/components/agent/ThreadsSidebar.delivery.test.tsx > filters chat titles and includes archived matches without restoring them
+TestingLibraryElementError: Unable to find an accessible element with the role "searchbox" and name "Search chats"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  <header
+    class="flex h-panelhead flex-none items-center gap-2 border-b border-line px-3"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "Chats":
+  <h2
+    class="t-title truncate text-ink"
+  />
+
+  Name "Today":
+  <h3
+    class="px-2 pb-1 text-[11px] font-[550] text-ink-faint"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "New chat":
+  <button
+    class="flex h-8 w-full items-center gap-2 rounded-[8px] px-2.5 text-[13px] font-[550] transition-colors bg-sub-200 text-ink hover:bg-sub-300"
+    type="button"
+  />
+
+  Name "Notes now":
+  <button
+    class="flex w-full items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal bg-sub-300/70"
+    type="button"
+  />
+
+  Name "Chat actions":
+  <button
+    aria-expanded="false"
+    aria-label="Chat actions"
+    class="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-[6px] text-ink-mute opacity-0 transition-opacity hover:bg-sub-300 hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 aria-expanded:opacity-100"
+    type="button"
+  />
+
+  Name "Release plan now":
+  <button
+    class="flex w-full items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    type="button"
+  />
+
+  Name "Chat actions":
+  <button
+    aria-expanded="false"
+    aria-label="Chat actions"
+    class="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-[6px] text-ink-mute opacity-0 transition-opacity hover:bg-sub-300 hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 aria-expanded:opacity-100"
+    type="button"
+  />
+
+  --------------------------------------------------
+  listbox:
+
+  Name "Chats":
+  <div
+    aria-label="Chats"
+    class="flex flex-col pb-2 outline-none "
+    role="listbox"
+    tabindex="0"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="flex flex-col gap-px"
+  />
+
+  Name "":
+  <ul
+    class="flex flex-col gap-px pt-1"
+  />
+
+  --------------------------------------------------
+  option:
+
+  Name "Notes now":
+  <li
+    aria-selected="true"
+    class="group/row relative"
+    role="option"
+  />
+
+  Name "Release plan now":
+  <li
+    aria-selected="false"
+    class="group/row relative"
+    role="option"
+  />
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  <details
+    class="mt-2 px-1.5"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <section
+      class="flex min-h-0 min-w-0 flex-col bg-sub-100 shadow-[inset_0_1px_0_0_oklch(1_0_0_/_0.04)] h-full"
+    >
+      <header
+        class="flex h-panelhead flex-none items-center gap-2 border-b border-line px-3"
+      >
+        <h2
+          class="t-title truncate text-ink"
+        >
+          Chats
+        </h2>
+        <span
+          class="flex-1"
+        />
+      </header>
+      <div
+        class="min-h-0 flex-1 overflow-y-auto"
+      >
+        <div
+          class="px-2 pb-1 pt-2"
+        >
+          <button
+            class="flex h-8 w-full items-center gap-2 rounded-[8px] px-2.5 text-[13px] font-[550] transition-colors bg-sub-200 text-ink hover:bg-sub-300"
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-plus text-ink-mute"
+              fill="none"
+              height="14"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="14"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+            New chat
+          </button>
+        </div>
+        <div
+          aria-label="Chats"
+          class="flex flex-col pb-2 outline-none "
+          role="listbox"
+          tabindex="0"
+        >
+          <section
+            class="px-1.5 pt-2"
+          >
+            <h3
+              class="px-2 pb-1 text-[11px] font-[550] text-ink-faint"
+            >
+              Today
+            </h3>
+            <ul
+              class="flex flex-col gap-px"
+            >
+              <li
+                aria-selected="true"
+                class="group/row relative"
+                role="option"
+              >
+                <button
+                  class="flex w-full items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal bg-sub-300/70"
+                  type="button"
+                >
+                  <span
+                    class="min-w-0 flex-1 truncate text-[13px] leading-5 text-ink"
+                  >
+                    Notes
+                  </span>
+                  <span
+                    class="shrink-0 text-[11px] text-ink-faint group-hover/row:hidden"
+                  >
+                    now
+                  </span>
+                </button>
+                <button
+                  aria-expanded="false"
+                  aria-label="Chat actions"
+                  class="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-[6px] text-ink-mute opacity-0 transition-opacity hover:bg-sub-300 hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 aria-expanded:opacity-100"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-ellipsis lucide-more-horizontal"
+                    fill="none"
+                    height="15"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                    viewBox="0 0 24 24"
+                    width="15"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="1"
+                    />
+                    <circle
+                      cx="19"
+                      cy="12"
+                      r="1"
+                    />
+                    <circle
+                      cx="5"
+                      cy="12"
+                      r="1"
+                    />
+                  </svg>
+                </button>
+              </li>
+            </ul>
+          </section>
+          <details
+            class="mt-2 px-1.5"
+          >
+            <summary
+              class="cursor-pointer list-none px-2 py-1.5 text-[11px] font-[550] text-ink-faint marker:content-none hover:text-ink-mute"
+            >
+              Archived ·
+              1
+            </summary>
+            <ul
+              class="flex flex-col gap-px pt-1"
+            >
+              <li
+                aria-selected="false"
+                class="group/row relative"
+                role="option"
+              >
+                <button
+                  class="flex w-full items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+                  type="button"
+                >
+                  <span
+                    class="min-w-0 flex-1 truncate text-[13px] leading-5 text-ink-dim"
+                  >
+                    Release plan
+                  </span>
+                  <span
+                    class="shrink-0 text-[11px] text-ink-faint group-hover/row:hidden"
+                  >
+                    now
+                  </span>
+                </button>
+                <button
+                  aria-expanded="false"
+                  aria-label="Chat actions"
+                  class="absolute right-1.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-[6px] text-ink-mute opacity-0 transition-opacity hover:bg-sub-300 hover:text-ink hover:opacity-100 focus-visible:opacity-100 group-hover/row:opacity-100 group-focus-within/row:opacity-100 aria-expanded:opacity-100"
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-ellipsis lucide-more-horizontal"
+                    fill="none"
+                    height="15"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                    viewBox="0 0 24 24"
+                    width="15"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="1"
+                    />
+                    <circle
+                      cx="19"
+                      cy="12"
+                      r="1"
+                    />
+                    <circle
+                      cx="5"
+                      cy="12"
+                      r="1"
+                    />
+                  </svg>
+                </button>
+              </li>
+            </ul>
+          </details>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/ThreadsSidebar.delivery.test.tsx:12:27
+     10|   useThreadStore.getState().createThread("Notes");
+     11|   render(<ThreadsSidebar />);
+     12|   fireEvent.change(screen.getByRole("searchbox", { name: "Search chats…
+       |                           ^
+     13|   expect(screen.getByRole("button", { name: /Release plan/ })).toBeTru…
+     14|   expect(screen.queryByRole("button", { name: /Notes/ })).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/components/agent/useChatTools.test.tsx > clears loading when the workspace is removed during a capabilities request
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/components/agent/useChatTools.test.tsx:53:34
+     51|   expect(result.current.loading).toBe(true);
+     52|   rerender({ workspace: null });
+     53|   expect(result.current.loading).toBe(false);
+       |                                  ^
+     54|   expect(result.current.workspace).toBeNull();
+     55| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/components/providers/ProvidersList.recovery.test.tsx > keeps a failed budget edit available for correction and retry
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Global budget in USD"
+
+Here are the accessible roles:
+
+  alert:
+
+  Name "":
+  <p
+    class="t-body mt-1 text-warn [overflow-wrap:anywhere]"
+    role="alert"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "No budget — set one":
+  <button
+    class="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+    type="button"
+  />
+
+  Name "Anthropic Not connected · turn on runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  Name "OpenAI Not connected · turn on runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  Name "Ollama local Not connected · turn on runs on this machine":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  Name "Ollama Cloud Not connected · add key runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Paste an Ollama key"
+    type="button"
+  />
+
+  Name "OpenRouter Not connected · add key runs in the vendor cloud":
+  <button
+    aria-current="true"
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal bg-sub-300/70"
+    title="Not connected — Paste an OpenRouter key"
+    type="button"
+  />
+
+  Name "Cursor Not connected · turn on runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "Needs setup":
+  <h3
+    class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+  />
+
+  Name "Agents only":
+  <h3
+    class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="flex flex-col gap-px"
+  />
+
+  Name "":
+  <ul
+    class="flex flex-col gap-px"
+  />
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="h-full min-h-0 overflow-y-auto pb-3"
+    >
+      <div
+        class="mx-1.5 mt-2 rounded-[8px] border border-line-soft bg-sub-100 px-2.5 py-2"
+      >
+        <div
+          class="flex items-center justify-between gap-2"
+        >
+          <span
+            class="t-body text-ink-mute"
+          >
+            Spend
+          </span>
+          <span
+            class="t-meta flex items-center gap-1.5 text-ink-faint"
+          >
+            <span
+              aria-hidden="true"
+              class="h-[7px] w-[7px] flex-none rounded-full "
+              style="background: var(--ink-faint);"
+            />
+            —
+          </span>
+        </div>
+        <p
+          class="t-body mt-1 text-warn [overflow-wrap:anywhere]"
+          role="alert"
+        >
+          Usage may be stale:
+          sidecar unavailable
+        </p>
+        <button
+          class="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          type="button"
+        >
+          No budget — set one
+        </button>
+      </div>
+      <section
+        class="px-1.5 pt-2"
+      >
+        <h3
+          class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+        >
+          Needs setup
+        </h3>
+        <ul
+          class="flex flex-col gap-px"
+        >
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Anthropic
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  OpenAI
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Ollama local
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] bg-ink-dim"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs on this machine
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Paste an Ollama key"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Ollama Cloud
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    add key
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              aria-current="true"
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal bg-sub-300/70"
+              title="Not connected — Paste an OpenRouter key"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  OpenRouter
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    add key
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </section>
+      <section
+        class="px-1.5 pt-2"
+      >
+        <h3
+          class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+        >
+          Agents only
+        </h3>
+        <ul
+          class="flex flex-col gap-px"
+        >
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Cursor
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/providers/ProvidersList.recovery.test.tsx:17:18
+     15|   fireEvent.click(screen.getByRole("button", { name: "Save" }));
+     16|   await waitFor(() => expect(screen.getByRole("alert").textContent).to…
+     17|   expect((screen.getByRole("textbox", { name: "Global budget in USD" }…
+       |                  ^
+     18|   expect(screen.getByRole("button", { name: "Save" }).hasAttribute("di…
+     19| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/components/providers/ProvidersList.recovery.test.tsx > refreshes real usage after a previous load failure
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Refresh usage"
+
+Here are the accessible roles:
+
+  alert:
+
+  Name "":
+  <p
+    class="t-body mt-1 text-warn [overflow-wrap:anywhere]"
+    role="alert"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "No budget — set one":
+  <button
+    class="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+    type="button"
+  />
+
+  Name "Anthropic Not connected · turn on runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  Name "OpenAI Not connected · turn on runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  Name "Ollama local Not connected · turn on runs on this machine":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  Name "Ollama Cloud Not connected · add key runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Paste an Ollama key"
+    type="button"
+  />
+
+  Name "OpenRouter Not connected · add key runs in the vendor cloud":
+  <button
+    aria-current="true"
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal bg-sub-300/70"
+    title="Not connected — Paste an OpenRouter key"
+    type="button"
+  />
+
+  Name "Cursor Not connected · turn on runs in the vendor cloud":
+  <button
+    class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+    title="Not connected — Turn on"
+    type="button"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "Needs setup":
+  <h3
+    class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+  />
+
+  Name "Agents only":
+  <h3
+    class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="flex flex-col gap-px"
+  />
+
+  Name "":
+  <ul
+    class="flex flex-col gap-px"
+  />
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  Name "":
+  <li
+    class="group relative"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="h-full min-h-0 overflow-y-auto pb-3"
+    >
+      <div
+        class="mx-1.5 mt-2 rounded-[8px] border border-line-soft bg-sub-100 px-2.5 py-2"
+      >
+        <div
+          class="flex items-center justify-between gap-2"
+        >
+          <span
+            class="t-body text-ink-mute"
+          >
+            Spend
+          </span>
+          <span
+            class="t-meta flex items-center gap-1.5 text-ink-faint"
+          >
+            <span
+              aria-hidden="true"
+              class="h-[7px] w-[7px] flex-none rounded-full "
+              style="background: var(--ink-faint);"
+            />
+            —
+          </span>
+        </div>
+        <p
+          class="t-body mt-1 text-warn [overflow-wrap:anywhere]"
+          role="alert"
+        >
+          Usage may be stale:
+          offline
+        </p>
+        <button
+          class="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          type="button"
+        >
+          No budget — set one
+        </button>
+      </div>
+      <section
+        class="px-1.5 pt-2"
+      >
+        <h3
+          class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+        >
+          Needs setup
+        </h3>
+        <ul
+          class="flex flex-col gap-px"
+        >
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Anthropic
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  OpenAI
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Ollama local
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] bg-ink-dim"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs on this machine
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Paste an Ollama key"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Ollama Cloud
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    add key
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+          <li
+            class="group relative"
+          >
+            <button
+              aria-current="true"
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal bg-sub-300/70"
+              title="Not connected — Paste an OpenRouter key"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  OpenRouter
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    add key
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </section>
+      <section
+        class="px-1.5 pt-2"
+      >
+        <h3
+          class="px-2.5 pb-1 pt-2 text-[11px] font-[550] text-ink-faint"
+        >
+          Agents only
+        </h3>
+        <ul
+          class="flex flex-col gap-px"
+        >
+          <li
+            class="group relative"
+          >
+            <button
+              class="flex w-full items-center gap-3 rounded-[8px] px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-signal hover:bg-sub-200/70"
+              title="Not connected — Turn on"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-[7px] w-[7px] flex-none rounded-[2px] border border-ink-faint bg-transparent"
+              />
+              <span
+                class="min-w-0 flex-1"
+              >
+                <span
+                  class="block truncate text-[13px] font-[550] leading-5 text-ink"
+                >
+                  Cursor
+                </span>
+                <span
+                  class="block truncate text-[12px] leading-[18px] text-ink-mute"
+                >
+                  <span>
+                    Not connected
+                  </span>
+                  <span
+                    class="text-ink-faint"
+                  >
+                     ·
+                    turn on
+                  </span>
+                </span>
+              </span>
+              <span
+                class="flex-none transition-opacity "
+              >
+                <span
+                  class="flex items-center gap-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="h-[6px] w-[6px] flex-none rounded-[1px] border border-ink-mute"
+                  />
+                  <span
+                    class="sr-only"
+                  >
+                    runs in the vendor cloud
+                  </span>
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/providers/ProvidersList.recovery.test.tsx:24:26
+     22|   vi.mocked(usageApi.summary).mockResolvedValue({ byConnection: [], bu…
+     23|   render(<ProvidersList />);
+     24|   fireEvent.click(screen.getByRole("button", { name: "Refresh usage" }…
+       |                          ^
+     25|   await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+     26|   expect(usageApi.summary).toHaveBeenCalledOnce();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: offline
+ ❯ src/components/agent/ChatComposer.recovery.test.tsx:16:57
+     14| it("retains the command and exposes recovery when a workspace skill re…
+     15|   HTMLElement.prototype.scrollIntoView = vi.fn();
+     16|   render(<Composer readSkill={vi.fn().mockRejectedValue(new Error("off…
+       |                                                         ^
+     17|   fireEvent.click(screen.getByRole("option", { name: /skill:review/ })…
+     18|   await waitFor(() => expect(screen.getByRole("alert").textContent).to…
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20
+ ❯ runWithCancel ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20
+ ❯ runWithTimeout ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@vitest/runner/dist/chunk-artifact.js:2956:64
+
+This error originated in "src/components/agent/ChatComposer.recovery.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "retains the command and exposes recovery when a workspace skill read fails". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  5 failed (5)
+      Tests  8 failed | 5 passed (13)
+     Errors  1 error
+   Start at  00:08:37
+   Duration  3.80s (transform 1.11s, setup 0ms, import 5.35s, tests 1.80s, environment 5.16s)

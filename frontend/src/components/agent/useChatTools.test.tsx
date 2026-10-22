@@ -43,6 +43,17 @@ it("No workspace hides tools and says why", async () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
+it("clears loading when the workspace is removed during a capabilities request", () => {
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  const { result, rerender } = renderHook(({ workspace }) => useChatTools(workspace), {
+    initialProps: { workspace: { rootPath: "C:/isolated", name: "Isolated" } as { rootPath: string; name: string } | null },
+  });
+  expect(result.current.loading).toBe(true);
+  rerender({ workspace: null });
+  expect(result.current.loading).toBe(false);
+  expect(result.current.workspace).toBeNull();
+});
+
 it("degrades to no tools when the broker is unavailable, without throwing", async () => {
   stub({});
   const { result } = renderHook(() => useChatTools({ rootPath: "D:\\Development", name: "Development" }));
