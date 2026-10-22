@@ -47,6 +47,14 @@ async function download(name) {
   await file.saveAs(resolve(output, name));
   return JSON.parse(readFileSync(resolve(output, name), "utf8"));
 }
+// setViewportSize resolves when the browser accepted the size, not when the page has re-laid out: on a loaded
+// runner the next measurement can still see the previous (1440px) layout, where the right-aligned header
+// buttons sit past a 320px edge. Wait for the width and for two frames before measuring.
+async function resize(width) {
+  await page.setViewportSize({ width, height: 1000 });
+  await page.waitForFunction(w => innerWidth === w, width);
+  await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+}
 async function pin(id, provider) {
   await page.locator('.react-flow__node[data-id="' + id + '"]').click();
   // The pin is a Combobox (eced171), not a <select>.
@@ -188,7 +196,7 @@ try {
   step = "overview responsive bounds";
   await page.getByRole("button", { name: "Back to Studio", exact: true }).click();
   for (const width of [320, 375, 414, 768, 1440]) {
-    await page.setViewportSize({ width, height: 1000 });
+    await resize(width);
     const overview = page.locator('section[aria-labelledby="studio-heading"]');
     // Cards in a horizontal rail (#106) sit past the edge by design; the rail
     // itself must fit, and each card button must come into view when scrolled to.
@@ -214,10 +222,10 @@ try {
     await page.screenshot({ path: resolve(output, "overview-" + width + ".png") });
   }
   step = "provider and slash menu responsive keyboard";
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await resize(1440);
   await page.getByRole("button", { name: "Chats", exact: true }).click();
   for (const width of [320, 375, 414, 768, 1440]) {
-    await page.setViewportSize({ width, height: 1000 });
+    await resize(width);
     const chip = page.getByRole("button", { name: /Chat provider: OpenAI/ });
     await chip.click();
     const menu = page.getByRole("listbox", { name: "Chat provider" });
