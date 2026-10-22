@@ -1,0 +1,41 @@
+# Security review: CHAT-PROVIDERS
+
+Reviewed 2026-10-22: working-tree frontend delta over `0c89756c1d020a4be748e8523f478a3ce2e2b100`, including new delivery tests and MessageActions.tsx. Independent SEC; no implementation changes, personal profiles, databases, credentials or model calls used. Contract and ledger read. Evidence covers this frontend change, not a full backend audit.
+
+## Change-specific result: PASS
+
+- A01 PASS — `npm --prefix frontend run test -- src/components/agent/AgentStage.delivery.test.tsx src/components/agent/MessageActions.test.tsx src/components/agent/ChatComposer.test.tsx` → 3 files, 18 tests passed. Streaming completion stays in originating thread; another thread cannot see live answer. AgentStage.tsx:175–181 checks thread still exists before appending. No endpoint/auth changes (`git diff --name-only`).
+- A02 N/A — delta adds no cryptography, transport configuration or credential storage. Model and draft choices remain component state; existing transport reused.
+- A03 PASS — changed/new frontend source scan `rg -n 'dangerouslySetInnerHTML|innerHTML|eval\(|new Function|child_process|invoke\(|console\.' <changed and new frontend/src files>` → no matches. AgentStage renders message, streamed output and notices as React text. MessageActions uses clipboard.writeText; reuse calls applySuggestion, which only changes draft and focuses input (AgentStage.tsx:94). Existing CLI runner uses `asyncio.create_subprocess_exec(*argv)` (backend/adapters/cli_shared.py:181); model is an argv value, never shell text. cli_codex.py:167 rejects leading hyphens.
+- A04 PASS — AgentStage's canStart/onPreset reject live submissions; budget input rejects nonfinite/negative values, duplicate saves disabled. Direct override is sent only with direct runs; harness graph payload omits model (useRunStream.ts:136–147). Existing backend execution.py:534 resolves model against selected connection and :543–548 applies budget to resolved model/residence. Custom model names are deliberately allowed by existing ModelPicker contract, not credential or endpoint overrides.
+- A05 N/A — no CORS, routes, debug server or deployment settings changed.
+- A06 FAIL (UNCHANGED BASELINE ONLY) — `npm --prefix frontend audit --json` → exit 1, 10 affected packages (8 high, 2 moderate). `git diff -- frontend/package.json frontend/package-lock.json` → empty. No dependency introduced or upgraded by this story. See baseline findings below.
+- A07 N/A — no sessions, login, token or authentication-parameter changes.
+- A08 PASS — `git diff -- frontend/package.json frontend/package-lock.json` → empty; reviewed new frontend files are local React components/tests with no dynamic script or dependency loading. Existing workspace skill reads yield composer text, without automatic submission.
+- A09 PASS (delta) — the changed/new frontend source scan above returns no logging calls; no new logging or telemetry. New error notices are escaped React text. This does not certify provider-generated error content is always free of sensitive text.
+- A10 N/A — no new outbound URL source, endpoint override, fetch route or redirect introduced. Direct model string changes request JSON field only; existing connection resolver selects configured adapter/endpoint.
+- Secrets PASS (delta) — `$secFiles = @(git diff --name-only) + @(git ls-files --others --exclude-standard); rg -l --glob '!*.tsbuildinfo' '(sk-[A-Za-z0-9]{20}|AKIA[0-9A-Z]{16}|BEGIN .*PRIVATE KEY|ghp_[A-Za-z0-9]{25})' $secFiles` → no matches. `git log -1 --format=%B` inspected without credential indicators; no story commit exists yet. `git ls-files '*.env' '.env*'` → none. This is a scoped pattern scan, not proof against every secret format.
+
+## Baseline findings (not introduced by this delta)
+
+1. P2 — A06, frontend/package-lock.json and frontend/package.json. Audit identifies development tool vulnerabilities: vite 7.3.6 (`GHSA-698v-4r3x-3vcv`, `GHSA-r825-w8mm-5pxw`, `GHSA-587h-7wmj-h5pm`, `GHSA-9jrq-w75r-8gcw`, `GHSA-rq7h-c2jc-7f22`), @vitest/mocker 4.1.11 (`GHSA-qxg6-89mg-rqv8`, `GHSA-xp26-3454-mjgp`), and braces (`GHSA-vfj7-8cjw-p6xm`) through Tailwind/ESLint tooling. Risk: hostile requests to exposed development middleware/mock servers can reach injection/traversal paths; hostile glob patterns can exhaust stack. Reproduction: run the audit command; no exploit server was started. Fix: coordinate toolchain updates and rerun audit; mocker advisories list 4.1.12 as fixed, Vite reports newer compatible fixes; braces chain may require coordinated upstream tooling upgrades. Actual exposed-server exploitability was not established; these are advisory findings, not reproduced compromises. Production-only audit was attempted but remained network-pending and was cancelled; do not claim a clean production audit.
+2. P3 — .gitignore. `git check-ignore .env secrets/test credentials/test frontend/.env.local backend/.env` → only frontend/.env.local and backend/.env matched. Generic root `.env`, `secrets/` and `credentials/` are not protected as SEC profile requires. Risk: future accidental credential commits. Reproduction: command above. Fix: add scoped ignore patterns in a follow-up; no such files were introduced by this story.
+
+## Verdict: Security Gate Failure — unchanged baseline A06
+
+No actionable introduced security defect found in this Chat/Providers delta. The profile explicitly requires any FAIL to fail the overall gate; the unchanged dependency audit therefore prevents an unconditional PASS. Carry these baseline findings and scope distinction into HITL/PR review; do not represent the repository as vulnerability-free. No P0/P1 finding.
+
+## Follow-up review — scroll, attribution and async cleanup
+
+Re-read the current `git diff -- frontend/src/components/agent/AgentStage.tsx frontend/src/components/agent/ChatComposer.tsx frontend/src/components/agent/useChatTools.tsx` after the follow-up edits. Change-specific PASS remains; no introduced security finding:
+
+- Scroll following/jump only changes local scroll state and calls scrollIntoView; existing run/thread ownership guards still control answer display and persistence.
+- Attribution derives a label/model from the completed run segment's connectionId, rendered as existing escaped text. Captured selected-provider fallback applies only to direct turns. It does not alter provider routing, credentials, endpoint resolution or request payloads.
+- ChatComposer invalidates older async skill loads when another command is selected; its generation check still guards draft insertion and unmount increments the generation. AgentStage keys the composer by thread, preventing old completion insertion after chat navigation. Reuse still only fills a draft.
+- useChatTools clears loading before the no-workspace early return; cleanup's cancelled flag still guards capability/discovery/error results. This removes stale status without broadening tool access.
+- `npm --prefix frontend run test -- src/components/agent/AgentStage.delivery.test.tsx src/components/agent/ChatComposer.test.tsx` was rerun for current code; see result below. `git diff --numstat -- frontend/package.json frontend/package-lock.json` remains empty. Audit was not repeated; baseline A06 failure and overall gate distinction remain unchanged.
+Follow-up test result: 2 files passed, 16 tests passed (exit 0).
+
+## Final follow-up — Send button slash routing
+
+Change-specific PASS retained. Read AgentStage.tsx:207–242 and :482: Send computes the shared presetFromSlashText result, disables/guards shell-syntax warnings, and passes a recognized preset to the existing onPreset broker path. Explicit tool submission remains user-triggered; reuse itself only changes the draft. onPreset retains thread_id, permission_mode and cwd, and useRunStream still sends presets through the direct broker even when a harness is selected. No new execution primitive, permission bypass, endpoint or credential access is introduced. A warning such as `/exec npm test && whoami` cannot reach startDirectRun through Send. `npm --prefix frontend run test -- src/components/agent/AgentStage.delivery.test.tsx` → 1 file passed, 7 tests passed, including preset dispatch, blocked shell syntax, and stopped-instruction reuse without sending. No audit repeated; overall baseline A06 gate failure unchanged.

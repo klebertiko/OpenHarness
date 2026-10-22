@@ -1,0 +1,31 @@
+import { afterEach, beforeEach, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { ThreadsSidebar } from "./ThreadsSidebar";
+import { useThreadStore } from "@/store/threadStore";
+beforeEach(() => useThreadStore.setState({ threads: [], activeThreadId: null, messagesByThread: {} }));
+afterEach(cleanup);
+it("filters chat titles and includes archived matches without restoring them", () => {
+  const archived = useThreadStore.getState().createThread("Release plan");
+  useThreadStore.getState().archiveThread(archived);
+  useThreadStore.getState().createThread("Notes");
+  render(<ThreadsSidebar />);
+  fireEvent.change(screen.getByRole("searchbox", { name: "Search chats" }), { target: { value: "release" } });
+  expect(screen.getByRole("button", { name: /Release plan/ })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Notes/ })).toBeNull();
+  expect(screen.getByText(/Archived/).closest("details")?.open).toBe(true);
+  expect(useThreadStore.getState().threads.find((t) => t.id === archived)?.archived).toBe(true);
+  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "missing" } });
+  expect(screen.getByRole("status").textContent).toContain("No matching chats");
+});
+it("keeps arrows in rename inputs while supporting navigation from a chat row", () => {
+  const a = useThreadStore.getState().createThread("A");
+  const b = useThreadStore.getState().createThread("B");
+  render(<ThreadsSidebar />);
+  fireEvent.keyDown(screen.getByRole("button", { name: /^B/ }), { key: "ArrowDown" });
+  expect(useThreadStore.getState().activeThreadId).toBe(a);
+  fireEvent.click(screen.getAllByRole("button", { name: "Chat actions" })[0]);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+  fireEvent.keyDown(screen.getByRole("textbox", { name: "Chat name" }), { key: "ArrowDown" });
+  expect(useThreadStore.getState().activeThreadId).toBe(a);
+  expect(b).not.toBe(a);
+});
