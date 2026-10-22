@@ -133,3 +133,26 @@ it("keeps a validation result when autosave assigns the harness its record id wh
   await act(async () => done(new Response(JSON.stringify({ ok: true, errors: [] }))));
   expect(screen.getByText("Bundle valid")).toBeTruthy();
 });
+
+// The converse of the two tests above: anything the person authored invalidates a validation still in flight.
+// Moving a node counts (position is authored layout, saved with the harness by studioDocuments), selecting or
+// measuring does not.
+const AUTHORED_EDITS: [string, () => void][] = [
+  ["description", () => useCanvasStore.getState().setHarnessMeta({ description: "Edited while validating" })],
+  ["node data", () => useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => ({ ...n, data: { ...n.data, label: "Renamed" } })) })],
+  ["node position", () => useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => ({ ...n, position: { x: 40, y: 40 } })) })],
+  ["the set of nodes", () => useCanvasStore.setState({ nodes: [...useCanvasStore.getState().nodes, { id: "added", type: "agent" as const, position: { x: 5, y: 5 }, data: { label: "Added" } }] })],
+  ["the active bundle", () => useHarnessSessionStore.setState({ activeBundle: { ...structuredClone(fixture), manifest: { ...fixture.manifest, name: "Another bundle" } } })],
+];
+
+it.each(AUTHORED_EDITS)("discards a validation result when %s changes while it is in flight", async (_name, edit) => {
+  useHarnessSessionStore.setState({ activeBundle: structuredClone(fixture) });
+  useCanvasStore.setState({ harnessMeta: { id: null, name: "Draft", description: "" }, nodes: [{ id: "n", type: "agent" as const, position: { x: 0, y: 0 }, data: { label: "N" } }] });
+  let done!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { done = resolve; })));
+  render(<ValidateDock />); fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+  await waitFor(() => expect(done).toBeTypeOf("function"));
+  act(edit);
+  await act(async () => done(new Response(JSON.stringify({ ok: true, errors: [] }))));
+  expect(screen.queryByText("Bundle valid")).toBeNull();
+});
