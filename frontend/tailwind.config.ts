@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 /**
- * OpenHarness token surface.
+ * OHarness token surface.
  *
  * Every value here points at a CSS custom property declared in globals.css.
  * Nothing in this file holds a literal colour — the palette has exactly one

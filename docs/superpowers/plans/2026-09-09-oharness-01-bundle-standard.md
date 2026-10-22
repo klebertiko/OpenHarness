@@ -1,14 +1,14 @@
-# OpenHarness 01 — Bundle Standard Implementation Plan
+# OHarness 01 — Bundle Standard Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans`. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Define the `.oharness` JSON Schema, ship `openharness validate`, compile the skills-framework Agile harness into the product default bundle, and expose backend validate + mock dry-run APIs.
+**Goal:** Define the `.oharness` JSON Schema, ship `oharness validate`, compile the skills-framework Agile harness into the product default bundle, and expose backend validate + mock dry-run APIs.
 
 **Architecture:** A pure Python package `backend/oharness/` owns schema load, validate, and mock planning. A small CLI `python -m oharness` wraps validate. The skills-framework harness folder is compiled by a script into `backend/oharness/fixtures/default-agile.oharness`. FastAPI routes thin-wrap the library. Frontend types mirror the schema for Studio later (plan 02).
 
 **Tech Stack:** Python 3.11+, pydantic v2, jsonschema, pytest, FastAPI; Node only for renaming `package.json`.
 
-**Spec:** `docs/superpowers/specs/2026-09-09-openharness-design.md` §§1, 4 (dogfood), 5–6
+**Spec:** `docs/superpowers/specs/2026-09-09-oharness-design.md` §§1, 4 (dogfood), 5–6
 
 ## Global Constraints
 
@@ -38,7 +38,7 @@ jsonschema==4.23.0
 pytest==8.3.4
 ```
 
-Run: `cd D:\Development\src\OpenHarness\backend && pip install -r requirements.txt`
+Run: `cd D:\Development\src\OHarness\backend && pip install -r requirements.txt`
 
 - [ ] **Step 2: Write failing test for minimal valid bundle**
 
@@ -76,7 +76,7 @@ def test_minimal_bundle_parses():
 
 - [ ] **Step 3: Run test — expect fail (module missing)**
 
-Run: `cd D:\Development\src\OpenHarness\backend && python -m pytest tests/oharness/test_schema_models.py -v`  
+Run: `cd D:\Development\src\OHarness\backend && python -m pytest tests/oharness/test_schema_models.py -v`  
 Expected: FAIL import error
 
 - [ ] **Step 4: Implement models + JSON Schema**
@@ -90,7 +90,7 @@ __all__ = ["HarnessBundle", "SCHEMA_VERSION", "SCHEMA_PATH"]
 
 `backend/oharness/models.py` — define nested models matching the raw dict above (`Manifest`, `Graph`, `Content`, `Runtime`, `Validation`, `HarnessBundle`). Set `SCHEMA_VERSION = "1.0.0"`. `SCHEMA_PATH` = path to `schema/oharness.schema.json`.
 
-Write `oharness.schema.json` with `$id` `https://openharness.dev/schema/oharness/v1.0.0.json`, `required` fields matching the model, `additionalProperties: false` at top level.
+Write `oharness.schema.json` with `$id` `https://oharness.dev/schema/oharness/v1.0.0.json`, `required` fields matching the model, `additionalProperties: false` at top level.
 
 - [ ] **Step 5: Run test — expect pass**
 
@@ -264,7 +264,7 @@ SKILLS_HARNESS = Path(r"D:\Development\src\skills-framework\skills\engineering\h
 
 def test_compiled_default_validates():
     data = compile_skills_harness(SKILLS_HARNESS)
-    assert data["manifest"]["id"] == "openharness.default.agile"
+    assert data["manifest"]["id"] == "oharness.default.agile"
     assert "PO" in data["content"]["agents"] or any("PO" in k for k in data["content"]["agents"])
     r = validate_dict(data)
     assert r.ok, r.errors
@@ -274,7 +274,7 @@ def test_compiled_default_validates():
 
 - [ ] **Step 3: Implement compiler**
 
-Read each markdown file as UTF-8 string into the content maps. Build graph nodes from agents table. Set `manifest.id = "openharness.default.agile"`, `name = "OpenHarness Agile (skills-framework)"`, `version = "0.1.0"`.
+Read each markdown file as UTF-8 string into the content maps. Build graph nodes from agents table. Set `manifest.id = "oharness.default.agile"`, `name = "OHarness Agile (skills-framework)"`, `version = "0.1.0"`.
 
 Write output to `backend/oharness/fixtures/default-agile.oharness` via:
 
@@ -335,7 +335,7 @@ client = TestClient(app)
 def test_get_default_bundle():
     r = client.get("/bundles/default")
     assert r.status_code == 200
-    assert r.json()["manifest"]["id"] == "openharness.default.agile"
+    assert r.json()["manifest"]["id"] == "oharness.default.agile"
 
 def test_validate_endpoint_ok():
     bundle = client.get("/bundles/default").json()
@@ -383,12 +383,12 @@ Include in `main.py`: `app.include_router(bundles.router)`.
 ### Task 7: Branding rename + README stub
 
 **Files:**
-- Modify: `frontend/package.json` name → `openharness`
-- Modify: `backend/main.py` title → `OpenHarness API`
+- Modify: `frontend/package.json` name → `oharness`
+- Modify: `backend/main.py` title → `OHarness API`
 - Create: `README.md` (install story placeholder pointing to future installer; document `python -m oharness validate`)
 
 - [ ] **Step 1: Apply renames**
-- [ ] **Step 2: README documents validate CLI + default harness id `openharness.default.agile`**
+- [ ] **Step 2: README documents validate CLI + default harness id `oharness.default.agile`**
 
 ---
 

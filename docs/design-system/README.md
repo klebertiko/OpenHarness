@@ -1,4 +1,4 @@
-# OpenHarness design system
+# OHarness design system
 
 The design reference for every surface of the app. Tokens are the single vocabulary; the documents below say how to use them.
 
@@ -18,7 +18,7 @@ node scripts/design-tokens.mjs --css     # emit CSS custom properties from token
 node scripts/check-contrast.mjs --md     # regenerate the contrast table below
 ```
 
-OpenHarness is an everyday agent workspace with a visual Graph Engineering Studio inside it. The interface behaves like a well-made instrument: quiet, warm, precise. Modern-minimal editorial, never the density of an IDE. Read `experience.md` for how it must feel and `adoption.md` for how to wire it into the app.
+OHarness is an everyday agent workspace with a visual Graph Engineering Studio inside it. The interface behaves like a well-made instrument: quiet, warm, precise. Modern-minimal editorial, never the density of an IDE. Read `experience.md` for how it must feel and `adoption.md` for how to wire it into the app.
 
 ## Content fundamentals
 

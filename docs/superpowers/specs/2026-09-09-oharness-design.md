@@ -1,4 +1,4 @@
-# OpenHarness — Product & Architecture Design
+# OHarness — Product & Architecture Design
 
 **Date:** 2026-09-09  
 **Status:** Draft for review  
@@ -8,7 +8,7 @@
 
 Agent desktops (Claude, Codex, Cursor) ship strong runtimes but treat policy as opaque settings, prompts, or per-vendor plugins. There is no shared, portable, validatable standard for writing and exchanging an **agent harness** — the graph of roles, gates, skills, hooks, commands, and scripts that governs how work runs.
 
-OpenHarness already has a canvas, FastAPI engine, and a Tauri packaging ADR; NightwolfRGB taught hard lessons about desktop lifecycle. The gap is a finished product: desktop app + installer + competitive Agent surfaces + a harness format communities will adopt.
+OHarness already has a canvas, FastAPI engine, and a Tauri packaging ADR; NightwolfRGB taught hard lessons about desktop lifecycle. The gap is a finished product: desktop app + installer + competitive Agent surfaces + a harness format communities will adopt.
 
 ## Goal
 
@@ -43,9 +43,9 @@ Ship a **complete desktop application** (installer included) that:
 
 ---
 
-## 1. Market standard — OpenHarness Bundle
+## 1. Market standard — OHarness Bundle
 
-**Working name:** OpenHarness Bundle (extension `.oharness`). Final public name (e.g. “Harness Spec”) may be chosen at publish time; schema id is stable.
+**Working name:** OHarness Bundle (extension `.oharness`). Final public name (e.g. “Harness Spec”) may be chosen at publish time; schema id is stable.
 
 **Principle:** one file = one complete, autonomous harness. Opening it in Studio or Agent requires no sidecar repo. Reading the public spec on GitHub is enough to implement a compatible producer/consumer.
 
@@ -61,7 +61,7 @@ Ship a **complete desktop application** (installer included) that:
 
 - Public, semver’d schema (`$schema`); breaking = major.
 - One-page “Hello Harness” + full Agile reference bundle.
-- Offline CLI: `openharness validate path.oharness` (CI-friendly without GUI).
+- Offline CLI: `oharness validate path.oharness` (CI-friendly without GUI).
 - Git-friendly canonical JSON (pretty-print, stable key order) with JSON Schema.
 - Docs use progressive disclosure (skills-framework style): 5-minute minimum, depth optional.
 
@@ -234,7 +234,7 @@ The **skills-framework** Agile harness is:
 
 ## 7. Open names (non-blocking)
 
-- Public brand for the format (`OpenHarness Bundle` vs `Harness Spec` vs other).
+- Public brand for the format (`OHarness Bundle` vs `Harness Spec` vs other).
 - Exact file extension (`.oharness` vs `.harness.json`).
 
 Resolve at spec publish / first tagged schema; behaviour above does not depend on the marketing string.
