@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .errors import WorkspaceError
+from .errors import WorkspaceError, scrub_paths
 from .gitrun import GitFailure
 from .gitstate import StatusReport, WorktreeEntry, parse_status_v2
 from .links import LinkInfo, TreeScan, is_under, remove_tree, scan_tree, unlink_link
@@ -367,7 +367,7 @@ class RemovalMixin:
                                 filters=True)
             except GitFailure as exc:
                 relock()
-                raise WorkspaceError("remove_failed", "git could not remove the worktree", 409, detail=exc.stderr.strip()[:300],
+                raise WorkspaceError("remove_failed", "git could not remove the worktree", 409, detail=scrub_paths(exc.stderr.strip())[:300],
                                      rescue=rescue) from exc
 
             def forget(data):
@@ -415,7 +415,7 @@ class RemovalMixin:
                     unlink_link(state.path, link)
             remove_tree(state.path)
         except OSError as exc:
-            raise WorkspaceError("remove_failed", "the leftover directory could not be fully removed", 409, detail=str(exc)[:300]) from exc
+            raise WorkspaceError("remove_failed", "the leftover directory could not be fully removed", 409, detail=scrub_paths(str(exc))[:300]) from exc
 
         def forget(data):
             data["workspaces"].get(ctx.key, {}).pop(workspace_id, None)
@@ -451,7 +451,7 @@ class RemovalMixin:
             if isinstance(exc, WorkspaceError) and exc.code == "preservation_failed":
                 raise
             raise WorkspaceError("preservation_failed", "pending work could not be preserved; nothing was removed", 409,
-                                 detail=str(exc)[:300]) from exc
+                                 detail=scrub_paths(str(exc))[:300]) from exc
         return {"ref": ref, "commit": commit, "verified_paths": verified, "recover": [
             f"git branch recovered/{ident} {ref}",
             f"git worktree add <new-directory> {ref}",

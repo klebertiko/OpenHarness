@@ -156,8 +156,23 @@ def unlink_link(root: str | Path, link: LinkInfo) -> None:
     _unlink_entry(full, st)
 
 
+def _same_directory(before: os.stat_result, now: os.stat_result) -> bool:
+    """Still the very directory that was inspected (identity compared where the file system reports one)."""
+    if before.st_ino and now.st_ino and (before.st_dev, before.st_ino) != (now.st_dev, now.st_ino):
+        return False
+    return True
+
+
+def _turned_into_a_link(top: str) -> WorkspaceError:
+    return WorkspaceError("unsafe_destination", f"{os.path.basename(top)!r} turned into a link while it was being removed; nothing below it was touched", 409)
+
+
 def remove_tree(path: str | Path) -> None:
-    """Delete ``path`` bottom-up, undoing every link as a link and descending only into real directories."""
+    """Delete ``path`` bottom-up, undoing every link as a link and descending only into real directories.
+
+    The directory is checked again after it is listed and before anything in it is deleted: if it was swapped for a link (or for
+    another directory) between the first ``lstat`` and the listing, the walk stops without deleting a thing below it.
+    """
     top = os.fspath(path)
     try:
         st = os.lstat(top)
@@ -168,6 +183,12 @@ def remove_tree(path: str | Path) -> None:
         return
     with os.scandir(top) as iterator:
         entries = list(iterator)
+    try:
+        again = os.lstat(top)
+    except FileNotFoundError:
+        return
+    if link_kind(top, again) or not stat.S_ISDIR(again.st_mode) or not _same_directory(st, again):
+        raise _turned_into_a_link(top)
     for entry in entries:
         st = entry.stat(follow_symlinks=False)
         if link_kind(entry.path, st):

@@ -251,3 +251,30 @@ def test_a_scan_reports_the_link_not_what_it_contains(tmp_path, outside):
     found = scan_links(root)
     assert [link.path for link in found] == ["a/b/l"]
     outside.assert_intact()
+
+
+# ----------------------------------------------------------------------- remove_tree: the gap between lstat and scandir
+
+
+def test_remove_tree_aborts_when_a_directory_turns_into_a_link_before_it_is_listed(tmp_path, outside, monkeypatch):
+    from workspaces import links as links_module
+
+    top = tmp_path / "doomed"
+    child = top / "child"
+    child.mkdir(parents=True)
+    (child / "mine.txt").write_text("mine\n", encoding="utf-8")
+    real_scandir, swapped = os.scandir, []
+
+    def swap_then_scan(path="."):
+        if os.path.normcase(os.fspath(path)) == os.path.normcase(os.fspath(child)) and not swapped:
+            swapped.append(True)
+            (child / "mine.txt").unlink()
+            child.rmdir()
+            make_dir_link(child, outside.path)  # between the lstat that said "real directory" and the listing
+        return real_scandir(path)
+
+    monkeypatch.setattr(links_module.os, "scandir", swap_then_scan)
+    with pytest.raises(WorkspaceError) as caught:
+        links_module.remove_tree(top)
+    assert caught.value.code == "unsafe_destination"
+    outside.assert_intact()

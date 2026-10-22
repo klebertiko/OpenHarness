@@ -72,3 +72,41 @@ def test_an_unambiguous_ref_is_unaffected(svc, repo):
     assert outcome["managed"]
     outcome = svc.create(str(repo.path), "main")
     assert outcome["managed"]
+
+
+@pytest.mark.parametrize("raw", ['{"repo": 1e999, "ref": "main"}', '{"repo": "x", "ref": -1e999}', '{"repo": "x", "ref": "main", "extra": 1E400}'])
+def test_a_number_too_large_for_a_float_is_a_422_not_a_500(client, raw):
+    response = client.post("/workspaces", content=raw, headers={"Content-Type": "application/json"})
+    assert response.status_code == 422
+
+
+def test_finite_numbers_in_a_body_still_reach_validation(client):
+    response = client.post("/workspaces", content='{"repo": 1.5, "ref": "main"}', headers={"Content-Type": "application/json"})
+    assert response.status_code == 422 and response.json()["detail"][0]["type"] == "string_type"
+
+
+def test_git_stderr_in_an_error_carries_no_absolute_path(client, oh_env):
+    folder = oh_env.tmp / "not a repo"
+    folder.mkdir()
+    response = client.get("/workspaces", params={"repo": str(folder)})
+    assert response.status_code == 400 and response.json()["detail"]["code"] == "not_a_repository"
+    text = str(response.json())
+    assert str(folder) not in text and folder.as_posix() not in text and "not a repo" not in text and str(oh_env.tmp) not in text
+
+
+def test_a_failed_worktree_add_carries_no_absolute_path(svc, repo, oh_env, monkeypatch):
+    original = svc.runner.run
+
+    def failing(cwd, args, **kw):
+        if args[:2] == ["worktree", "add"] or "add" in args and "worktree" in args:
+            from workspaces.gitrun import GitFailure
+            raise GitFailure(list(args), 128, f"fatal: '{oh_env.tmp.as_posix()}/some dir/x' already exists\nfatal: cannot lock ref 'refs/heads/x'")
+        return original(cwd, args, **kw)
+
+    monkeypatch.setattr(svc.runner, "run", failing)
+    with pytest.raises(WorkspaceError) as caught:
+        svc.create(str(repo.path), "main", branch="x")
+    assert caught.value.code == "worktree_add_failed"
+    text = str(caught.value.to_dict())
+    assert str(oh_env.tmp) not in text and oh_env.tmp.as_posix() not in text and "some dir" not in text
+    assert "refs/heads/x" in text  # ref names are not paths and stay readable

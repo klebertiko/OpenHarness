@@ -10,17 +10,25 @@ The client names the *source repository* and a ref; it never names a destination
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from workspaces.errors import WorkspaceError
+from workspaces.errors import WorkspaceError, scrub_paths
 from workspaces.gitrun import GitFailure
 from workspaces.service import WorkspaceService
 
 def _no_non_finite(constant: str):
     raise ValueError(f"{constant} is not valid JSON")
+
+
+def _finite_float(text: str) -> float:
+    value = float(text)
+    if not math.isfinite(value):  # 1e999 parses to inf, which pydantic would echo into an error body the encoder cannot serialise
+        raise ValueError(f"{text} is not valid JSON")
+    return value
 
 
 async def strict_json(request: Request) -> None:
@@ -33,10 +41,10 @@ async def strict_json(request: Request) -> None:
     if not raw:
         return
     try:
-        json.loads(raw, parse_constant=_no_non_finite)
+        json.loads(raw, parse_constant=_no_non_finite, parse_float=_finite_float)
     except ValueError as exc:
         if "is not valid JSON" in str(exc):
-            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN and Infinity are not valid JSON numbers"}) from exc
+            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN, Infinity and numbers beyond the float range are not valid"}) from exc
         # any other parse failure is reported by FastAPI's own body handling
 
 
@@ -79,7 +87,7 @@ def _run(fn, *args, **kwargs) -> Any:
     except WorkspaceError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.to_dict()) from exc
     except GitFailure as exc:
-        raise HTTPException(status_code=502, detail={"code": "git_failed", "message": "git failed", "detail": exc.stderr.strip()[:300]}) from exc
+        raise HTTPException(status_code=502, detail={"code": "git_failed", "message": "git failed", "detail": scrub_paths(exc.stderr.strip())[:300]}) from exc
 
 
 @router.get("")

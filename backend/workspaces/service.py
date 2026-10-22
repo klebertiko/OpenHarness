@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .config import Settings
-from .errors import WorkspaceError
+from .errors import WorkspaceError, scrub_paths
 from .gitrun import GitFailure, GitRunner
 from .gitstate import WorktreeEntry, parse_status_v2, parse_worktree_list
 from .paths import ManagedRoot, canonical, is_link, new_workspace_id, repo_dir_name, valid_workspace_id
@@ -86,7 +86,7 @@ class WorkspaceService(RemovalMixin):
         done = self.runner.run(real, ["rev-parse", "--path-format=absolute", "--git-common-dir", "--show-toplevel"], check=False)
         lines = done.text().splitlines()
         if done.returncode != 0 or len(lines) != 2:
-            raise WorkspaceError("not_a_repository", "the path is not inside a non-bare git working tree", 400, detail=done.stderr.strip()[:200])
+            raise WorkspaceError("not_a_repository", "the path is not inside a non-bare git working tree", 400, detail=scrub_paths(done.stderr.strip())[:200])
         common = Path(lines[0])
         return RepoContext(cwd=real, common_dir=common, key=hashlib.sha256(canonical(common).encode("utf-8")).hexdigest()[:16],
                            repo_dir=repo_dir_name(common))
@@ -279,7 +279,7 @@ class WorkspaceService(RemovalMixin):
                 text = exc.stderr.lower()
                 if branch is not None and "already exists" in text and "branch" in text:
                     raise WorkspaceError("branch_exists", f"branch {branch!r} already exists", 409) from exc
-                raise WorkspaceError("worktree_add_failed", "git could not create the worktree", 409, detail=exc.stderr.strip()[:300]) from exc
+                raise WorkspaceError("worktree_add_failed", "git could not create the worktree", 409, detail=scrub_paths(exc.stderr.strip())[:300]) from exc
             except BaseException:
                 self._rollback(ctx, dest, created_parent, branch, commit)
                 raise
