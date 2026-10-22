@@ -95,7 +95,9 @@ try {
       await page.screenshot({ path: file });
       report.files.push(file);
     };
-    const nav = (name) => page.getByRole("button", { name: new RegExp(`^${name}`) }).first().click();
+    // Literal patterns only: the sidebar entries are the two this script visits.
+    const navPattern = { Providers: /^Providers/, Studio: /^Studio/ };
+    const nav = (name) => page.getByRole("button", { name: navPattern[name] }).first().click();
     const settle = (ms = 1200) => page.waitForTimeout(ms);
     // The sidebar panel toggle is labelled "Hide panel" / "Show panel" by the UI itself.
     const panel = async (visible) => {
