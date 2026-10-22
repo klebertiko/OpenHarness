@@ -133,3 +133,18 @@ def test_a_lone_surrogate_in_a_body_is_a_422_not_a_500(client, method, url, body
 def test_a_paired_surrogate_escape_is_a_character_not_an_error(client):
     response = client.post("/workspaces", content='{"repo": "x", "ref": "main", "branch": "' + chr(92) + 'ud83d' + chr(92) + 'ude00"}', headers={"Content-Type": "application/json"})
     assert response.status_code == 400 and response.json()["detail"]["code"] == "invalid_branch"  # the emoji is judged by the branch rules
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("fatal: C:" + chr(92) + "Program Files" + chr(92) + "My App" + chr(92) + "ws is not empty", "fatal: <path> is not empty"),
+    ("fatal: /home/ana/my projects/repo/ws already exists", "fatal: <path> already exists"),
+    ("fatal: 'feature/x' is not a valid branch", "fatal: 'feature/x' is not a valid branch"),
+    ("fatal: cannot lock ref 'refs/heads/feature/x'", "fatal: cannot lock ref 'refs/heads/feature/x'"),
+    ("fatal: '../sibling/dir' is outside", "fatal: '../sibling/dir' is outside"),
+    ("fatal: 'C:/Users/a b/x' already exists", "fatal: '<path>' already exists"),
+    ('fatal: "/home/u/my dir" already exists', 'fatal: "<path>" already exists'),
+    ("error: a/b and then /abs/one failed", "error: a/b and then <path> failed"),
+])
+def test_scrub_paths_hides_absolute_paths_and_keeps_refs(raw, expected):
+    from workspaces.errors import scrub_paths
+    assert scrub_paths(raw) == expected

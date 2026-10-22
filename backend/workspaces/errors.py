@@ -3,17 +3,19 @@ from __future__ import annotations
 
 import re
 
-# A quoted token holding a path separator ('C:/Users/a b/x', "/home/u/my dir"), then bare drive, UNC and POSIX absolute paths.
-_QUOTED = re.compile(r"""(['"])(?!refs/)[^'"\r\n]*[\\/][^'"\r\n]*\1""")
-_DRIVE = re.compile(r"(?<!\w)[A-Za-z]:[\\/][^\s'\"]*")
+# An ABSOLUTE path in quotes ('C:/Users/a b/x', "/home/u/my dir"), then bare drive, UNC and POSIX absolute paths. A path component may
+# hold single spaces (C:\Program Files\My App\ws); the last one ends at whitespace. Quoted refs ('feature/x') are not absolute: they stay.
+_WORD = r"""[^\s'"\\/]+(?: [^\s'"\\/]+)*"""
+_QUOTED = re.compile(r"""(['"])(?:[A-Za-z]:[\\/]|[\\/])[^'"\r\n]*\1""")
+_DRIVE = re.compile(r"(?<!\w)[A-Za-z]:[\\/](?:" + _WORD + r"[\\/])*[^\s'\"\\/]*")
 _UNC = re.compile(r"\\\\[^\s'\"]+")
-_POSIX = re.compile(r"(?<![\w./:-])/[^\s'\"]+")
+_POSIX = re.compile(r"(?<![\w./:-])/(?=[^\s'\"])(?:" + _WORD + r"/)*[^\s'\"\\/]*")
 
 
 def scrub_paths(text: str) -> str:
     """Replace filesystem paths in git's stderr with ``<path>`` so an error never tells a client where things live.
 
-    Ref names such as ``refs/heads/x`` are not absolute paths and stay readable.
+    Ref names such as ``refs/heads/x`` (and any quoted name that is not an absolute path) stay readable.
     """
     text = _QUOTED.sub(lambda m: f"{m.group(1)}<path>{m.group(1)}", text)
     return _POSIX.sub("<path>", _UNC.sub("<path>", _DRIVE.sub("<path>", text)))
