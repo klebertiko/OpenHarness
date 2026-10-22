@@ -10,6 +10,8 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   /** Machine data (keys, ids, paths): set in IBM Plex Mono. */
   mono?: boolean;
+  /** A standalone filter or search field: no reserved message row. Forms keep the row so an error never shifts the layout. */
+  compact?: boolean;
   /** Class for the wrapper; the field itself is styled by the system. */
   className?: string;
 }
@@ -19,7 +21,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
  * shifts the layout (experience.md: cumulative layout shift stays at 0).
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { label, hint, error, mono = false, className, id, ...rest },
+  { label, hint, error, mono = false, compact = false, className, id, ...rest },
   ref,
 ) {
   const auto = useId();
@@ -36,7 +38,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={fieldId}
         aria-invalid={error ? true : undefined}
-        aria-describedby={msgId}
+        aria-describedby={compact ? undefined : msgId}
         className={cn(
           "h-control-md w-full rounded-control border border-line-strong bg-sub-100 px-2 text-ink transition-colors max-sm:h-control-lg",
           "placeholder:text-ink-mute hover:bg-sub-200 focus-visible:border-signal disabled:cursor-not-allowed disabled:opacity-45",
@@ -45,13 +47,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         )}
         {...rest}
       />
-      <div
-        id={msgId}
-        role={error ? "alert" : undefined}
-        className={cn("min-h-4 text-meta leading-4", error ? "text-fault-text" : "text-ink-mute")}
-      >
-        {error ?? hint ?? ""}
-      </div>
+      {!compact && (
+        <div
+          id={msgId}
+          role={error ? "alert" : undefined}
+          className={cn("min-h-4 text-meta leading-4", error ? "text-fault-text" : "text-ink-mute")}
+        >
+          {error ?? hint ?? ""}
+        </div>
+      )}
     </div>
   );
 });

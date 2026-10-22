@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Panel } from "@/components/shell/Panel";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, EmptyState, Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { useThreadStore, type Thread } from "@/store/threadStore";
 
@@ -24,8 +24,11 @@ export function ThreadsSidebar() {
   const startNewChat = useThreadStore((s) => s.startNewChat);
   const selectThread = useThreadStore((s) => s.selectThread);
 
-  const open = useMemo(() => threads.filter((t) => !t.archived), [threads]);
-  const archived = useMemo(() => threads.filter((t) => t.archived), [threads]);
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLocaleLowerCase();
+  const matches = useCallback((thread: Thread) => thread.title.toLocaleLowerCase().includes(needle), [needle]);
+  const open = useMemo(() => threads.filter((t) => !t.archived && matches(t)), [threads, matches]);
+  const archived = useMemo(() => threads.filter((t) => t.archived && matches(t)), [threads, matches]);
   const groups = useMemo(() => groupByRecency(open), [open]);
   const listRef = useRef<HTMLElement>(null);
 
@@ -61,9 +64,24 @@ export function ThreadsSidebar() {
         </Button>
       </div>
 
+      <div className="px-2 py-1">
+        <Input
+          type="search"
+          aria-label="Search chats"
+          placeholder="Search chats"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          compact
+        />
+      </div>
+
       {open.length === 0 && archived.length === 0 ? (
         <div className="px-2 py-2">
-          <EmptyState title="No chats yet">Start one and it shows up here.</EmptyState>
+          {needle ? (
+            <p role="status" className="text-body text-ink-mute">No matching chats.</p>
+          ) : (
+            <EmptyState title="No chats yet">Start one and it shows up here.</EmptyState>
+          )}
         </div>
       ) : (
         <nav ref={listRef} aria-label="Chats" onKeyDown={onKeyDown} className="flex flex-col pb-2">
@@ -79,7 +97,7 @@ export function ThreadsSidebar() {
           ))}
 
           {archived.length > 0 && (
-            <details className="mt-2 px-1.5">
+            <details key={needle ? "search" : "all"} open={needle ? true : undefined} className="mt-2 px-1.5">
               <summary className="oh-focus-inner min-h-control-md cursor-pointer list-none rounded-control px-2 py-1.5 text-meta font-medium text-ink-mute marker:content-none hover:text-ink">
                 Archived · {archived.length}
               </summary>
@@ -106,6 +124,7 @@ function ThreadRow({ thread, active, onSelect }: { thread: Thread; active: boole
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [draft, setDraft] = useState(thread.title);
+  const titleId = useId();
   const rowRef = useRef<HTMLLIElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -196,7 +215,7 @@ function ThreadRow({ thread, active, onSelect }: { thread: Thread; active: boole
             active ? "bg-sub-200 shadow-[inset_2px_0_0_var(--signal)]" : "hover:bg-sub-200",
           )}
         >
-          <span className={cn("min-w-0 flex-1 truncate text-title", active ? "text-ink" : "text-ink-dim")}>{thread.title}</span>
+          <span id={titleId} className={cn("min-w-0 flex-1 truncate text-title", active ? "text-ink" : "text-ink-dim")}>{thread.title}</span>
           <span className="t-meta shrink-0 text-ink-mute group-focus-within/row:hidden group-hover/row:hidden">{relativeTime(thread.updatedAt)}</span>
         </button>
       )}
@@ -207,7 +226,8 @@ function ThreadRow({ thread, active, onSelect }: { thread: Thread; active: boole
           iconOnly
           size="sm"
           variant="ghost"
-          aria-label={`Actions for ${thread.title}`}
+          aria-label="Chat actions"
+          aria-describedby={titleId}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}

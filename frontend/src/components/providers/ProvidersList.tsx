@@ -105,8 +105,11 @@ function BudgetStrip() {
   const loading = useUsageStore((s) => s.loading);
   const error = useUsageStore((s) => s.error);
   const setBudget = useUsageStore((s) => s.setBudget);
+  const refreshUsage = useUsageStore((s) => s.refresh);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [invalid, setInvalid] = useState(false);
 
   const budget = summary?.budget;
   const tone: Tone =
@@ -114,26 +117,34 @@ function BudgetStrip() {
 
   const startEdit = () => {
     setDraft(budget?.limitUsd != null ? String(budget.limitUsd) : "");
+    setInvalid(false);
     setEditing(true);
   };
 
   const save = async () => {
+    if (saving) return;
     const trimmed = draft.trim();
-    if (trimmed === "") {
-      await setBudget(null);
-      setEditing(false);
+    const n = trimmed === "" ? null : Number(trimmed);
+    if (n !== null && (!Number.isFinite(n) || n < 0)) {
+      setInvalid(true);
       return;
     }
-    const n = Number(trimmed);
-    if (!Number.isFinite(n) || n < 0) return; // leave the editor open on a bad value
-    await setBudget(n);
-    setEditing(false);
+    setInvalid(false);
+    setSaving(true);
+    try {
+      if (await setBudget(n)) setEditing(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <section aria-label="Spend and budget" className="mx-1.5 mt-2 rounded-float border border-line-soft bg-sub-100 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
         <span className="t-body text-ink-mute">Spend</span>
+        <Button size="sm" variant="ghost" disabled={loading} onClick={() => void refreshUsage()} className="-my-1">
+          Refresh usage
+        </Button>
         <span className={`t-meta flex items-center gap-1.5 ${BUDGET_TONE_CLASS[tone]}`}>
           <StatusDot tone={tone} />
           {summary ? usageCostLabel(summary) : "—"}
@@ -141,7 +152,7 @@ function BudgetStrip() {
       </div>
       {loading && !summary && <p role="status" className="t-body text-ink-mute">Loading usage…</p>}
       {error && (
-        <Notice tone="warn" className="mt-2">
+        <Notice tone="warn" role="alert" className="mt-2">
           Usage may be out of date. <span className="t-meta [overflow-wrap:anywhere]">{error}</span>
         </Notice>
       )}
@@ -149,6 +160,8 @@ function BudgetStrip() {
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
             autoFocus
+            disabled={saving}
+            aria-invalid={invalid || undefined}
             aria-label="Global budget in USD"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -157,10 +170,10 @@ function BudgetStrip() {
               if (e.key === "Escape") setEditing(false);
             }}
             placeholder="no limit"
-            className="t-meta h-control-md w-full min-w-0 rounded-control border border-line-strong bg-sub-200 px-1.5 text-ink focus-visible:border-signal max-sm:h-control-lg"
+            className="t-meta h-control-md w-full min-w-0 rounded-control border border-line-strong bg-sub-200 px-1.5 text-ink focus-visible:border-signal aria-[invalid=true]:border-fault max-sm:h-control-lg"
           />
-          <Button size="sm" variant="primary" onClick={() => void save()}>Save</Button>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+          <Button size="sm" variant="primary" disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save"}</Button>
+          <Button size="sm" variant="ghost" disabled={saving} onClick={() => setEditing(false)}>Cancel</Button>
         </div>
       ) : (
         <Button size="sm" variant="ghost" onClick={startEdit} className="-ml-2 mt-0.5 text-ink-mute">
@@ -169,6 +182,7 @@ function BudgetStrip() {
             : "No budget — set one"}
         </Button>
       )}
+      {editing && invalid && <p role="alert" className="mt-1 text-meta text-warn-text">Enter zero or a positive USD amount.</p>}
     </section>
   );
 }

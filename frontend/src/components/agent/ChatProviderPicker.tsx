@@ -42,7 +42,7 @@ const AUTO_ID = "";
  * screen; the footer says how many and goes there (design.md § Provider
  * stance: one place to fix a connection, no second setup form to keep honest).
  */
-export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
+export function ChatProviderPicker({ onConnect, disabled = false }: { onConnect: () => void; disabled?: boolean }) {
   const connections = useProviderStore((s) => s.connections);
   const selectConnection = useProviderStore((s) => s.select);
   const chosenId = useChatProviderStore((s) => s.chosenId);
@@ -116,6 +116,7 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
   return (
     <Combobox
       label="Chat provider"
+      disabled={disabled}
       triggerLabel={"Chat provider: " + statusLine}
       title={statusLine}
       value={chosenId ?? AUTO_ID}

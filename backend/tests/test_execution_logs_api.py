@@ -50,6 +50,9 @@ def test_list_and_detail_round_trip(client: TestClient) -> None:
     body = detail.json()
     assert body["id"] == log_id
     assert body["result"] == {"output": "the plan ran"}
+    assert body["coverage"] == "legacy_unknown"
+    assert body["last_sequence"] is None
+    assert body["artifacts"] == []
 
 
 def test_detail_404_for_unknown_run(client: TestClient) -> None:

@@ -1,7 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
-import { runsApi } from "@/lib/runsApi";
+import { Button } from "@/components/ui/Button";
+import { useEffect, useId, useState } from "react";
+import { runsApi, type RunLogDetail } from "@/lib/runsApi";
+import { RunEvidence } from "./RunEvidence";
 import { RunDetailRegion, RunDetailToggle } from "./RunDetailToggle";
 import { Transcript } from "./Transcript";
 import { emptyRun, runReducer } from "./runReducer";
@@ -19,7 +21,8 @@ import type { RunState } from "./types";
  * reducer the live view uses, so the two render identically.
  *
  * For the run that *just* finished, that state is still in memory: the caller
- * hands it in as `run` and this never round-trips to the sidecar. That is what
+ * hands it in as `run` and the transcript renders immediately. Saved output
+ * metadata can be requested separately. That is what
  * lets the stage drop its own toggle once the run is saved on a message —
  * one control per run, not a message toggle plus an orphan below it.
  */
@@ -39,6 +42,7 @@ export function HistoricalRunDetail({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
+  const [detail, setDetail] = useState<RunLogDetail | null>(null);
   const [replayed, setReplayed] = useState<RunState | null>(null);
   // Remember the in-memory run once seen, so this keeps showing it after the
   // stage has moved on to the next run instead of falling back to a fetch.
@@ -55,6 +59,7 @@ export function HistoricalRunDetail({
     setState("loading");
     try {
       const detail = await runsApi.get(runId);
+      setDetail(detail);
       const events = detail.result.events;
       if (!Array.isArray(events)) {
         // A direct/no-harness turn's run_id never got an ExecutionLog row —
@@ -74,12 +79,24 @@ export function HistoricalRunDetail({
           data: (evt.data as Record<string, unknown>) ?? {},
         });
       }
+      // A partial journal may end with a running segment. Reflect the durable outcome.
+      if (detail.status === "interrupted" || detail.status === "failed" || detail.status === "error") {
+        next = runReducer(next, { type: "sse", event: "error", data: { error: detail.status === "interrupted" ? "Run interrupted." : "Run failed." } });
+      } else if (detail.status === "stopped") {
+        next = runReducer(next, { type: "sse", event: "run_stopped", data: {} });
+      }
       setReplayed(next);
       setState("ready");
     } catch {
       setState("unavailable");
     }
   };
+
+  useEffect(() => {
+    if (defaultOpen && !memoryRun) void load();
+    // The run behind a message is fixed for this component's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggle = () => {
     if (open) {
@@ -102,6 +119,12 @@ export function HistoricalRunDetail({
         <p className="text-body text-ink-mute">
           This run&apos;s step-by-step detail wasn&apos;t saved.
         </p>
+      )}
+      {open && detail && <RunEvidence detail={detail} />}
+      {open && kept && !detail && state !== "loading" && (
+        <Button size="sm" variant="ghost" className="-ml-2 self-start" onClick={() => void load()}>
+          Load saved outputs
+        </Button>
       )}
       {open && ready && run && (
         <RunDetailRegion id={regionId}>

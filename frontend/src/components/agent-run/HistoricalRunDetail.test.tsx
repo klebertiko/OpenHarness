@@ -239,5 +239,16 @@ describe("HistoricalRunDetail", () => {
       expect(screen.getByRole("button", { name: "Hide run detail" })).toBeTruthy();
       expect(screen.getByText("0.9s")).toBeTruthy();
     });
+
+    it("loads saved coverage on request while keeping the in-memory transcript", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+        id: "r3", status: "complete", coverage: "complete", last_sequence: 4,
+        result: { events: [] }, artifacts: [],
+      }) }));
+      render(<HistoricalRunDetail runId="r3" run={inMemoryRun()} defaultOpen />);
+      fireEvent.click(screen.getByRole("button", { name: "Load saved outputs" }));
+      expect(await screen.findByText(/Complete history/)).toBeTruthy();
+      expect(screen.getByText("0.9s")).toBeTruthy();
+    });
   });
 });

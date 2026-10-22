@@ -10,7 +10,7 @@ it("shows loading and failures instead of presenting unavailable usage as curren
   expect(screen.getByRole("status").textContent).toContain("Loading usage");
   useUsageStore.setState({ loading: false, error: "offline" });
   view.rerender(<ProvidersList />);
-  const note = screen.getByRole("status");
+  const note = screen.getByRole("alert");
   expect(note.textContent).toContain("Usage may be out of date");
   expect(note.textContent).toContain("offline");
 });
