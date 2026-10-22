@@ -162,3 +162,83 @@ def test_removing_a_dirty_worktree_runs_no_empty_name_filter(svc, repo, marker_b
     result = svc.remove(str(repo.path), info["id"], report["confirmation_token"])
     assert marker_bench.ran() == [] and result["rescue"]["ref"]
     assert repo.out("show", f"{result['rescue']['ref']}:n.w") == "untracked"
+
+
+# ----------------------------------------------------------------------- a filter driver whose NAME is not valid UTF-8 (fail closed)
+
+from workspaces.errors import WorkspaceError  # noqa: E402
+
+BAD_NAMES = {"lone-ff": b"\xff", "truncated": b"a\xc3(b", "latin1": b"caf\xe9", "overlong": b"\xc0\xaf", "surrogate": b"\xed\xa0\x80"}
+
+
+def bytes_name_repo(repo, marker_bench, name: bytes):
+    """A tracked ``a.w`` plus a filter driver named ``name``."""
+    repo.commit("a.w", "payload\n")
+    plant_bytes_filter(repo, marker_bench, name)
+
+
+def plant_bytes_filter(repo, marker_bench, name: bytes):
+    """Define the driver and attach it to ``*.w``, writing the raw bytes straight into the files (no argv can carry them)."""
+    git_dir = repo.path / ".git"
+    commands = b"".join(b"\t" + var.encode() + b" = " + marker_bench.command(var).replace("\\", "\\\\").replace('"', '\\"').encode() + b"\n"
+                        for var in ("clean", "smudge", "process"))
+    with open(git_dir / "config", "ab") as handle:
+        handle.write(b'[filter "' + name + b'"]\n' + commands)
+    (git_dir / "info").mkdir(exist_ok=True)
+    with open(git_dir / "info" / "attributes", "ab") as handle:
+        handle.write(b"*.w filter=" + name + b"\n")
+
+
+@pytest.fixture(params=sorted(BAD_NAMES))
+def bad_name(request):
+    return BAD_NAMES[request.param]
+
+
+def test_a_filter_driver_name_that_is_not_utf8_is_refused_by_the_runner(runner, repo, marker_bench, bad_name):
+    bytes_name_repo(repo, marker_bench, bad_name)
+    (repo.path / "a.w").write_text("changed\n", encoding="utf-8")
+    with pytest.raises(WorkspaceError) as caught:
+        runner.run(repo.path, ["add", "--all"], filters=True)
+    assert caught.value.code == "unsafe_repository" and marker_bench.ran() == []
+
+
+def test_creating_a_workspace_in_a_repository_with_a_non_utf8_filter_runs_nothing(svc, repo, marker_bench, bad_name):
+    bytes_name_repo(repo, marker_bench, bad_name)
+    with pytest.raises(WorkspaceError) as caught:
+        svc.create(str(repo.path), "main", branch="bad-create")
+    assert caught.value.code == "unsafe_repository" and marker_bench.ran() == []
+    assert svc.list(str(repo.path))[0]["kind"] == "main" and len(svc.list(str(repo.path))) == 1
+    assert repo.out("branch", "--list", "bad-create") == ""
+
+
+def test_listing_with_a_non_utf8_filter_runs_nothing(svc, repo, marker_bench, bad_name):
+    repo.commit("a.w", "payload\n")
+    info = svc.create(str(repo.path), "main", branch="bad-list")
+    plant_bytes_filter(repo, marker_bench, bad_name)
+    path = Path(info["path"])
+    svc.list(str(repo.path))  # clean
+    target = path / "a.w"
+    target.write_bytes(target.read_bytes())
+    svc.list(str(repo.path))  # same bytes, new mtime
+    target.write_text("changed\n", encoding="utf-8")
+    (path / "n.w").write_text("untracked\n", encoding="utf-8")
+    svc.list(str(repo.path))  # dirty
+    assert marker_bench.ran() == []
+
+
+@pytest.mark.parametrize("dirty", [False, True], ids=["clean", "dirty"])
+def test_removing_with_a_non_utf8_filter_runs_nothing(svc, repo, marker_bench, bad_name, dirty):
+    repo.commit("a.w", "payload\n")
+    info = svc.create(str(repo.path), "main", branch="bad-remove")
+    path = Path(info["path"])
+    if dirty:
+        (path / "a.w").write_text("changed\n", encoding="utf-8")
+        (path / "n.w").write_text("untracked\n", encoding="utf-8")
+    report = svc.removal_check(str(repo.path), info["id"])
+    plant_bytes_filter(repo, marker_bench, bad_name)  # planted after the confirmation was issued
+    target = path / "a.w"
+    if not dirty:
+        target.write_bytes(target.read_bytes())
+    with pytest.raises(WorkspaceError):
+        svc.remove(str(repo.path), info["id"], report["confirmation_token"])
+    assert marker_bench.ran() == [] and path.is_dir()
