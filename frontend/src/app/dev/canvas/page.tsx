@@ -103,10 +103,6 @@ export default function CanvasBench() {
           <Toolbar
             onRun={actions.run}
             onStop={actions.stop}
-            onSave={actions.save}
-            onExport={actions.exportJson}
-            onImport={actions.importJson}
-            saveMsg={actions.saveMsg}
           />
         }
         left={<NodePalette />}

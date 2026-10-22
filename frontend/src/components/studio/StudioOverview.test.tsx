@@ -204,10 +204,10 @@ it("shows a loading line until the harness list arrives", async () => {
   let resolve!: (v: never[]) => void;
   h.list.mockReturnValue(new Promise((r) => { resolve = r; }));
   render(<StudioOverview />);
-  expect(screen.getByText(/Loading your harnesses/)).toBeTruthy();
+  expect(screen.getByRole("status", { name: "Loading your harnesses" })).toBeTruthy();
   resolve([]);
   expect(await screen.findByText(/Nothing saved yet/)).toBeTruthy();
-  expect(screen.queryByText(/Loading your harnesses/)).toBeNull();
+  expect(screen.queryByRole("status", { name: "Loading your harnesses" })).toBeNull();
 });
 
 it("an unsaved draft is listed with the saved harnesses and can be continued by name", async () => {
@@ -265,7 +265,7 @@ it("the starting points never call a harness a framework, sample, template, pres
   expect(text).not.toMatch(/framework|sample|template|preset|copilot/i);
   // The section intro and the card labels say "bundled harness", never "example harness" (#113).
   expect(section.textContent).toContain("Open a bundled harness");
-  expect(Array.from(section.querySelectorAll("article")).map((a) => a.querySelector("p")?.textContent)).toEqual(["Bundled harness", "Bundled harness", "Bundled harness"]);
+  expect(Array.from(section.querySelectorAll("article")).map((a) => a.firstElementChild?.textContent)).toEqual(["Bundled harness", "Bundled harness", "Bundled harness"]);
   // Card actions only (other controls may live in the section): one visible label,
   // and the accessible name starts with it (WCAG 2.5.3, label in name).
   const cards = Array.from(section.querySelectorAll("article")) as HTMLElement[];

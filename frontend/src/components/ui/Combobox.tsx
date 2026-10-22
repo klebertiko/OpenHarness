@@ -310,18 +310,18 @@ export function Combobox({
         choose(i);
       }}
       className={cn(
-        "mx-1 flex items-center gap-2.5 rounded-control px-2.5 py-2",
+        "mx-1 flex min-h-control-lg items-center gap-2.5 rounded-control px-2.5 py-1.5",
         o.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer active:bg-sub-300",
-        i === cursor && !o.disabled && "bg-sub-300/70",
+        i === cursor && !o.disabled && "bg-sub-300",
       )}
     >
       {o.leading}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-[550] leading-5 text-ink">{o.label}</span>
-        {o.detail && <span className="block truncate text-[11px] leading-4 text-ink-dim">{o.detail}</span>}
+        <span className="block truncate text-title font-medium leading-5 text-ink">{o.label}</span>
+        {o.detail && <span className="t-meta block truncate text-ink-mute">{o.detail}</span>}
       </span>
       {o.trailing}
-      {o.id === value && <Check size={14} strokeWidth={2} className="flex-none text-signal" aria-hidden />}
+      {o.id === value && <Check size={14} strokeWidth={2} className="flex-none text-signal-text" aria-hidden />}
     </div>
   );
 
@@ -337,7 +337,7 @@ export function Combobox({
       rows.push(
         <div key={"g:" + g} role="group" aria-labelledby={g ? headingId : undefined}>
           {g && (
-            <div id={headingId} role="presentation" className="px-3 pb-1 pt-2 text-[11px] font-[550] text-ink-faint">
+            <div id={headingId} role="presentation" className="px-3 pb-1 pt-2 text-meta font-medium text-ink-mute">
               {g}
             </div>
           )}
@@ -351,11 +351,11 @@ export function Combobox({
 
   const message =
     status === "loading" ? (
-      <p role="status" className="px-3 py-2 text-[12px] text-ink-dim">{loadingText}</p>
+      <p role="status" className="px-3 py-2 text-body text-ink-mute">{loadingText}</p>
     ) : status === "error" ? (
-      <p role="alert" className="px-3 py-2 text-[12px] text-fault">{errorText}</p>
+      <p role="alert" className="px-3 py-2 text-body text-fault-text">{errorText}</p>
     ) : visible.length === 0 ? (
-      <p className="px-3 py-2 text-[12px] text-ink-dim">{emptyText}</p>
+      <p className="px-3 py-2 text-body text-ink-mute">{emptyText}</p>
     ) : null;
 
   const popover =
@@ -373,10 +373,10 @@ export function Combobox({
         className="oh-float fixed z-[60] flex flex-col py-1"
         style={{ left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxHeight }}
       >
-        {header && <div className="flex-none px-3 py-2 text-[11px] leading-4 text-ink-dim">{header}</div>}
+        {header && <div className="flex-none px-3 py-2 text-meta leading-4 text-ink-mute">{header}</div>}
         {searchable && (
-          <div className="mx-1 mb-1 flex h-8 flex-none items-center gap-2 rounded-control border border-line-soft bg-sub-200 px-2 focus-within:border-signal-deep">
-            <Search size={12} strokeWidth={1.8} className="flex-none text-ink-faint" aria-hidden />
+          <div className="mx-1 mb-1 flex h-8 flex-none items-center gap-2 rounded-control border border-line-strong bg-sub-200 px-2 focus-within:border-signal">
+            <Search size={12} strokeWidth={1.8} className="flex-none text-ink-mute" aria-hidden />
             <input
               ref={inputRef}
               role="combobox"
@@ -391,7 +391,7 @@ export function Combobox({
               autoComplete="off"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onNavKeyDown}
-              className="min-w-0 flex-1 bg-transparent text-[12px] text-ink outline-none placeholder:text-ink-faint"
+              className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-mute"
             />
           </div>
         )}
@@ -458,7 +458,7 @@ export function ComboAction({ children, onClick, disabled }: { children: ReactNo
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-8 w-full items-center gap-2 rounded-control px-2 text-left text-[12px] font-[550] text-ink-dim transition-colors hover:bg-sub-200 hover:text-ink active:bg-sub-300 disabled:cursor-wait disabled:opacity-60"
+      className="oh-focus-inner flex h-control-md w-full items-center gap-2 rounded-control px-2 text-left text-body font-medium text-ink-dim max-sm:h-control-lg transition-colors hover:bg-sub-200 hover:text-ink active:bg-sub-300 disabled:cursor-wait disabled:opacity-60"
     >
       {children}
     </button>

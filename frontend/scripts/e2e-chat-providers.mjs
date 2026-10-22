@@ -11,7 +11,7 @@ const base = process.env.OHM_E2E_URL || 'http://127.0.0.1:3000';
 const sidecar = 'http://127.0.0.1:18099';
 const checks = [], unexpected = [], errors = [], requests = [], responsive = [];
 let step = 'startup', rejectRun = false, rejectUsage = false, rejectBudget = true;
-const browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || 'msedge', headless: true });
+const browser = await chromium.launch(process.env.OHM_BROWSER_EXECUTABLE ? { executablePath: process.env.OHM_BROWSER_EXECUTABLE, headless: true } : { channel: process.env.OHM_BROWSER_CHANNEL || 'msedge', headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
 await context.addInitScript(() => {
   window.__OH_API__ = 'http://127.0.0.1:18099';
