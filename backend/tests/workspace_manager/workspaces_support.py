@@ -36,6 +36,11 @@ def make_dir_link(link, target) -> None:
         pytest.skip("cannot create links here")
 
 
+def remove_dir_link(link) -> None:
+    """Undo a link made by ``make_dir_link`` without touching its target."""
+    (os.rmdir if sys.platform == "win32" else os.unlink)(link)
+
+
 def make_symlink(link, target, *, directory: bool) -> None:
     """A real symbolic link; skipped where the platform or the account does not allow creating one (WinError 1314)."""
     try:

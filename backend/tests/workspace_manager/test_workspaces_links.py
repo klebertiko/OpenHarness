@@ -13,7 +13,7 @@ import pytest
 from workspaces import removal as removal_module
 from workspaces.errors import WorkspaceError
 from workspaces.removal import RemovalMixin
-from workspaces_support import Repo, make_dir_link, make_symlink
+from workspaces_support import Repo, make_dir_link, make_symlink, remove_dir_link
 
 LEAKED_NAMES = {"secret.txt", "victim.txt", "deep.txt"}
 
@@ -179,7 +179,7 @@ def test_a_link_retargeted_after_the_check_makes_the_confirmation_stale(svc, rep
     report = svc.removal_check(str(repo.path), info["id"])
     other = tmp_path / "other-target"
     other.mkdir()
-    os.rmdir(link)
+    remove_dir_link(link)
     make_dir_link(link, other)
     with pytest.raises(WorkspaceError) as caught:
         svc.remove(str(repo.path), info["id"], report["confirmation_token"])
