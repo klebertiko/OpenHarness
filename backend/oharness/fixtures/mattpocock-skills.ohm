@@ -3,7 +3,7 @@ manifest:
   id: openharness.example.mattpocock-skills
   name: Matt Pocock skills
   version: 0.1.0
-  description: 'Example harness modelled on mattpocock/skills: setup, grill-with-docs, to-spec, to-tickets, implement (tdd), two-axis code-review, pr, human merge and retro. Source: https://github.com/mattpocock/skills.'
+  description: 'Bundled harness modelled on mattpocock/skills: setup, grill-with-docs, to-spec, to-tickets, implement (tdd), two-axis code-review, pr, human merge and retro. Source: https://github.com/mattpocock/skills.'
   license: MIT
   tags:
     - example
@@ -305,7 +305,7 @@ graph:
 content:
   prompts:
     OVERVIEW: |
-      # Matt Pocock skills — example harness
+      # Matt Pocock skills — bundled harness
 
       Source: https://github.com/mattpocock/skills ("Skills for Real Engineers"). The skills are small and composable; this
       harness chains the engineering ones the way the README describes them.

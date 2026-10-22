@@ -104,8 +104,11 @@ function BudgetStrip() {
   const loading = useUsageStore((s) => s.loading);
   const error = useUsageStore((s) => s.error);
   const setBudget = useUsageStore((s) => s.setBudget);
+  const refreshUsage = useUsageStore((s) => s.refresh);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [invalid, setInvalid] = useState(false);
 
   const budget = summary?.budget;
   const tone: Tone =
@@ -117,22 +120,22 @@ function BudgetStrip() {
   };
 
   const save = async () => {
+    if (saving) return;
     const trimmed = draft.trim();
-    if (trimmed === "") {
-      await setBudget(null);
-      setEditing(false);
-      return;
-    }
-    const n = Number(trimmed);
-    if (!Number.isFinite(n) || n < 0) return; // leave the editor open on a bad value
-    await setBudget(n);
-    setEditing(false);
+    const n = trimmed === "" ? null : Number(trimmed);
+    if (n !== null && (!Number.isFinite(n) || n < 0)) { setInvalid(true); return; }
+    setInvalid(false);
+    setSaving(true);
+    try {
+      if (await setBudget(n)) setEditing(false);
+    } finally { setSaving(false); }
   };
 
   return (
     <div className="mx-1.5 mt-2 rounded-[8px] border border-line-soft bg-sub-100 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
         <span className="t-body text-ink-mute">Spend</span>
+        <button type="button" disabled={loading} onClick={() => void refreshUsage()} className="t-meta rounded-control px-1 text-ink-mute hover:text-ink focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50">Refresh usage</button>
         <span className={`t-meta flex items-center gap-1.5 ${BUDGET_TONE_CLASS[tone]}`}>
           <StatusDot tone={tone} />
           {summary ? usageCostLabel(summary) : "—"}
@@ -144,6 +147,8 @@ function BudgetStrip() {
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
             autoFocus
+            disabled={saving}
+            aria-invalid={invalid}
             aria-label="Global budget in USD"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -154,11 +159,12 @@ function BudgetStrip() {
             placeholder="no limit"
             className="t-meta h-7 w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
           />
-          <button type="button" onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
-            Save
+          <button type="button" disabled={saving} onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
+            {saving ? "Saving…" : "Save"}
           </button>
           <button
             type="button"
+            disabled={saving}
             onClick={() => setEditing(false)}
             className="t-body flex-none rounded-control px-1 text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
           >
@@ -176,6 +182,7 @@ function BudgetStrip() {
             : "No budget — set one"}
         </button>
       )}
+      {editing && invalid && <p role="alert" className="mt-1 text-[11px] text-warn">Enter zero or a positive USD amount.</p>}
     </div>
   );
 }
