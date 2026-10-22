@@ -90,8 +90,9 @@ it("labels every starting point a harness and opens each through its loader", as
   vi.mocked(openBundledHarness).mockResolvedValue(undefined);
   render(<StudioOverview />);
   expect(screen.getByRole("heading", { name: "Harness Studio" })).toBeTruthy();
-  expect(screen.getByText("Example harness")).toBeTruthy();
-  expect(screen.getByText("Bundled harness")).toBeTruthy();
+  // Every starting point is a bundled harness; "Example harness" is no longer a card label (#113).
+  expect(screen.queryByText("Example harness")).toBeNull();
+  expect(screen.getAllByText("Bundled harness")).toHaveLength(2);
   expect(screen.getByRole("heading", { name: "Agile Harness" })).toBeTruthy();
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Open harness: Agile Harness" }));
@@ -245,13 +246,16 @@ it("lists every extra example the catalog returns and opens it as a copy", async
   render(<StudioOverview />);
   await userEvent.setup().click(await screen.findByRole("button", { name: "Open harness: DeepSeek Harness" }));
   expect(openStudioExample).toHaveBeenCalledWith(expect.objectContaining({ id: deepseek.id }));
+  // The catalog card carries the same "Bundled harness" label as the two fixed cards (#113).
+  expect(screen.queryByText("Example harness")).toBeNull();
+  expect(screen.getAllByText("Bundled harness")).toHaveLength(3);
   // The two fixed cards already cover the Agile Harness and the example harness; they are not listed twice.
   expect(screen.getAllByRole("button", { name: "Open harness: Agile Harness" })).toHaveLength(1);
 });
 
 it("the starting points never call a harness a framework, sample, template, preset or Copilot", async () => {
   vi.mocked(fetchStudioExamples).mockResolvedValue([
-    { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness (dsh)", description: "Example harness modelled on DeepSeek Harness.", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } },
+    { id: "openharness.example.deepseek-harness", name: "DeepSeek Harness (dsh)", description: "Bundled harness modelled on DeepSeek Harness.", bundle: { manifest: { id: "openharness.example.deepseek-harness" } } },
   ] as never);
   render(<StudioOverview />);
   const section = (await screen.findByRole("heading", { name: "Starting points" })).closest("aside")!;
@@ -259,6 +263,9 @@ it("the starting points never call a harness a framework, sample, template, pres
   // The source project may be cited by name; nothing else may use the retired words.
   const text = (section.textContent ?? "").replace(/skills-framework/g, "");
   expect(text).not.toMatch(/framework|sample|template|preset|copilot/i);
+  // The section intro and the card labels say "bundled harness", never "example harness" (#113).
+  expect(section.textContent).toContain("Open a bundled harness");
+  expect(Array.from(section.querySelectorAll("article")).map((a) => a.querySelector("p")?.textContent)).toEqual(["Bundled harness", "Bundled harness", "Bundled harness"]);
   // Card actions only (other controls may live in the section): one visible label,
   // and the accessible name starts with it (WCAG 2.5.3, label in name).
   const cards = Array.from(section.querySelectorAll("article")) as HTMLElement[];

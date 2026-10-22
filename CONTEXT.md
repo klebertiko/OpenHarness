@@ -15,19 +15,15 @@ A composed system of Agents, Gates, HITL, Skills, and Signals that orchestrates 
 _Avoid_: framework, template, preset, sample, starter, workflow (ambiguous with BPM), pipeline, agent chain
 
 **Bundled harness**:
-A harness that ships inside the app. Opening one always makes an editable copy; the original is never changed.
-_Avoid_: built-in template, snapshot, default sample
+A harness that ships inside the app. Opening one always makes an editable copy; the original is never changed. Some show one pattern: a minimal agent-plus-review loop, or a harness modelled on a published project (DeepSeek, Matt Pocock skills); their description cites the source. The label "Example harness" is retired in the UI; the code keeps `example` in identifiers and the `/bundles/examples` route.
+_Avoid_: example harness (as a UI label), built-in template, snapshot, default sample, demo
 
 **Agile Harness**:
 The bundled harness for Agile/Scrum/Kanban delivery, adapted from the skills-framework `engineering/harness` project. The first harness listed in Starting points.
 _Avoid_: OpenHarness Agile, the framework, skills-framework (as a product label)
 
-**Example harness**:
-A bundled harness that shows one pattern: a minimal agent-plus-review loop, or a harness modelled on a published project (DeepSeek, Matt Pocock skills). Its description cites the source.
-_Avoid_: sample, demo, template, preset
-
 **Starting points**:
-The Studio overview section that lists the Agile Harness and the example harnesses.
+The Studio overview section that lists the Agile Harness and the other bundled harnesses.
 _Avoid_: templates, gallery, samples
 
 **Saved harness**:
@@ -105,11 +101,12 @@ Every user-facing string follows the terms above: UI, dialogs, menus, README, an
 | Retired wording | Say instead |
 |---|---|
 | "OpenHarness Agile (skills-framework)", "OpenHarness Agile", "the framework" | Agile Harness |
-| "Sample: Agent + review", "OpenHarness sample", "Open sample" | Agent + review (Example harness) |
+| "Sample: Agent + review", "OpenHarness sample", "Open sample" | Agent + review (Bundled harness) |
 | "skills-framework · bundled snapshot" | Bundled harness |
 | "Open framework", "Open copy", "Open sample" | Open harness (same label on every starting point) |
 | "Open example" (menu) | Open bundled harness |
-| "Open preset" (command palette) | Open example harness |
+| "Open preset", "Open example harness" (command palette) | Open bundled harness |
+| "Example harness" (card label) | Bundled harness |
 | "Copilot" in UI text | Nilo |
 | "Wallet" in UI text | Providers |
 
