@@ -18,7 +18,7 @@ export function modelDetail(m: ModelInfo): string {
 export function modelSourceNote(c: Connection): string {
   return c.modelsFromEndpoint
     ? `Served by ${c.endpoint || specOf(c).endpoint.default} at the last test.`
-    : "From the OpenHarness catalog. Test the connection to list what it actually serves.";
+    : "From the OHarness catalog. Test the connection to list what it actually serves.";
 }
 
 /**
