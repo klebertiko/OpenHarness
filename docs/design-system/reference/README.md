@@ -16,3 +16,5 @@ python -m http.server 4173 --directory docs/design-system/reference
 ```
 
 `tokens.css` is generated and git-ignored; do not commit it.
+
+`index.html` is a local preview harness: it loads each component's `preview.html` in an iframe and builds the page with DOM calls, with no HTML strings and no dynamic code. It is never published to Pages and never ships in the app. The previews load React from unpkg (pinned, with integrity hashes) and, for the preview only, the fonts from Google Fonts.

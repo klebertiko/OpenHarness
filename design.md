@@ -1,6 +1,6 @@
-# Design — OpenHarness
+# Design — OHarness
 
-A locked design system for OpenHarness. The product is an everyday agent
+A locked design system for OHarness. The product is an everyday agent
 workspace; its Studio is a visual Graph Engineering instrument.
 
 ## Genre
@@ -57,16 +57,17 @@ running text.
 
 - Paper: `oklch(0.965 0.008 82)`
 - Raised paper: `oklch(0.985 0.005 82)`
-- Ink: `oklch(0.235 0.012 75)`
-- Secondary ink: `oklch(0.470 0.010 75)`
-- Tertiary ink: `oklch(0.560 0.009 75)`
+- Ink (`ink-primary`): `oklch(0.235 0.012 75)`
+- Body ink (`ink-dim`): `oklch(0.380 0.011 75)`
+- Secondary ink (`ink-mute`): `oklch(0.470 0.010 75)`
+- Quiet ink (`ink-faint`, decoration only): `oklch(0.500 0.009 75)`
 - Rule: `oklch(0.810 0.011 82)`
 - Accent: `oklch(0.52 0.105 190)`
 
 ## Typography and controls
 
 - UI/display: Sora, normal 400–600. Machine detail: IBM Plex Mono 400–500.
-- Reading text uses exactly three levels: primary, secondary and tertiary.
+- Reading text uses exactly three levels: ink, body ink and secondary ink. Quiet ink is a fourth, for decorative glyphs and non-essential hints; never put anything a person must read in it.
 - Accent-coloured text is reserved for interactive state, never eyebrows or decoration.
 - Conversation gets 24–48px breathing room; tools remain compact.
 - Radii follow the shipped tokens: controls 4px, panels 6px, floats 8px (the composer uses 14px). Never full pills by default. A larger scale (10px cards, 7px controls) is an open decision for a future visual comparison; do not change radius on your own.
