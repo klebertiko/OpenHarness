@@ -250,7 +250,7 @@ class WorkspaceService(RemovalMixin):
     def _rollback(self, ctx: RepoContext, dest: Path, created_parent: bool, branch: str | None, commit: str) -> None:
         """Undo a half-made create: the worktree (through git), the branch we made (only if it still points where we put it), the directory."""
         if os.path.lexists(dest) or canonical(dest) in {canonical(wt.path) for wt in self._worktrees(ctx)}:
-            self.runner.run(ctx.cwd, ["worktree", "remove", "--force", "--", str(dest)], check=False)
+            self.runner.run(ctx.cwd, ["worktree", "remove", "--force", "--", str(dest)], check=False, filters=True)
         if branch is not None:
             self.runner.run(ctx.cwd, ["update-ref", "-d", f"refs/heads/{branch}", commit], check=False)
         if created_parent:
