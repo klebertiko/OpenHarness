@@ -1,4 +1,34 @@
-# Verificação da página — 11/09/2026
+# Verificação da revisão — 22/10/2026 (0.0.1-alpha)
+
+Esta seção substitui os números das verificações de setembro abaixo, que descrevem uma versão anterior (duas capturas, sem seção Baixar).
+
+## O que mudou
+
+- Tour do produto com cinco capturas reais, nos dois temas: Chats, Studio, Canvas, Execução e Provedores. Legenda padrão: captura real do app 0.0.1-alpha, perfil isolado, sem provedor conectado, execução simulada (mock), interface em inglês. A captura de setembro foi removida.
+- Seção Baixar com o link da etiqueta `v0.0.1-alpha`, arquivos reais da matriz de `release.yml`, aviso de instaladores sem assinatura, comandos de verificação e limites conhecidos.
+- Auditoria das afirmações das três páginas: tabela em `CONTENT-NOTES.md`.
+
+## Resultados medidos
+
+Comandos executados em `website/` com Playwright 1.63 e o canal Edge (`PLAYWRIGHT_MODULE` apontando para o Playwright do `frontend`), servidor `npm run dev` em 127.0.0.1:4174:
+
+- `npm run build`: "Generated three en-US pages, localized downloads, language links, and metadata."
+- `npm run test:i18n`: "PASS: bilingual pages, 32 local URLs, runtime text, downloads, no-JS content." (seis páginas, dois temas, cinco larguras: 320, 375, 414, 768 e 1280 px; sem overflow nem colisão no cabeçalho; as cinco abas do tour carregam a imagem do tema).
+- `npm run test:publication`: "PASS: stale output rejected unchanged; fresh public inventory and security metadata verified." (inventário de 39 arquivos públicos).
+- `npm run test:security`: "PASS: CSP enforcement on all six pages; malformed Nilo data fallback and retry in both languages."
+- `npm run test:playback`: "PASS: direct #nilo entry, pause/continue/replay, frozen camera, scroll, keyboard, mobile and reduced motion."
+- Inspeção visual (capturas locais, fora do repositório): index em 1280 px e 360 px, seções Produto e Baixar, nos dois temas. Sem overflow horizontal na página inicial em 320, 360, 375, 414, 761, 768, 900, 1024 e 1280 px.
+
+Correções feitas durante a verificação: com cinco abas, o tour estourava a largura entre 761 e 1050 px; as abas ficaram mais compactas nessa faixa. A coluna da seção Baixar ganhou `min-width: 0` para os nomes de arquivo não alargarem a página.
+
+## Não verificado
+
+- Nenhum link de download foi seguido: a release ainda é rascunho, então a página da etiqueta responde 404 até a publicação.
+- Contraste e acessibilidade da seção Baixar foram vistos, não medidos com ferramenta.
+- O site publicado (GitHub Pages) não foi reexaminado: esta revisão está só na branch.
+
+# Verificação da página — 11/09/2026 (histórico)
+
 
 Implementação independente do desktop. Não houve chamadas de escrita ao backend, execução de providers, criação de chats ou persistência de automações. As capturas do produto foram feitas em contexto isolado com gravações de API bloqueadas.
 

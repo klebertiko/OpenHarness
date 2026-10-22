@@ -1,3 +1,69 @@
+# Revisão de conteúdo com evidências — 22/10/2026 (v0.0.1-alpha)
+
+Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/en-US.json`. Base: branch `docs/site-real-screenshots` sobre `origin/main` (0c89756). Nada aqui certifica uma release: nenhuma tag rodou `release.yml` de ponta a ponta, e a página `releases/tag/v0.0.1-alpha` só abre depois que a release rascunho for publicada. Regra de cópia: `CONTEXT.md` ("Copy standard"). As notas anteriores, mais abaixo, ficam como histórico; onde divergem desta seção, vale esta.
+
+## Afirmações e fontes
+
+| Onde | Afirmação | Fonte | Estado |
+| --- | --- | --- | --- |
+| index, hero | O app tem Chats, Studio e Providers; o Nilo rascunha harnesses no Studio e responde nos Chats | `README.md` "Product surfaces", "Nilo in Studio"; capturas `chats-*`, `studio-*`, `providers-*` | Verificado |
+| index, hero e Baixar | Versão 0.0.1-alpha | `website/package.json`, `src-tauri/tauri.conf.json`, `package.json` (job `validate-version` em `release.yml`) | Verificado |
+| index, diagrama | Agente (papel, instruções, provedores opcionais), Skill, Gate (checkpoint com critérios, PASS/FAIL), HITL (autoridade humana) | `CONTEXT.md` Language; `frontend/src/lib/templates.ts` (NODE_TEMPLATES) | Verificado |
+| index, capturas | Chats: modos Ask/Auto/Plan, seletor de harness, aviso "Connect a provider to send" | Captura `chats-*`; `docs/release-notes/v0.0.1-alpha.md` (modos por chat); commit c95e8f | Verificado |
+| index, capturas | Studio: "Describe the harness you want", New harness, Open .ohm, Draft with Nilo, Your harnesses, Starting points com 4 harnesses incluídos | Captura `studio-*`; `frontend/src/components/studio/StudioOverview.tsx` | Verificado |
+| index, capturas | Canvas: Agile Harness com 9 nós e 9 conexões, organizado com Shift+L, selo "1 unwired: TW dead end" | Captura `canvas-*` (barra de estado "graph 9n · 9e"); `frontend/src/components/canvas/arrangeChord.test.ts` (Shift+L); ADR 0007 | Verificado |
+| index, capturas | Execução: harness "Agent + review" em mock, Implementer e Review Gate concluídos, HITL retido (approve/reject), nenhum provedor chamado | Captura `run-*`; `backend/engine.py` (`awaiting_human`, `reject`) | Verificado |
+| index, capturas | Providers: 6 conexões, nenhuma conectada; gasto estimado; chave do OpenRouter não é mostrada de novo | Captura `providers-*` ("never shown again", "costs are estimates, not invoices") | Verificado |
+| index, legenda | As capturas vêm do app 0.0.1-alpha, em perfil isolado, sem provedor, execução simulada (mock), interface em inglês | Informado por quem fez as capturas (commit ed61e9b); visível nas imagens | Verificado nas imagens |
+| index, harnesses | Quatro harnesses incluídos: Agent + review e os três do backend | `frontend/src/lib/templates.ts`; `backend/oharness/examples.py` (3 itens); captura `studio-*` | Verificado. O texto anterior dizia "três" |
+| index, harnesses | Abrir um harness incluído cria cópia editável; o original não muda | `CONTEXT.md` "Bundled harness"; `README.md` "Studio files" | Verificado |
+| index, harnesses | Nenhum traz provedor definido nem credenciais | `README.md` (DeepSeek e Matt Pocock "set no provider and ship no secrets"); capturas (nós "no provider call"; Agent + review "configured for mock runs") | Verificado |
+| index, harnesses | Descrições do DeepSeek Harness e do Matt Pocock skills | `manifest.description` em `backend/oharness/fixtures/deepseek-harness.ohm` e `mattpocock-skills.ohm` | Verificado, texto traduzido |
+| index, harnesses | Provedores: Anthropic e OpenAI por CLI local, OpenRouter por chave, Ollama local/nuvem, Cursor só para agentes | `README.md` "Providers" | Verificado |
+| index, modelo | Estrutura `manifest + graph`, `content`, `runtime + validation` | `backend/oharness/schema/oharness.schema.json`; `examples/hello.ohm` | Verificado |
+| index e model | YAML 1.2 é decisão adotada; o Studio ainda lê e grava JSON; harnesses incluídos, codec e CLI usam YAML | ADR 0003; `frontend/src/lib/studio.ts` (`JSON.parse` na importação); `frontend/src/lib/bundlesApi.ts` (`JSON.stringify(bundle, null, 2)` na exportação); `backend/oharness/validate.py` (`validate_path` via codec); `docs/product/ohm-yaml-migration.md` | Verificado. Migração NÃO implementada no desktop |
+| model | Validação: JSON Schema, depois ids de nó não vazios e únicos e arestas apontando para nós existentes, depois modelo Pydantic | `backend/oharness/validate.py` (`validate_dict`, `_graph_errors`) | Verificado |
+| model | A simulação ordena o grafo topologicamente e não chama modelos; ciclo pode passar na validação e falhar na simulação; grafos com ciclo não são executáveis | `backend/oharness/mock_run.py`; `backend/engine.py`; `docs/product/ohm-yaml-migration.md` P2 | Verificado |
+| model | HITL pausa a execução; rejeitar interrompe | `backend/engine.py` (`control.phase = "awaiting_human"`, `decision == "reject"`) | Verificado (recurso do motor do app) |
+| model | CLI: `python -m oharness validate <arquivo>` aceita YAML e JSON | `README.md` "Open Harness Model"; docstring de `validate_path` | Verificado |
+| model | Laya: classificador local experimental, processo separado em loopback, consultivo; 0,80 de confiança; nó de decisão é só evidência; modo shadow na CI | `README.md` "Providers" (Experimental: Laya); ADR 0005 e 0006; `docs/ci-security.md` (`ENABLE_LAYA_SHADOW`) | Verificado (experimental) |
+| model | OHM é proposta do projeto, sem padrão independente, sem governança formal nem adoção externa | Ausência de evidência em contrário; `CONTEXT.md`; notas anteriores desta pasta | Declaração de limite |
+| Baixar | Link da etiqueta `releases/tag/v0.0.1-alpha`; pré-lançamentos nunca aparecem em `/releases/latest` | `docs/ci-security.md` (seção Releases); `release.yml` (`gh release create --prerelease`) | Verificado. O link abre só após a publicação |
+| Baixar | Nomes dos arquivos: `OpenHarness-windows-x64-setup.exe`, `OpenHarness-macos-arm64.dmg`, `OpenHarness-macos-x64.dmg`, `OpenHarness-linux-x86_64.AppImage`, `OpenHarness-linux-amd64.deb`, `SHA256SUMS` | `release.yml` (job `attest-and-release`, lista `expected`) | Verificado no workflow; nenhum foi publicado |
+| Baixar | Instaladores sem assinatura; SmartScreen "Windows protected your PC", More info, Run anyway | `release.yml` (linha de status do Windows); `docs/ci-security.md` "What users see while a platform is unsigned" | Verificado. Assina só se os segredos do ambiente `release` existirem |
+| Baixar | macOS: só assinatura ad hoc, sem notarização; Gatekeeper bloqueia; Open Anyway | `release.yml` (build macOS sem segredos usa `signingIdentity: "-"`) | Verificado |
+| Baixar | Linux: AppImage com assinatura GPG só se configurada; .deb sem assinatura própria; glibc 2.35+ (Ubuntu 22.04+, Debian 12+) | `release.yml` (matriz `ubuntu-22.04`, passo de status do Linux); `docs/ci-security.md` Code signing | Verificado |
+| Baixar | Comandos `sha256sum --check --ignore-missing SHA256SUMS` e `gh attestation verify <arquivo> --repo klebertiko/OpenHarness` | `release.yml` ("Write release notes"); `docs/ci-security.md` | Verificado |
+| Baixar | A atestação prova a origem e não substitui assinatura de editor | `docs/ci-security.md` ("GitHub attestations prove where an artifact came from") | Verificado |
+| Baixar, limites | Só o Windows tem smoke da janela; Linux e macOS só têm smoke do sidecar | `release.yml` ("Smoke desktop app" só em `build-windows`; "Smoke packaged sidecar" nos dois jobs) | Verificado |
+| Baixar, limites | Versão mínima do WebView não decidida nem imposta; renderização varia por plataforma | `docs/adr/0001-desktop-packaging.md` ("Rendering varies by platform", "Follow-up"); nenhum mínimo em `src-tauri/tauri.conf.json` | Verificado (ausência) |
+| Baixar, limites | Dados: `%LOCALAPPDATA%\OpenHarness` no Windows, `~/OpenHarness` nos demais | `backend/sidecar_entry.py` (`_data_dir`) | Verificado |
+| Baixar, limites | Comandos do chat passam por um broker com contenção de caminho e aprovação por ação; NÃO é isolamento de SO | ADR 0004 ("Exec não é sandbox de SO") | Verificado. A palavra "sandbox" não é usada como promessa |
+| Baixar, limites | Sem atualização automática; sem matriz de testes com provedores reais por SO | `docs/release-notes/v0.0.1-alpha.md` ("What is NOT in 0.0.1-alpha") | Verificado no rascunho de notas |
+| Baixar, limites | Licença: pré-visualização pública, código disponível para avaliação, termos de redistribuição não definidos | `README.md` "License" | Verificado |
+| index, Nilo | Estados do Nilo: idle, thinking, working, waiting, success, error, sleeping | `frontend/src/components/brand/NiloSprite.tsx` (`NiloState`) | Verificado. A cena do site é demonstrativa |
+| manifesto | Os seis princípios e o parágrafo sobre YAML | Texto original do manifesto; o parágrafo técnico foi atualizado para o estado real (JSON no Studio, ciclos não executáveis) | Princípios são aspirações, e a página diz isso |
+
+## Removido ou reescrito, e por quê
+
+- **Captura de setembro** e as capturas Automate e Pull requests: essas seções não existem mais (`README.md` "Removed", PR #31). Substituídas por cinco capturas reais.
+- **"Três harnesses"**: o app lista quatro (Agent + review é definido no frontend).
+- **"Desktop em desenvolvimento / Modelo aberto por princípio"** e **"O desktop está em desenvolvimento. Por enquanto, explore o modelo"**: trocados por pré-lançamento 0.0.1-alpha e Baixar. "Aberto" não tem respaldo de licença (`README.md` "License": código disponível para avaliação).
+- **"Agente tem um provedor"**: o vínculo é opcional (`CONTEXT.md`). **"checkpoints"**: trocado por "gates" e "pontos de verificação"; não há recurso de checkpoints no app.
+- **Quatro níveis de validação; gates determinísticos de assinaturas, budgets e release; treinamento da Laya; promoção futura da Laya; campo `system_one_evaluator`**: sem evidência no app (política de CI ou conceito interno). Substituídos pelo que `validate.py`, `mock_run.py` e `engine.py` fazem.
+- **"Governança aberta e independente"**: virou declaração explícita de que não há padrão independente, governança formal nem adoção externa.
+- **"O desktop está migrando de JSON"** e **"a mudança preservará a leitura de documentos anteriores"**: reescritos para o estado real; a promessa de futuro saiu.
+- **"Documentação inicial · setembro de 2026"** e a data no manifesto: trocadas pela versão. **"Exemplo"**: trocado por "documento mínimo" nas páginas e em `examples/hello.ohm` (`description`), para não confundir com "example harness".
+- **Nome do projeto skills-framework**: omitido do texto público do Agile Harness (a palavra "framework" não aparece); mantido "adaptado da skill engineering/harness".
+
+## Pendências conhecidas
+
+- Os links de download só funcionam após a publicação da release. Nenhuma tag rodou `release.yml` de ponta a ponta: confira nomes de arquivo e estado de assinatura no rascunho antes de publicar.
+- O `README.md` raiz tem badges desatualizados (Windows apenas; `.ohm` YAML, enquanto o Studio usa JSON) e referencia `website/assets/studio.webp` e `chats.webp`, que não existem mais. Não foi alterado aqui.
+- O gerador (`scripts/build-locales.mjs`) continua emitindo comentários `nosemgrep` de integridade nos metadados canonical e hreflang (comportamento anterior, não novo).
+
+---
+
 # Atualização após a decisão YAML — 11/09/2026
 
 O usuário aprovou YAML 1.2 como sintaxe dos arquivos `.ohm`, mantendo JSON nas APIs e importação dos documentos JSON anteriores. A página e o exemplo foram atualizados com indicação explícita de suporte desktop em migração. Os achados abaixo registram a implementação JSON consultada antes dessa decisão; não foram convertidos em alegações de suporte YAML já entregue. A validação do exemplo YAML é feita após parsing contra o schema atual, separada do leitor de arquivos do desktop.
