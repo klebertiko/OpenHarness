@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, RotateCw } from "lucide-react";
 
+import { RunEvidence } from "./RunEvidence";
 import { Panel } from "@/components/shell/Panel";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { runResultText, runsApi, type RunLog, type RunLogDetail, type RunStatus } from "@/lib/runsApi";
@@ -21,6 +22,8 @@ const STATUS: Record<RunStatus, { label: string; tone: Tone }> = {
   error: { label: "Failed", tone: "fault" },
   failed: { label: "Failed", tone: "fault" },
   stopped: { label: "Stopped", tone: "warn" },
+  interrupted: { label: "Interrupted", tone: "warn" },
+  unknown: { label: "Unknown", tone: "warn" },
 };
 
 export function RunsPanel() {
@@ -160,6 +163,7 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
             <dd className="text-ink-dim">{durationText(run) || "—"}</dd>
           </dl>
 
+          <RunEvidence detail={run} />
           {text ? (
             <pre className="mt-3 whitespace-pre-wrap rounded-[8px] bg-sub-200 p-2.5 font-mono text-[11px] leading-5 text-ink-dim">
               {text}
