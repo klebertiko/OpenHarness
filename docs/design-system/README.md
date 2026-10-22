@@ -1,10 +1,10 @@
-# OpenHarness design system
+# OHarness design system
 
 The design reference for every surface of the app. Tokens are the single vocabulary; the documents below say how to use them.
 
 | File | What it is |
 | --- | --- |
-| `tokens.json` | Every token, in DTCG format, two themes. `npm test` proves it matches `frontend/src/app/globals.css`. |
+| `tokens.json` | Every token, in DTCG format, two themes. `npm test` proves the 58 colour, shape, layout and motion variables match `frontend/src/app/globals.css` and the 7 type roles match the `.t-*` rules and `tailwind.config.ts`. |
 | `README.md` | This brand book: content, visual foundations, iconography, layout, contrast audit. |
 | `experience.md` | The experience contract: no flicker, shift or lag; findable and legible; honest and reversible. |
 | `brand.md` | Nilo: identity, style lock, animation language, where she may appear. |
@@ -19,7 +19,7 @@ node scripts/design-tokens.mjs --css     # emit CSS custom properties from token
 node scripts/check-contrast.mjs --md     # regenerate the contrast table below
 ```
 
-OpenHarness is an everyday agent workspace with a visual Graph Engineering Studio inside it. The interface behaves like a well-made instrument: quiet, warm, precise. Modern-minimal editorial, never the density of an IDE. Read `experience.md` for how it must feel and `adoption.md` for how to wire it into the app.
+OHarness is an everyday agent workspace with a visual Graph Engineering Studio inside it. The interface behaves like a well-made instrument: quiet, warm, precise. Modern-minimal editorial, never the density of an IDE. Read `experience.md` for how it must feel and `adoption.md` for how to wire it into the app.
 
 ## Content fundamentals
 
@@ -60,7 +60,7 @@ OpenHarness is an everyday agent workspace with a visual Graph Engineering Studi
 
 ## Contrast audit
 
-Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCAG 2 relative luminance from the oklch values in both themes and exits non-zero if a required pair fails; `npm test` fails if this table is stale. Ratios are listed per ground in order (`sub-000` first); text needs 4.5:1, control edges, focus rings and meaningful marks need 3:1. Every row is required: the app ships no value that misses the bar. `warn` and `fault` are fills, markers and borders; their text forms are `warn-text` and `fault-text`, and `signal` as text is `signal-text`. A panel edge (`line`) is decoration and exempt; a control edge is `line-strong`.
+Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCAG 2 relative luminance from the oklch values in both themes and exits non-zero if a required pair fails; `npm test` fails if this table is stale. Ratios are listed per ground in order (`sub-000` first); text needs 4.5:1, control edges, focus rings and meaningful marks need 3:1. Every row is required except those marked "Limit", which record a ground a token is not meant for: the app ships no value that misses the bar. `warn` and `fault` are fills, markers and borders; their text forms are `warn-text` and `fault-text`, and `signal` as text is `signal-text`. A panel edge (`line`) is decoration and exempt; a control edge is `line-strong`.
 
 <!-- contrast:start -->
 | Pair (`foreground` on grounds) | Min | Graphite | Ivory | Verdict |
@@ -76,6 +76,7 @@ Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCA
 | `fault-text` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 6.3 / 5.9 / 5.4 / 4.6 | 5.5 / 5.8 / 5.1 / 4.6 | Pass |
 | `signal-text` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 7.5 / 7.0 / 6.4 / 5.4 | 5.5 / 5.8 / 5.1 / 4.6 | Pass |
 | `line-strong` on `sub-000`, `sub-100`, `sub-200` | 3:1 | 3.8 / 3.5 / 3.2 | 3.6 / 3.8 / 3.3 | Pass |
+| `line-strong` on `sub-300` | 3:1 | 2.7 | 3.0 | Limit |
 | `signal` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 3:1 | 7.5 / 7.0 / 6.4 / 5.4 | 4.6 / 4.9 / 4.3 / 3.8 | Pass |
 | `fault` on `sub-000`, `sub-100` | 3:1 | 3.6 / 3.4 | 4.7 / 5.0 | Pass |
 | `role-agent` on `sub-000`, `sub-100` | 3:1 | 3.7 / 3.4 | 4.7 / 5.0 | Pass |
