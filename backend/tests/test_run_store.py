@@ -71,7 +71,8 @@ async def run():
     os._exit(0)
 asyncio.run(run())
 '''
-    process = subprocess.run([sys.executable, '-c', script], env=os.environ.copy(), capture_output=True, text=True, timeout=30)
+    # Fixed test code and the current interpreter; no shell or external command input.
+    process = subprocess.run([sys.executable, '-c', script], env=os.environ.copy(), capture_output=True, text=True, timeout=30, shell=False)  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
     assert process.returncode == 0, process.stderr
     run_id = process.stdout.strip()
     with TestClient(app) as client:

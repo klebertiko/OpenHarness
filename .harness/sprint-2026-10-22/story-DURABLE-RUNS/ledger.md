@@ -46,3 +46,9 @@ configuration deprecations/workspace-lockfile detection. No real sidecar was use
 Validation commands and final counts are also recorded in the PR. Design decisions,
 API contracts, and actual limitations are in
 `docs/product/durable-run-history.md`.
+
+## Authorized merge follow-up — 2026-10-22
+
+- User authorized merging PRs #136 and #137. #136 merged first; origin/main integrated here without conflicts.
+- OpenGrep audit alert on the crash-recovery test was independently reviewed by SEC: fixed script, current interpreter, argv list, no external command input. Made shell=False explicit and documented a rule-specific inline suppression; scanner configuration unchanged.
+- Backend integration regression: `python -m pytest -q tests/test_run_store.py tests/test_execution_logs_api.py tests/test_direct_history_bdd.py` → 12 passed.
