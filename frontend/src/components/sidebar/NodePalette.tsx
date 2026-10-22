@@ -68,14 +68,14 @@ function TemplateRow({ template }: { template: NodeTemplate }) {
       </span>
 
       <span className="t-title min-w-0 flex-1 truncate text-ink-dim group-hover:text-ink">{template.label}</span>
-      <span className="t-meta flex-none text-ink-faint">{portShape(type)}</span>
+      <span className="t-meta flex-none text-ink-mute">{portShape(type)}</span>
 
       <GripVertical
         size={12}
         strokeWidth={1.6}
         absoluteStrokeWidth
         aria-hidden
-        className="flex-none text-ink-faint opacity-0 transition-opacity group-hover:opacity-100"
+        className="flex-none text-ink-mute opacity-0 transition-opacity group-hover:opacity-100"
       />
     </button>
   );
@@ -84,7 +84,7 @@ function TemplateRow({ template }: { template: NodeTemplate }) {
 export function NodePalette() {
   return (
     <Panel title="Blocks" meta="click or drag" className="h-full">
-      <p className="px-2 pb-2 pt-1 text-[11px] leading-5 text-ink-faint">
+      <p className="px-2 pb-2 pt-1 text-meta leading-5 text-ink-mute">
         Add a block, then connect its named ports.
       </p>
       <div className="space-y-0.5 px-1">

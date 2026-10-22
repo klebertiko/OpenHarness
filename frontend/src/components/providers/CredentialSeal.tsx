@@ -42,7 +42,7 @@ function Redaction({ length }: { length: number | null }) {
   return (
     <span
       aria-label={length === null ? "Credential value withheld; length unavailable" : `${length} characters withheld`}
-      className="inline-block h-[9px] flex-none select-none rounded-[1px] bg-[repeating-linear-gradient(90deg,var(--sub-400)_0_2px,transparent_2px_4px)]"
+      className="inline-block h-[9px] flex-none select-none rounded-none bg-[repeating-linear-gradient(90deg,var(--sub-400)_0_2px,transparent_2px_4px)]"
       style={{ width }}
     />
   );
@@ -124,7 +124,7 @@ export function CredentialSeal({
           leak even if it tried.
         </p>
         {failure === "store" && (
-        <p role="alert" className="t-body mt-1.5 text-fault">
+        <p role="alert" className="t-body mt-1.5 text-fault-text">
           The key was not stored: the OHarness sidecar did not accept it. Check the app is running and try again.
         </p>
       )}
@@ -151,7 +151,7 @@ export function CredentialSeal({
         }
       >
         <div className="flex min-w-0 items-center gap-2.5 overflow-hidden rounded-control border border-line-soft bg-sub-200 px-2.5 py-2">
-          <span className="h-[15px] w-[2px] flex-none rounded-[1px] bg-signal-deep" aria-hidden />
+          <span className="h-[15px] w-[2px] flex-none rounded-none bg-signal-deep" aria-hidden />
           <span className="t-meta flex min-w-0 items-center gap-1.5">
             <span className="text-ink-dim">{s.prefix}</span>
             <Redaction length={s.length > 0 ? Math.max(0, s.length - s.prefix.length - 4) : null} />
@@ -191,7 +191,7 @@ export function CredentialSeal({
           </Btn>
         </div>
         {failure === "remove" && (
-          <p role="alert" className="t-body mt-2 text-fault">
+          <p role="alert" className="t-body mt-2 text-fault-text">
             Couldn&apos;t remove the key: the sidecar did not confirm it. It is still stored; try again.
           </p>
         )}
@@ -253,7 +253,7 @@ export function CredentialSeal({
       </div>
 
       {!prefixOk && (
-        <p className="t-body mt-1.5 flex items-start gap-1.5 text-warn">
+        <p className="t-body mt-1.5 flex items-start gap-1.5 text-warn-text">
           <TriangleAlert size={12} strokeWidth={1.8} className="mt-[2px] flex-none" />
           {spec.vendor} keys begin <span className="t-meta">{expected}</span>. This one does not —
           check you have not pasted a key from another vendor.
@@ -267,12 +267,12 @@ export function CredentialSeal({
         copy if you need it elsewhere.
       </p>
       {vault === "memory" && (
-        <p className="t-body mt-1 max-w-[62ch] text-warn">
+        <p className="t-body mt-1 max-w-[62ch] text-warn-text">
           This build is running in a browser, so there is no OS keychain to write to. The key is
           held in memory for this session only and is lost on reload.
         </p>
       )}
-      <p className="t-body mt-2 text-ink-faint">
+      <p className="t-body mt-2 text-ink-mute">
         Get one at <span className="text-ink-mute">{spec.credential.where}</span>
       </p>
     </Section>
@@ -304,7 +304,7 @@ function Section({
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <>
-      <dt className="t-body text-ink-faint">{k}</dt>
+      <dt className="t-body text-ink-mute">{k}</dt>
       <dd className="t-meta text-ink-dim [overflow-wrap:anywhere]">{v}</dd>
     </>
   );

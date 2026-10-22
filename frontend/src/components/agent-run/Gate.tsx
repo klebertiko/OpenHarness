@@ -37,7 +37,7 @@ export function Gate({
     return (
       <div className="mt-1.5 flex items-baseline gap-2">
         <span
-          className="h-[9px] w-[2px] flex-none translate-y-[1px] rounded-[1px]"
+          className="h-[9px] w-[2px] flex-none translate-y-[1px] rounded-none"
           style={{ background: rejected ? "var(--fault)" : "var(--ink-faint)" }}
           aria-hidden
         />
@@ -58,10 +58,10 @@ export function Gate({
 
       <div className="px-3 pb-3 pt-2.5">
         <div className="flex items-center gap-2">
-          <span className="t-label" style={{ color: "var(--warn)" }}>
+          <span className="t-label" style={{ color: "var(--warn-text)" }}>
             human gate
           </span>
-          <span className="t-meta text-ink-faint">the run is blocked here</span>
+          <span className="t-meta text-ink-mute">the run is blocked here</span>
         </div>
 
         <p className="t-title mt-1.5 text-ink">{gate.question}</p>
@@ -71,7 +71,7 @@ export function Gate({
             <button
               type="button"
               onClick={() => setShowContext((v) => !v)}
-              className="t-meta text-ink-faint underline-offset-2 hover:text-ink-dim hover:underline"
+              className="t-meta text-ink-mute underline-offset-2 hover:text-ink-dim hover:underline"
             >
               {showContext ? "hide" : "show"} what it is asking you to approve
             </button>
@@ -96,14 +96,14 @@ export function Gate({
             }
           }}
           placeholder="Add a note for the record, or send it back with a correction…"
-          className="oh-inset oh-focus-inner t-body mt-2.5 block w-full resize-none px-2 py-1.5 text-ink placeholder:text-ink-faint"
+          className="oh-inset oh-focus-inner t-body mt-2.5 block w-full resize-none px-2 py-1.5 text-ink placeholder:text-ink-mute"
         />
 
         <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
             onClick={() => onResolve("approve", note.trim())}
-            className="inline-flex h-[24px] items-center gap-1.5 rounded-control bg-signal px-2.5 text-[12px] font-[550] leading-none text-signal-ink transition hover:bg-signal-deep hover:text-ink"
+            className="inline-flex h-[24px] items-center gap-1.5 rounded-control bg-signal px-2.5 text-body font-[500] leading-none text-signal-ink transition hover:bg-signal-deep hover:text-ink"
           >
             Approve &amp; continue
             <kbd
@@ -116,11 +116,11 @@ export function Gate({
           <button
             type="button"
             onClick={() => onResolve("reject", note.trim())}
-            className="inline-flex h-[24px] items-center rounded-control border border-line bg-sub-200 px-2.5 text-[12px] font-[550] leading-none text-ink-dim transition hover:border-fault hover:text-fault"
+            className="inline-flex h-[24px] items-center rounded-control border border-line bg-sub-200 px-2.5 text-body font-[500] leading-none text-ink-dim transition hover:border-fault hover:text-fault"
           >
             Reject &amp; end run
           </button>
-          <span className="t-meta ml-auto text-ink-faint">nothing downstream runs until you answer</span>
+          <span className="t-meta ml-auto text-ink-mute">nothing downstream runs until you answer</span>
         </div>
       </div>
     </div>

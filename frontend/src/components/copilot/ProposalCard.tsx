@@ -19,8 +19,8 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
   const { setCenter, getNode } = useReactFlow();
 
   const count = proposal.lines.length;
-  if (proposal.state === "kept") return <p className="t-meta text-ink-faint">Kept {plural(count)}</p>;
-  if (proposal.state === "undone") return <p className="t-meta text-ink-faint">Undone</p>;
+  if (proposal.state === "kept") return <p className="t-meta text-ink-mute">Kept {plural(count)}</p>;
+  if (proposal.state === "undone") return <p className="t-meta text-ink-mute">Undone</p>;
 
   const canUndo = head === proposal.seq;
   const reveal = (nodeId: string) => {
@@ -31,7 +31,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
   };
 
   return (
-    <section aria-label="Proposed changes" className="rounded-[10px] border border-line bg-sub-200">
+    <section aria-label="Proposed changes" className="rounded-float border border-line bg-sub-200">
       <h3 className="t-title border-b border-line-soft px-3 py-2 text-ink">Proposed changes · {count}</h3>
       <ul className="space-y-0.5 px-1.5 py-1.5">
         {proposal.lines.map((line, i) => {
@@ -62,7 +62,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
         <button
           type="button"
           onClick={() => keep(turnId)}
-          className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+          className="h-7 rounded-control bg-signal px-3 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
         >
           Keep
         </button>
@@ -71,7 +71,7 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
           onClick={() => undo(turnId)}
           disabled={!canUndo}
           title={canUndo ? undefined : "The graph changed since — use Undo (Mod+Z)"}
-          className="h-7 rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-7 rounded-control border border-line px-3 text-body font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
         >
           Undo
         </button>

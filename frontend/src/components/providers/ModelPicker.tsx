@@ -84,7 +84,7 @@ export function ModelPicker({
       trigger={
         <>
           <span className={`min-w-0 truncate ${value ? "t-meta text-ink" : "text-ink-mute"}`}>{shown}</span>
-          <ChevronDown size={13} strokeWidth={1.8} className="flex-none text-ink-faint" aria-hidden />
+          <ChevronDown size={13} strokeWidth={1.8} className="flex-none text-ink-mute" aria-hidden />
         </>
       }
     />

@@ -94,12 +94,12 @@ export function HistoricalRunDetail({
     <div className="flex flex-col gap-2">
       <RunDetailToggle open={open} onToggle={toggle} controlsId={regionId} />
       {open && !ready && state === "loading" && (
-        <p role="status" className="text-[12px] text-ink-faint">
+        <p role="status" className="text-body text-ink-mute">
           Loading…
         </p>
       )}
       {open && !ready && state === "unavailable" && (
-        <p className="text-[12px] text-ink-faint">
+        <p className="text-body text-ink-mute">
           This run&apos;s step-by-step detail wasn&apos;t saved.
         </p>
       )}

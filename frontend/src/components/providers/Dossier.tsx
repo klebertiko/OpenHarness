@@ -65,7 +65,7 @@ function ProviderSwitcher() {
           trigger={
             <>
               <span className="min-w-0 truncate">{current ? `${current.label} — ${providerReadiness(current).label}` : "Choose a provider"}</span>
-              <ChevronDown size={13} strokeWidth={1.8} className="flex-none text-ink-faint" aria-hidden />
+              <ChevronDown size={13} strokeWidth={1.8} className="flex-none text-ink-mute" aria-hidden />
             </>
           }
         />
@@ -255,7 +255,7 @@ export function Dossier() {
 
           {spec.caveat && (
             <div className="mt-5 flex gap-2.5 rounded-control border-l-2 border-warn bg-sub-200 py-2.5 pl-2.5 pr-3">
-              <Info size={13} strokeWidth={1.8} className="mt-[2px] flex-none text-warn" aria-hidden />
+              <Info size={13} strokeWidth={1.8} className="mt-[2px] flex-none text-warn-text" aria-hidden />
               <p className="t-body max-w-[70ch] text-ink-dim">{spec.caveat}</p>
             </div>
           )}
@@ -301,9 +301,9 @@ export function Dossier() {
               </a>
             </div>
             {endpointStatus === "saving" && <p role="status" className="t-meta mt-1.5 text-ink-dim">Saving endpoint…</p>}
-            {endpointStatus === "saved" && <p role="status" className="t-meta mt-1.5 text-signal">Endpoint saved.</p>}
+            {endpointStatus === "saved" && <p role="status" className="t-meta mt-1.5 text-signal-text">Endpoint saved.</p>}
             {endpointStatus === "failed" && (
-              <p role="alert" className="t-meta mt-1.5 text-fault">
+              <p role="alert" className="t-meta mt-1.5 text-fault-text">
                 Couldn&apos;t save the endpoint, so tests and runs still use {c.endpoint || "the previous one"}. Check the app is running and try again.
               </p>
             )}
@@ -314,15 +314,15 @@ export function Dossier() {
             lede="Recorded usage for this connection. Measured and estimated tokens are not separated in this summary; costs are estimates, not invoices."
           >
             {!usage || usage.tokensTotal <= 0 ? (
-              <p className="t-body text-ink-faint">No usage recorded on this connection yet.</p>
+              <p className="t-body text-ink-mute">No usage recorded on this connection yet.</p>
             ) : (
               <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
-                <dt className="t-body text-ink-faint">Tokens</dt>
+                <dt className="t-body text-ink-mute">Tokens</dt>
                 <dd className="t-meta text-ink-dim">{usage.tokensTotal.toLocaleString()}</dd>
                 {usage.unpricedTokens > 0 && c.residence !== "local" && (
                   <>
-                    <dt className="t-body text-ink-faint">Unpriced</dt>
-                    <dd className="t-meta text-warn">
+                    <dt className="t-body text-ink-mute">Unpriced</dt>
+                    <dd className="t-meta text-warn-text">
                       {usage.unpricedTokens.toLocaleString()} tokens billed at an unknown rate — not included
                       in the spend above, so it may understate real spend
                     </dd>
@@ -337,16 +337,16 @@ export function Dossier() {
               <dl className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 border-l border-line-soft pl-3">
                 {c.facts.map((f) => (
                   <div key={f.k} className="contents">
-                    <dt className="t-body text-ink-faint">{f.k}</dt>
+                    <dt className="t-body text-ink-mute">{f.k}</dt>
                     <dd
                       className={[
                         "t-meta [overflow-wrap:anywhere]",
                         f.tone === "warn"
-                          ? "text-warn"
+                          ? "text-warn-text"
                           : f.tone === "fault"
-                            ? "text-fault"
+                            ? "text-fault-text"
                             : f.tone === "signal"
-                              ? "text-signal"
+                              ? "text-signal-text"
                               : "text-ink-dim",
                       ].join(" ")}
                     >

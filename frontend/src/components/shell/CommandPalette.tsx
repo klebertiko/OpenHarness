@@ -70,7 +70,7 @@ function Row({
         active && "bg-sub-300",
       )}
     >
-      <span className="h-3.5 w-0.5 flex-none rounded-[1px]" style={{ background: command.role ?? (active ? "var(--signal)" : "transparent") }} aria-hidden />
+      <span className="h-3.5 w-0.5 flex-none rounded-none" style={{ background: command.role ?? (active ? "var(--signal)" : "transparent") }} aria-hidden />
       <Icon size={14} strokeWidth={1.6} absoluteStrokeWidth aria-hidden className={cn("flex-none", active ? "text-ink" : "text-ink-mute")} />
       <span className="t-title min-w-0 flex-1 truncate text-ink">
         <Highlight text={command.label} hits={hits} />
@@ -126,7 +126,7 @@ export function CommandPalette({ open, commands, onClose }: { open: boolean; com
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()} title="Command palette" hideTitle placement="top" className="h-fit max-h-[min(64vh,520px)]">
       <div className="flex h-control-lg flex-none items-center gap-2.5 border-b border-line px-2.5">
-        <span className="h-4 w-0.5 flex-none rounded-[1px] bg-signal" aria-hidden />
+        <span className="h-4 w-0.5 flex-none rounded-none bg-signal" aria-hidden />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

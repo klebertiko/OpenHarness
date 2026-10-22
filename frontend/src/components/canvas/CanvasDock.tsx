@@ -42,7 +42,7 @@ function DockButton({
       disabled={disabled}
       onClick={onClick}
       className={`grid h-[24px] w-[26px] place-items-center transition-colors hover:bg-sub-300 disabled:pointer-events-none disabled:opacity-30 ${
-        active ? "bg-sub-400 text-signal" : "text-ink-mute hover:text-ink"
+        active ? "bg-sub-400 text-signal-text" : "text-ink-mute hover:text-ink"
       }`}
     >
       <Icon size={13} strokeWidth={1.6} absoluteStrokeWidth />
@@ -92,7 +92,7 @@ export function CanvasDock({ snap, onSnap, locked, onLock, panMode, onPanMode }:
             setFlash(true);
           }}
           className={`t-meta grid w-[46px] place-items-center border-x border-line-soft transition-colors hover:bg-sub-300 hover:text-ink ${
-            flash ? "text-signal" : "text-ink-dim"
+            flash ? "text-signal-text" : "text-ink-dim"
           }`}
         >
           {Math.round(zoom * 100)}%

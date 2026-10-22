@@ -271,7 +271,7 @@ body {
 
 .oh-agent-message--user {
   border: 1px solid var(--line-soft);
-  border-radius: 12px 12px 3px 12px;
+  border-radius: var(--r-panel);
   background: var(--sub-200);
 }
 

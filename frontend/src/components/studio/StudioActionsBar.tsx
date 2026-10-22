@@ -18,7 +18,7 @@ import {
 import { fetchStudioExamples, studioOrigin, type StudioExample } from "@/lib/studioExamples";
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
-const base = `inline-flex h-8 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+const base = `inline-flex h-8 flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-control px-2.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
 const primary = `${base} bg-signal text-signal-ink hover:bg-signal-deep`;
 const secondary = `${base} border border-line bg-sub-100 text-ink hover:bg-sub-200`;
 const quiet = `${base} text-ink-dim hover:bg-sub-200 hover:text-ink`;
@@ -130,9 +130,9 @@ export function StudioActionsBar() {
           <ArrowLeft size={14} aria-hidden /> Back to Studio
         </button>
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1">
-          <h2 className="min-w-0 truncate text-[13px] font-semibold text-ink [overflow-wrap:anywhere]">{harnessMeta.name}</h2>
-          <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] text-ink-mute">{ORIGIN_LABEL[origin]}</span>
-          <span role="status" className={`inline-flex items-center gap-1.5 text-[12px] ${saveState === "error" ? "text-fault" : "text-ink-mute"}`}>
+          <h2 className="min-w-0 truncate text-title font-semibold text-ink [overflow-wrap:anywhere]">{harnessMeta.name}</h2>
+          <span className="rounded-control border border-line px-1.5 py-0.5 text-meta text-ink-mute">{ORIGIN_LABEL[origin]}</span>
+          <span role="status" className={`inline-flex items-center gap-1.5 text-body ${saveState === "error" ? "text-fault-text" : "text-ink-mute"}`}>
             <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${unsaved ? "bg-ink-faint" : "bg-signal"}`} />
             {status}
           </span>
@@ -155,17 +155,17 @@ export function StudioActionsBar() {
             {menuOpen && (
               <div role="menu" aria-label="Bundled harnesses"
                 onKeyDown={(e) => { if (e.key === "Escape") setMenuOpen(false); }}
-                className="absolute left-0 top-full z-40 mt-1 w-[300px] max-w-[85vw] overflow-hidden rounded-[10px] border border-line bg-sub-100 py-1 shadow-lg">
-                {!examples && <p role="status" className="px-3 py-2 text-[12px] text-ink-mute">Loading bundled harnesses…</p>}
-                {examples?.length === 0 && <p className="px-3 py-2 text-[12px] text-ink-mute">No bundled harnesses available.</p>}
+                className="absolute left-0 top-full z-40 mt-1 w-[300px] max-w-[85vw] overflow-hidden rounded-float border border-line bg-sub-100 py-1 shadow-lg">
+                {!examples && <p role="status" className="px-3 py-2 text-body text-ink-mute">Loading bundled harnesses…</p>}
+                {examples?.length === 0 && <p className="px-3 py-2 text-body text-ink-mute">No bundled harnesses available.</p>}
                 {examples?.map((ex) => (
                   <button key={ex.id} type="button" role="menuitem" onClick={() => chooseExample(ex)}
                     className={`block w-full px-3 py-2 text-left hover:bg-sub-200 ${focusRing}`}>
-                    <span className="block text-[12px] font-medium text-ink">{ex.name}</span>
-                    {ex.description && <span className="mt-0.5 line-clamp-2 block text-[11px] leading-4 text-ink-mute">{ex.description}</span>}
+                    <span className="block text-body font-medium text-ink">{ex.name}</span>
+                    {ex.description && <span className="mt-0.5 line-clamp-2 block text-meta leading-4 text-ink-mute">{ex.description}</span>}
                   </button>
                 ))}
-                <p className="border-t border-line-soft px-3 py-2 text-[11px] text-ink-faint">Opens an editable copy; the bundled harness itself is never changed.</p>
+                <p className="border-t border-line-soft px-3 py-2 text-meta text-ink-mute">Opens an editable copy; the bundled harness itself is never changed.</p>
               </div>
             )}
           </div>
@@ -204,13 +204,13 @@ export function StudioActionsBar() {
 
       {pending === "saveas" && (
         <form onSubmit={submitSaveAs} className="flex flex-wrap items-center gap-2 border-t border-line-soft px-3 py-2">
-          <label htmlFor="studio-copy-name" className="text-[12px] text-ink-mute">Save a copy as</label>
+          <label htmlFor="studio-copy-name" className="text-body text-ink-mute">Save a copy as</label>
           <input id="studio-copy-name" aria-label="Name of the copy" value={copyName} autoFocus onChange={(e) => setCopyName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Escape") setPending(null); }}
-            className="h-8 min-w-[12rem] max-w-[320px] flex-1 rounded-control border border-line bg-sub-200 px-2 text-[13px] text-ink outline-none focus:border-signal" />
+            className="h-8 min-w-[12rem] max-w-[320px] flex-1 rounded-control border border-line bg-sub-200 px-2 text-title text-ink outline-none focus:border-signal" />
           <button type="submit" disabled={busy || !copyName.trim()} className={primary}>Save copy</button>
           <button type="button" onClick={() => setPending(null)} className={quiet}>Cancel</button>
-          <p className="basis-full text-[11px] text-ink-faint">
+          <p className="basis-full text-meta text-ink-mute">
             Creates a new editable harness. {origin === "saved" ? "The original stays as it is." : "Bundled harnesses are never overwritten."}
           </p>
         </form>
@@ -219,7 +219,7 @@ export function StudioActionsBar() {
         <div role="group" aria-label={pending === "discard" ? "Confirm discard" : "Confirm delete"}
           onKeyDown={(e) => { if (e.key === "Escape") setPending(null); }}
           className="flex flex-wrap items-center gap-3 border-t border-line-soft px-3 py-2">
-          <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">
+          <p className="min-w-0 flex-1 text-title leading-6 text-ink [overflow-wrap:anywhere]">
             {pending === "discard"
               ? origin === "saved"
                 ? `Discard the changes to “${harnessMeta.name}” and go back to the saved version?`
@@ -229,13 +229,13 @@ export function StudioActionsBar() {
                 : `Delete the draft “${harnessMeta.name}”? It has not been saved, so it is gone for good.`}
           </p>
           <button type="button" autoFocus onClick={() => setPending(null)} className={secondary}>Cancel</button>
-          <button type="button" disabled={busy} className={`${secondary} text-fault`} onClick={() => void confirmAction()}>
+          <button type="button" disabled={busy} className={`${secondary} text-fault-text`} onClick={() => void confirmAction()}>
             {pending === "discard" ? "Discard" : "Delete"}
           </button>
         </div>
       )}
       {note && (
-        <p role={note.tone === "error" ? "alert" : "status"} className={`border-t border-line-soft px-3 py-1.5 text-[12px] ${note.tone === "error" ? "text-fault" : "text-ink-mute"}`}>
+        <p role={note.tone === "error" ? "alert" : "status"} className={`border-t border-line-soft px-3 py-1.5 text-body ${note.tone === "error" ? "text-fault-text" : "text-ink-mute"}`}>
           {note.text}
         </p>
       )}

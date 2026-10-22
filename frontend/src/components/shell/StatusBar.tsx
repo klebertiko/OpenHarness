@@ -36,7 +36,7 @@ export function StatusBar({ mode, running, nodeCount, edgeCount, selectedId, bac
   return (
     <footer aria-label="Status" className="flex h-statusbar flex-none items-stretch border-t border-line bg-sub-100">
       <Cell>
-        <span className={cn("h-1.5 w-1.5 rounded-[1px]", running ? "bg-signal" : "bg-ink-mute")} aria-hidden />
+        <span className={cn("h-1.5 w-1.5 rounded-none", running ? "bg-signal" : "bg-ink-mute")} aria-hidden />
         <span className="text-ink-dim" role="status">{running ? "Running" : "Ready"}</span>
       </Cell>
       <Cell className="max-sm:hidden">{mode} runs</Cell>

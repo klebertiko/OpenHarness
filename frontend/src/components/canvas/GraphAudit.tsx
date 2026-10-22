@@ -78,13 +78,13 @@ export function GraphAudit() {
       <div className="oh-float pointer-events-auto flex h-[24px] w-full items-center gap-2 px-2">
         <span
           aria-hidden
-          className="h-[6px] w-[6px] flex-none rounded-[1px]"
+          className="h-[6px] w-[6px] flex-none rounded-none"
           style={{ background: clean ? "var(--signal-deep)" : "var(--warn)" }}
         />
         <span className="t-label flex-1 text-ink-dim">
           {clean ? "Graph wireable" : `${faults.length + (noEntry ? 1 : 0)} unwired`}
         </span>
-        <span className="t-meta text-ink-faint">
+        <span className="t-meta text-ink-mute">
           {nodes.length}n·{edges.length}e
         </span>
       </div>
@@ -92,7 +92,7 @@ export function GraphAudit() {
       {noEntry && (
         <div className="oh-float pointer-events-auto flex w-full items-center gap-2 px-2 py-[4px]">
           <span className="t-body flex-1 truncate text-ink-mute">No input node</span>
-          <span className="t-meta flex-none text-warn">entry</span>
+          <span className="t-meta flex-none text-warn-text">entry</span>
         </div>
       )}
 
@@ -104,12 +104,12 @@ export function GraphAudit() {
           className="oh-float pointer-events-auto flex w-full items-center gap-2 px-2 py-[4px] text-left transition-colors hover:bg-sub-200"
         >
           <span className="t-body flex-1 truncate text-ink-dim">{f.label}</span>
-          <span className="t-meta flex-none text-warn">{f.note}</span>
+          <span className="t-meta flex-none text-warn-text">{f.note}</span>
         </button>
       ))}
 
       {faults.length > 4 && (
-        <span className="t-meta pr-1 text-ink-faint">+{faults.length - 4} more</span>
+        <span className="t-meta pr-1 text-ink-mute">+{faults.length - 4} more</span>
       )}
     </div>
   );

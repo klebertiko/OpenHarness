@@ -81,7 +81,7 @@ export function Toolbar({ onRun, onStop, onSave, onExport, onImport, saveMsg }: 
           type="button"
           onClick={onRun}
           disabled={nodes.length === 0}
-          className="flex h-[22px] items-center gap-1.5 rounded-control bg-signal pl-2 pr-1.5 text-[color:var(--signal-ink)] transition-colors hover:bg-[color-mix(in_oklab,var(--signal)_88%,white)] disabled:pointer-events-none disabled:bg-sub-300 disabled:text-ink-faint"
+          className="flex h-[22px] items-center gap-1.5 rounded-control bg-signal pl-2 pr-1.5 text-[color:var(--signal-ink)] transition-colors hover:bg-[color-mix(in_oklab,var(--signal-text)_88%,white)] disabled:pointer-events-none disabled:bg-sub-300 disabled:text-ink-mute"
         >
           <Play size={11} strokeWidth={0} fill="currentColor" />
           <span className="t-title">Run</span>
@@ -89,7 +89,7 @@ export function Toolbar({ onRun, onStop, onSave, onExport, onImport, saveMsg }: 
             {runCaps.map((c) => (
               <span
                 key={c}
-                className="t-meta rounded-[1px] bg-[rgb(0_0_0/0.16)] px-1 leading-[14px]"
+                className="t-meta rounded-none bg-[rgb(0_0_0/0.16)] px-1 leading-[14px]"
               >
                 {c}
               </span>

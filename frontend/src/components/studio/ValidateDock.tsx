@@ -83,7 +83,7 @@ export function ValidateDock() {
   }
   return <div className="flex flex-none flex-col border-t border-line bg-sub-100">
     <div className="flex min-h-[36px] flex-wrap items-center gap-1 border-b border-line-soft px-2 py-1">
-      <span className="t-label mr-1 text-ink-faint">BUNDLE</span>
+      <span className="t-label mr-1 text-ink-mute">BUNDLE</span>
       <DockAction icon={CheckCircle2} label="Validate" onClick={() => void inspect("validate")} disabled={busy || running} />
       <DockAction icon={FlaskConical} label="Plan simulation" onClick={() => void inspect("mock")} disabled={busy || running} />
       <span className="mx-1 h-[14px] w-px bg-line-soft" aria-hidden />
@@ -92,10 +92,10 @@ export function ValidateDock() {
       <input ref={fileRef} type="file" accept=".ohm,.oharness,application/json" className="hidden" disabled={running}
         onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onImportFile(file); }} />
       <span className="flex-1" />
-      {fresh && message && <span role="status" className={"t-meta min-w-0 truncate " + (status === "error" ? "text-fault" : status === "ok" ? "text-signal" : "text-ink-mute")} title={message}>{message}</span>}
+      {fresh && message && <span role="status" className={"t-meta min-w-0 truncate " + (status === "error" ? "text-fault-text" : status === "ok" ? "text-signal-text" : "text-ink-mute")} title={message}>{message}</span>}
     </div>
     {fresh && (errors.length > 0 || steps.length > 0) && <div className="max-h-[120px] overflow-y-auto px-2.5 py-1.5">
-      {errors.length > 0 && <ul className="space-y-0.5">{errors.map((error, i) => <li key={i} className="t-meta text-fault">{error}</li>)}</ul>}
+      {errors.length > 0 && <ul className="space-y-0.5">{errors.map((error, i) => <li key={i} className="t-meta text-fault-text">{error}</li>)}</ul>}
       {steps.length > 0 && <ol className="space-y-0.5">{steps.map((step, i) => <li key={step.nodeId + i} className="t-meta text-ink-dim">{i + 1}. {step.role} ({step.nodeId}) — {step.status}{step.note ? " · " + step.note : ""}</li>)}</ol>}
     </div>}
   </div>;

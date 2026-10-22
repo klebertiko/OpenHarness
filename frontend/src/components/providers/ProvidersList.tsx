@@ -71,7 +71,7 @@ function ProviderRow({
       subtitle={
         <>
           <span>{readiness.label}</span>
-          {step && <span className="text-ink-faint"> · {step.hint}</span>}
+          {step && <span className="text-ink-mute"> · {step.hint}</span>}
         </>
       }
       hint={step ? `${readiness.label} — ${step.label}` : readiness.label}
@@ -82,7 +82,7 @@ function ProviderRow({
         <span className="flex items-center gap-2">
           <ResidenceMark residence={c.residence} />
           <span className="sr-only">{RESIDENCE_SR[c.residence]}</span>
-          {costLabel && <span className="t-meta text-ink-faint">{costLabel}</span>}
+          {costLabel && <span className="t-meta text-ink-mute">{costLabel}</span>}
         </span>
       }
     />
@@ -90,10 +90,10 @@ function ProviderRow({
 }
 
 const BUDGET_TONE_CLASS: Record<Tone, string> = {
-  ok: "text-signal",
-  warn: "text-warn",
-  fault: "text-fault",
-  idle: "text-ink-faint",
+  ok: "text-signal-text",
+  warn: "text-warn-text",
+  fault: "text-fault-text",
+  idle: "text-ink-mute",
 };
 
 /** Global spend + budget — one line always visible, an inline editor one
@@ -130,7 +130,7 @@ function BudgetStrip() {
   };
 
   return (
-    <div className="mx-1.5 mt-2 rounded-[8px] border border-line-soft bg-sub-100 px-2.5 py-2">
+    <div className="mx-1.5 mt-2 rounded-float border border-line-soft bg-sub-100 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
         <span className="t-body text-ink-mute">Spend</span>
         <span className={`t-meta flex items-center gap-1.5 ${BUDGET_TONE_CLASS[tone]}`}>
@@ -139,7 +139,7 @@ function BudgetStrip() {
         </span>
       </div>
       {loading && <p role="status" className="t-body text-ink-dim">Loading usage...</p>}
-      {error && <p role="alert" className="t-body mt-1 text-warn [overflow-wrap:anywhere]">Usage may be stale: {error}</p>}
+      {error && <p role="alert" className="t-body mt-1 text-warn-text [overflow-wrap:anywhere]">Usage may be stale: {error}</p>}
       {editing ? (
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
@@ -160,7 +160,7 @@ function BudgetStrip() {
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="t-body flex-none rounded-control px-1 text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+            className="t-body flex-none rounded-control px-1 text-ink-mute hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
           >
             Cancel
           </button>
@@ -169,7 +169,7 @@ function BudgetStrip() {
         <button
           type="button"
           onClick={startEdit}
-          className="t-body mt-0.5 block rounded-control text-left text-ink-faint hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          className="t-body mt-0.5 block rounded-control text-left text-ink-mute hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
         >
           {budget?.limitUsd != null
             ? `of $${budget.limitUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} budget`

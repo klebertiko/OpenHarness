@@ -304,7 +304,7 @@ export default function Home() {
       <StudioActionsBar />
       <div className="relative min-h-0 flex-1">
         <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
-        {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-[13px] leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
+        {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-title leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
       </div>
       <ValidateDock />
     </div>

@@ -36,29 +36,29 @@ function TurnView({ turn }: { turn: Turn }) {
   if (turn.role === "user") {
     return (
       <div className="flex justify-end">
-        <p className="t-body max-w-[88%] whitespace-pre-wrap break-words rounded-[10px] bg-sub-300 px-3 py-2 text-ink">{turn.text}</p>
+        <p className="t-body max-w-[88%] whitespace-pre-wrap break-words rounded-float bg-sub-300 px-3 py-2 text-ink">{turn.text}</p>
       </div>
     );
   }
   return (
     <div className="space-y-2">
       {turn.text && <p className="t-body whitespace-pre-wrap break-words text-ink-dim">{turn.text}</p>}
-      {turn.source === "offline" && <span className="t-meta text-ink-faint">Offline draft</span>}
+      {turn.source === "offline" && <span className="t-meta text-ink-mute">Offline draft</span>}
       {turn.error && (
         <div role="alert" className="space-y-1.5">
-          <p className="t-body text-fault">{turn.error.text}</p>
+          <p className="t-body text-fault-text">{turn.error.text}</p>
           <div className="flex items-center gap-2">
             {turn.error.retry && (
               <button
                 type="button"
                 onClick={() => void send(turn.error!.retry!, { mode, connectionId })}
-                className="h-7 rounded-control border border-line px-2.5 text-[12px] font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+                className="h-7 rounded-control border border-line px-2.5 text-body font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
               >
                 Try again
               </button>
             )}
             {turn.error.link === "providers" && (
-              <button type="button" onClick={() => setSection("providers")} className="t-body text-signal underline-offset-2 hover:underline">
+              <button type="button" onClick={() => setSection("providers")} className="t-body text-signal-text underline-offset-2 hover:underline">
                 Open Providers
               </button>
             )}
@@ -137,7 +137,7 @@ export function CopilotPanel() {
                     type="button"
                     disabled={blocked}
                     onClick={() => (provider ? submit(s) : setDraft(s))}
-                    className="rounded-control border border-line px-2.5 py-1.5 text-left text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40"
+                    className="rounded-control border border-line px-2.5 py-1.5 text-left text-body text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40"
                   >
                     {s}
                   </button>
@@ -154,7 +154,7 @@ export function CopilotPanel() {
               <button
                 type="button"
                 onClick={cancel}
-                className="h-6 rounded-control border border-line px-2 text-[12px] text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+                className="h-6 rounded-control border border-line px-2 text-body text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
               >
                 Cancel
               </button>
@@ -164,7 +164,7 @@ export function CopilotPanel() {
 
         <div className="flex-none border-t border-line p-2.5">
           {isRunning && (
-            <p role="status" className="mb-1.5 text-[12px] text-warn">
+            <p role="status" className="mb-1.5 text-body text-warn-text">
               Stop the run to ask Nilo.
             </p>
           )}
@@ -185,16 +185,16 @@ export function CopilotPanel() {
                 submit(draft);
               }
             }}
-            className="w-full resize-none rounded-control border border-line-soft bg-sub-200 px-2 py-1.5 text-[13px] leading-5 text-ink placeholder:text-ink-faint hover:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-50"
+            className="w-full resize-none rounded-control border border-line-soft bg-sub-200 px-2 py-1.5 text-title leading-5 text-ink placeholder:text-ink-mute hover:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-50"
           />
           <div className="mt-1.5 flex items-center justify-between">
-            <span className="t-meta text-ink-faint">{draft.length > COUNTER_FROM ? `${draft.length} / ${MAX_PROMPT}` : "Enter to send · Shift+Enter for a new line"}</span>
+            <span className="t-meta text-ink-mute">{draft.length > COUNTER_FROM ? `${draft.length} / ${MAX_PROMPT}` : "Enter to send · Shift+Enter for a new line"}</span>
             {provider ? (
               <button
                 type="button"
                 disabled={blocked || draft.trim() === ""}
                 onClick={() => submit(draft)}
-                className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-7 rounded-control bg-signal px-3 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Send
               </button>
@@ -202,7 +202,7 @@ export function CopilotPanel() {
               <button
                 type="button"
                 onClick={requestSetup}
-                className="h-7 rounded-control bg-signal px-3 text-[12px] font-[550] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+                className="h-7 rounded-control bg-signal px-3 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               >
                 {missing?.text ?? "Connect a provider to send"}
               </button>

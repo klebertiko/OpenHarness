@@ -47,7 +47,7 @@ export function StudioSidePanel() {
             aria-controls="side-tabpanel"
             tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
-            className={`h-[20px] rounded-control px-2 text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal ${
+            className={`h-[20px] rounded-control px-2 text-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal ${
               tab === t ? "bg-sub-300 font-medium text-ink" : "text-ink-mute hover:text-ink"
             }`}
           >
