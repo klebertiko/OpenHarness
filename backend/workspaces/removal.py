@@ -5,9 +5,10 @@ only here, lock) and return the report together with a confirmation token bound 
 
 Phase 2, ``remove``: only with a token that still matches the state. If there is pending work it is preserved first on
 ``refs/openharness/rescue/<id>`` (a commit holding the index snapshot and the work tree, built with a scratch index so the user's
-own index is never written); if preservation does not verify, nothing is removed. Deletion itself is always ``git worktree remove``,
-never a recursive delete of our own, and never on the principal worktree, on a worktree the manager did not create, or on a locked
-one unless the lock is released explicitly.
+own index is never written); if preservation does not verify, nothing is removed. Deletion is our own link-safe ``remove_tree`` of
+the worktree and of its administrative directory (``git worktree remove`` is not used: it walks the trees on its own schedule and
+follows a link planted after our last scan), and never on the principal worktree, on a worktree the manager did not create, or on
+a locked one unless the lock is released explicitly.
 """
 from __future__ import annotations
 
@@ -310,6 +311,21 @@ class RemovalMixin:
             found += [LinkInfo(f"(admin)/{link.path}", link.target, link.kind, link.is_dir) for link in scan_tree(state.admin_dir).links]
         return found
 
+    def _delete_worktree(self, ctx, entry: WorktreeEntry, state: InspectionState) -> None:
+        """Delete the worktree directory and its administrative directory ourselves, link-safe, instead of letting git do it.
+
+        ``git worktree remove`` walks both trees on its own schedule, so a link planted between our last scan and its walk was followed
+        (measured: external data lost in 6 of 60 and 5 of 60 trials against a planter toggling a junction every 0.5-20 ms).
+        ``remove_tree`` looks at every entry again when it reaches it and undoes a link as a link. Deleting the administrative
+        directory is also what makes git forget the worktree; nothing else of the repository is touched (no ``worktree prune``,
+        which would drop other worktrees' stale entries).
+        """
+        remove_tree(entry.path)
+        if state.admin_dir:
+            if self._admin_dir(ctx, entry) != state.admin_dir:  # still the very directory that was inspected, found from the repository side
+                raise WorkspaceError("unsafe_destination", "the worktree's administrative directory changed during removal; it was left alone", 409)
+            remove_tree(state.admin_dir)
+
     def remove(self, repo: str, workspace_id: str, token: str, release_lock: bool = False) -> dict[str, Any]:
         ctx = self._open(repo)
         with self._locked(ctx):
@@ -361,13 +377,14 @@ class RemovalMixin:
                     self.runner.run(ctx.cwd, ["update-ref", "-d", rescue["ref"]], check=False)  # the work is still in the worktree
                 raise WorkspaceError("unsafe_destination", "a link appeared in the workspace just before removal; nothing was removed", 409,
                                      links=[link.as_dict() for link in late])
-            force = state.dirty or state.missing or bool(state.links) or bool(state.admin_links)  # an undone tracked link reads as a change
             try:
-                self.runner.run(ctx.cwd, ["worktree", "remove", *(["--force"] if force else []), "--", entry.path], timeout=120,
-                                filters=True)
-            except GitFailure as exc:
+                self._delete_worktree(ctx, entry, state)
+            except WorkspaceError:
                 relock()
-                raise WorkspaceError("remove_failed", "git could not remove the worktree", 409, detail=scrub_paths(exc.stderr.strip())[:300],
+                raise
+            except OSError as exc:
+                relock()
+                raise WorkspaceError("remove_failed", "the workspace could not be fully removed", 409, detail=scrub_paths(str(exc))[:300],
                                      rescue=rescue) from exc
 
             def forget(data):

@@ -242,3 +242,62 @@ def test_removing_with_a_non_utf8_filter_runs_nothing(svc, repo, marker_bench, b
     with pytest.raises(WorkspaceError):
         svc.remove(str(repo.path), info["id"], report["confirmation_token"])
     assert marker_bench.ran() == [] and path.is_dir()
+
+
+# ----------------------------------------------------------------------- a filter defined only in the TARGET worktree's config.worktree
+
+
+def worktree_only_filter(repo, marker_bench, info):
+    """``extensions.worktreeConfig`` on, the driver set with ``git config --worktree`` from inside the workspace: it is in
+    ``<common>/worktrees/<id>/config.worktree``, which the principal worktree's configuration does not contain."""
+    repo.git("config", "extensions.worktreeConfig", "true")
+    for var in ("clean", "smudge", "process"):
+        repo.git("config", "--worktree", f"filter.ev.{var}", marker_bench.command(var), cwd=info["path"])
+
+
+def worktree_filter_repo(repo, marker_bench):
+    repo.write(".gitattributes", "*.w filter=ev\n")
+    repo.commit("a.w", "payload\n")
+    repo.git("add", ".gitattributes")
+    repo.git("commit", "-q", "-m", "attrs")
+
+
+@pytest.mark.parametrize("dirty", [False, True], ids=["clean", "dirty"])
+def test_a_filter_only_in_the_target_worktrees_config_runs_nothing_on_removal(svc, repo, marker_bench, dirty):
+    worktree_filter_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="wtcfg")
+    worktree_only_filter(repo, marker_bench, info)
+    path = Path(info["path"])
+    target = path / "a.w"
+    target.write_bytes(target.read_bytes())  # new mtime: git must compare content to know the file is unchanged
+    if dirty:
+        (path / "n.w").write_text("untracked\n", encoding="utf-8")
+    report = svc.removal_check(str(repo.path), info["id"])
+    assert report["removable"]
+    svc.remove(str(repo.path), info["id"], report["confirmation_token"])
+    assert marker_bench.ran() == [] and not path.exists()
+
+
+def test_the_runner_unions_the_configuration_of_other_worktrees(runner, svc, repo, marker_bench):
+    worktree_filter_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="union")
+    worktree_only_filter(repo, marker_bench, info)
+    path = Path(info["path"])
+    target = path / "a.w"
+    target.write_bytes(target.read_bytes())
+    admin = Path(repo.out("rev-parse", "--absolute-git-dir", cwd=path))
+    runner.run(repo.path, ["worktree", "remove", "--force", "--", str(path)], filters=True, filter_dirs=[path])
+    assert marker_bench.ran() == [] and not path.exists()
+    assert not admin.exists()
+
+
+def test_the_runner_reads_a_worktrees_configuration_from_its_administrative_directory(runner, svc, repo, marker_bench):
+    worktree_filter_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch="gitdir")
+    worktree_only_filter(repo, marker_bench, info)
+    path = Path(info["path"])
+    target = path / "a.w"
+    target.write_bytes(target.read_bytes())
+    admin = Path(repo.out("rev-parse", "--absolute-git-dir", cwd=path))
+    runner.run(repo.path, ["worktree", "remove", "--force", "--", str(path)], filters=True, filter_git_dirs=[admin])
+    assert marker_bench.ran() == []
