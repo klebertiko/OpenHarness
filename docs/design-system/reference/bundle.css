@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600&display=swap");
 
-/* OpenHarness components. Every value is a token from tokens.css. */
+/* OHarness components. Every value is a token from tokens.css. */
 .oh-btn, .oh-input, .oh-badge, .oh-panel, .oh-row, .oh-kbd { box-sizing: border-box; font-family: var(--font-ui); }
 
 .oh-focusable:focus-visible,

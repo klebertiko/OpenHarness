@@ -4,7 +4,7 @@ manifest:
   id: hello
   name: Hello
   version: "0.1.0"
-  description: Minimal Open Harness Model document.
+  description: Minimal OHarness Model document.
   license: MIT
   tags: []
 graph:

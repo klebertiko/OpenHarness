@@ -35,26 +35,28 @@ const ratio = (fg, bg, theme) => {
 };
 
 const SUB = ["sub-000", "sub-100", "sub-200", "sub-300"];
-// [label, foreground, grounds, minimum, required]. required=false means an audited known defect or a documented limit.
+// [label, foreground, grounds, minimum, required]. required=false marks a documented limit; every pair the app relies on is required.
 const PAIRS = [
   ["Body and title ink", "ink-primary", SUB, 4.5, true],
   ["Body and title ink", "ink-dim", SUB, 4.5, true],
   ["Secondary ink", "ink-mute", SUB, 4.5, true],
-  ["Quietest ink (decorative only)", "ink-faint", SUB, 4.5, false],
+  ["Quietest ink", "ink-faint", SUB, 4.5, true],
   ["Signal as text", "signal", ["sub-000", "sub-100"], 4.5, true],
-  ["Signal as text on contained grounds", "signal", ["sub-200", "sub-300"], 4.5, false],
   ["Text on signal fill", "signal-ink", ["signal"], 4.5, true],
-  ["Warn as text (use warn-text)", "warn", SUB, 4.5, false],
+  ["Warn as a marker (text uses warn-text)", "warn", ["sub-000", "sub-100"], 3, true],
   ["Warn text", "warn-text", SUB, 4.5, true],
-  ["Fault as text (use fault-text)", "fault", SUB, 4.5, false],
   ["Fault text", "fault-text", SUB, 4.5, true],
   ["Signal text", "signal-text", SUB, 4.5, true],
-  ["Panel hairline as control edge", "line", ["sub-100"], 3, false],
   ["Control edge", "line-strong", ["sub-000", "sub-100", "sub-200"], 3, true],
+  // sub-300 is the pressed ground, not a field ground; recorded so the limit is visible.
+  ["Control edge on the pressed ground (limit)", "line-strong", ["sub-300"], 3, false],
   ["Focus ring", "signal", SUB, 3, true],
-  ["Fault border", "fault", ["sub-000", "sub-100"], 3, false],
-  ...["agent", "gate", "hitl", "skill", "mcp", "tool", "decision"].map((r) => [`Role marker ${r}`, `role-${r}`, ["sub-000", "sub-100"], 3, false]),
-].filter(([, fg, grounds]) => byName[fg] && grounds.every((g) => byName[g]));
+  ["Fault border and marker", "fault", ["sub-000", "sub-100"], 3, true],
+  ...["agent", "gate", "hitl", "skill", "mcp", "tool", "decision"].map((r) => [`Role marker ${r}`, `role-${r}`, ["sub-000", "sub-100"], 3, true]),
+];
+// A pair naming a token that no longer exists must fail loudly: silently dropping it hides a rename.
+const missing = PAIRS.flatMap(([, fg, grounds]) => [fg, ...grounds].filter((n) => !byName[n]));
+if (missing.length) { console.error(`check-contrast: unknown token(s) ${[...new Set(missing)].join(", ")}; update PAIRS or tokens.json`); process.exit(2); }
 
 let fails = 0;
 const rows = PAIRS.map(([label, fg, grounds, min, required]) => {
@@ -69,7 +71,7 @@ if (md) {
   console.log(`| Pair (\`foreground\` on grounds) | Min | Graphite | Ivory | Verdict |\n| --- | --- | ${themes.map(() => "---").join(" | ")} | --- |`);
   for (const r of rows) {
     const cols = r.cells.map((c) => c.map((x) => x.toFixed(1)).join(" / "));
-    const verdict = r.ok ? "Pass" : r.required ? "FAIL" : "Known defect";
+    const verdict = r.ok ? "Pass" : r.required ? "FAIL" : "Limit";
     console.log(`| \`${r.fg}\` on ${r.grounds.map((g) => `\`${g}\``).join(", ")} | ${r.min}:1 | ${cols.join(" | ")} | ${verdict} |`);
   }
 } else {

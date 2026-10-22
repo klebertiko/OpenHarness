@@ -1,9 +1,9 @@
-# OpenHarness website
+# OHarness website
 
 Página de produto independente do desktop, em português brasileiro (pt-BR) e inglês (en-US). HTML, CSS e JavaScript nativos, sem dependências de execução; o único passo de build gera as páginas em inglês.
 
 ```powershell
-cd D:\Development\src\OpenHarness\website
+cd D:\Development\src\OHarness\website
 npm run dev
 ```
 
@@ -11,8 +11,10 @@ Prévia: http://127.0.0.1:4174. O servidor escuta apenas no loopback; `PORT` per
 
 ## Idiomas e GitHub Pages
 
-- pt-BR: https://klebertiko.github.io/OpenHarness/
-- en-US: https://klebertiko.github.io/OpenHarness/en/
+- pt-BR: https://klebertiko.github.io/OHarness/
+- en-US: https://klebertiko.github.io/OHarness/en/
+
+Esses endereços (e os links do repositório nas páginas) usam o nome novo, OHarness, e só funcionam depois que o repositório for renomeado no GitHub; até lá o Pages continua em `/OpenHarness/`.
 
 As três páginas possuem versões estáticas nos dois idiomas, inclusive sem JavaScript. O seletor EN/PT mantém a página e, com JavaScript, sua seção atual. A navegação mantém o idioma escolhido pela URL; não há redirecionamento automático pelo idioma do navegador. A preferência de tema é compartilhada entre idiomas.
 
@@ -35,9 +37,9 @@ Antes de publicar, siga `SECURITY.md`: testes, revisão independente e ausência
 - `examples/ohm.schema.json`: cópia do schema do backend. Atualizar junto da referência quando ele mudar.
 - `theme.js`: tema do sistema na primeira visita e escolha persistida entre as três páginas.
 - `nilo.js` e `motion.css`/`motion.js`: demonstração do mascote, cena com enquadramentos e entradas suaves.
-- `assets`: fontes Sora/IBM Plex Mono e marca já usadas pelo app; dez capturas reais ({chats,studio,canvas,run,providers} × {light,dark}, `.webp`) do app 0.0.1-alpha, feitas na UI real com o sidecar empacotado em um perfil descartável: sem provedor conectado, sem credencial, execução simulada (mock). Todas estão na lista pública. Automate, Pull requests e a captura de setembro não existem mais.
+- `assets`: fontes Sora/IBM Plex Mono e marca já usadas pelo app; dez capturas reais ({chats,studio,canvas,run,providers} × {light,dark}, `.webp`) do app 0.0.1-alpha (main em 944a5bb, UI redesenhada, marca OHarness), feitas na UI real com o sidecar empacotado em um perfil descartável: sem provedor conectado, sem credencial, execução simulada (mock). Todas estão na lista pública. Automate, Pull requests e a captura de setembro não existem mais.
 
-O site não acessa o backend, não executa agentes e não coleta dados. Ele aponta para a página da etiqueta `v0.0.1-alpha` no GitHub (`https://github.com/klebertiko/OpenHarness/releases/tag/v0.0.1-alpha`; nunca `/releases/latest`, que não serve pré-lançamentos) e não afirma que os instaladores existem: o link só abre depois que a release for publicada. Os nomes dos arquivos, o texto sobre falta de assinatura e os comandos de verificação vêm de `.github/workflows/release.yml` e `docs/ci-security.md`; reconfira-os se o workflow mudar. Links internos são relativos para funcionar também sob subdiretórios. As URLs canônicas apontam para o GitHub Pages acima.
+O site não acessa o backend, não executa agentes e não coleta dados. Ele aponta para a página da etiqueta `v0.0.1-alpha` no GitHub (`https://github.com/klebertiko/OHarness/releases/tag/v0.0.1-alpha`; nunca `/releases/latest`, que não serve pré-lançamentos) e não afirma que os instaladores existem: o link só abre depois que a release for publicada. Os nomes dos arquivos, o texto sobre falta de assinatura e os comandos de verificação vêm de `.github/workflows/release.yml` e `docs/ci-security.md`; reconfira-os se o workflow mudar. Links internos são relativos para funcionar também sob subdiretórios. As URLs canônicas apontam para o GitHub Pages acima.
 
 ## Direção visual
 
@@ -53,7 +55,7 @@ YAML 1.2 é a sintaxe adotada para `.ohm`; o desktop ainda precisa implementar a
 
 ## Temas, leitura e movimento
 
-O seletor no cabeçalho alterna claro/escuro. A preferência fica em `openharness-website-theme`; sem escolha, acompanha o sistema. As capturas reais acompanham o tema (`data-product-image` + `theme.js`). Os dados das capturas são de um perfil isolado, sem gravações em dados do usuário.
+O seletor no cabeçalho alterna claro/escuro. A preferência fica em `oharness-website-theme`; sem escolha, acompanha o sistema. As capturas reais acompanham o tema (`data-product-image` + `theme.js`). Os dados das capturas são de um perfil isolado, sem gravações em dados do usuário.
 
 Textos de leitura usam 15–17 px, com referências e controles menores a partir de 12 px. Os títulos preservam espaços quando uma quebra de linha deixa de aparecer no celular. O manifesto acompanha o fluxo da página para não invadir a nota seguinte.
 

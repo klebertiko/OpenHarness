@@ -1,6 +1,6 @@
 # Revisão de conteúdo com evidências — 22/10/2026 (v0.0.1-alpha)
 
-Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/en-US.json`. Base: branch `docs/site-real-screenshots` sobre `origin/main` (0c89756). Nada aqui certifica uma release: nenhuma tag rodou `release.yml` de ponta a ponta, e a página `releases/tag/v0.0.1-alpha` só abre depois que a release rascunho for publicada. Regra de cópia: `CONTEXT.md` ("Copy standard"). As notas anteriores, mais abaixo, ficam como histórico; onde divergem desta seção, vale esta.
+Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/en-US.json`. Base: branch `docs/site-real-screenshots` com `origin/main` mesclada (944a5bb: redesenho das telas #141 e renomeação da marca para OHarness #144). Nada aqui certifica uma release: nenhuma tag rodou `release.yml` de ponta a ponta, e a página `releases/tag/v0.0.1-alpha` só abre depois que a release rascunho for publicada. Regra de cópia: `CONTEXT.md` ("Copy standard"). As notas anteriores, mais abaixo, ficam como histórico; onde divergem desta seção, vale esta.
 
 ## Afirmações e fontes
 
@@ -11,10 +11,10 @@ Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/
 | index, diagrama | Agente (papel, instruções, provedores opcionais), Skill, Gate (checkpoint com critérios, PASS/FAIL), HITL (autoridade humana) | `CONTEXT.md` Language; `frontend/src/lib/templates.ts` (NODE_TEMPLATES) | Verificado |
 | index, capturas | Chats: modos Ask/Auto/Plan, seletor de harness, aviso "Connect a provider to send" | Captura `chats-*`; `docs/release-notes/v0.0.1-alpha.md` (modos por chat); commit c95e8f | Verificado |
 | index, capturas | Studio: "Describe the harness you want", New harness, Open .ohm, Draft with Nilo, Your harnesses, Starting points com 4 harnesses incluídos | Captura `studio-*`; `frontend/src/components/studio/StudioOverview.tsx` | Verificado |
-| index, capturas | Canvas: Agile Harness com 9 nós e 9 conexões, organizado com Shift+L, selo "1 unwired: TW dead end" | Captura `canvas-*` (barra de estado "graph 9n · 9e"); `frontend/src/components/canvas/arrangeChord.test.ts` (Shift+L); ADR 0007 | Verificado |
+| index, capturas | Canvas: Agile Harness com 9 nós e 9 conexões, organizado com Shift+L, selo "1 not wired" com a linha "TW dead end" (a UI redesenhada trocou "1 unwired") | Captura `canvas-*` (barra de estado "graph 9n · 9e"); `frontend/src/components/canvas/arrangeChord.test.ts` (Shift+L); ADR 0007 | Verificado |
 | index, capturas | Execução: harness "Agent + review" em mock, Implementer e Review Gate concluídos, HITL retido (approve/reject), nenhum provedor chamado | Captura `run-*`; `backend/engine.py` (`awaiting_human`, `reject`) | Verificado |
 | index, capturas | Providers: 6 conexões, nenhuma conectada; gasto estimado; chave do OpenRouter não é mostrada de novo | Captura `providers-*` ("never shown again", "costs are estimates, not invoices") | Verificado |
-| index, legenda | As capturas vêm do app 0.0.1-alpha, em perfil isolado, sem provedor, execução simulada (mock), interface em inglês | Informado por quem fez as capturas (commit ed61e9b); visível nas imagens | Verificado nas imagens |
+| index, legenda | As capturas vêm do app 0.0.1-alpha (main em 944a5bb), em perfil isolado, sem provedor, execução simulada, interface em inglês | Informado por quem fez as capturas (commits ed61e9b e c1999fd); visível nas imagens (marca OHarness, modos Mock/Connected, rodapé "Engine connected") | Verificado nas imagens |
 | index, harnesses | Quatro harnesses incluídos: Agent + review e os três do backend | `frontend/src/lib/templates.ts`; `backend/oharness/examples.py` (3 itens); captura `studio-*` | Verificado. O texto anterior dizia "três" |
 | index, harnesses | Abrir um harness incluído cria cópia editável; o original não muda | `CONTEXT.md` "Bundled harness"; `README.md` "Studio files" | Verificado |
 | index, harnesses | Nenhum traz provedor definido nem credenciais | `README.md` (DeepSeek e Matt Pocock "set no provider and ship no secrets"); capturas (nós "no provider call"; Agent + review "configured for mock runs") | Verificado |
@@ -25,19 +25,19 @@ Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/
 | model | Validação: JSON Schema, depois ids de nó não vazios e únicos e arestas apontando para nós existentes, depois modelo Pydantic | `backend/oharness/validate.py` (`validate_dict`, `_graph_errors`) | Verificado |
 | model | A simulação ordena o grafo topologicamente e não chama modelos; ciclo pode passar na validação e falhar na simulação; grafos com ciclo não são executáveis | `backend/oharness/mock_run.py`; `backend/engine.py`; `docs/product/ohm-yaml-migration.md` P2 | Verificado |
 | model | HITL pausa a execução; rejeitar interrompe | `backend/engine.py` (`control.phase = "awaiting_human"`, `decision == "reject"`) | Verificado (recurso do motor do app) |
-| model | CLI: `python -m oharness validate <arquivo>` aceita YAML e JSON | `README.md` "Open Harness Model"; docstring de `validate_path` | Verificado |
+| model | CLI: `python -m oharness validate <arquivo>` aceita YAML e JSON | `README.md` "OHarness Model"; docstring de `validate_path` | Verificado |
 | model | Laya: classificador local experimental, processo separado em loopback, consultivo; 0,80 de confiança; nó de decisão é só evidência; modo shadow na CI | `README.md` "Providers" (Experimental: Laya); ADR 0005 e 0006; `docs/ci-security.md` (`ENABLE_LAYA_SHADOW`) | Verificado (experimental) |
 | model | OHM é proposta do projeto, sem padrão independente, sem governança formal nem adoção externa | Ausência de evidência em contrário; `CONTEXT.md`; notas anteriores desta pasta | Declaração de limite |
 | Baixar | Link da etiqueta `releases/tag/v0.0.1-alpha`; pré-lançamentos nunca aparecem em `/releases/latest` | `docs/ci-security.md` (seção Releases); `release.yml` (`gh release create --prerelease`) | Verificado. O link abre só após a publicação |
-| Baixar | Nomes dos arquivos: `OpenHarness-windows-x64-setup.exe`, `OpenHarness-macos-arm64.dmg`, `OpenHarness-macos-x64.dmg`, `OpenHarness-linux-x86_64.AppImage`, `OpenHarness-linux-amd64.deb`, `SHA256SUMS` | `release.yml` (job `attest-and-release`, lista `expected`) | Verificado no workflow; nenhum foi publicado |
+| Baixar | Nomes dos arquivos: `OHarness-windows-x64-setup.exe`, `OHarness-macos-arm64.dmg`, `OHarness-macos-x64.dmg`, `OHarness-linux-x86_64.AppImage`, `OHarness-linux-amd64.deb`, `SHA256SUMS` | `release.yml` (job `attest-and-release`, lista `expected`) | Verificado no workflow; nenhum foi publicado |
 | Baixar | Instaladores sem assinatura; SmartScreen "Windows protected your PC", More info, Run anyway | `release.yml` (linha de status do Windows); `docs/ci-security.md` "What users see while a platform is unsigned" | Verificado. Assina só se os segredos do ambiente `release` existirem |
 | Baixar | macOS: só assinatura ad hoc, sem notarização; Gatekeeper bloqueia; Open Anyway | `release.yml` (build macOS sem segredos usa `signingIdentity: "-"`) | Verificado |
 | Baixar | Linux: AppImage com assinatura GPG só se configurada; .deb sem assinatura própria; glibc 2.35+ (Ubuntu 22.04+, Debian 12+) | `release.yml` (matriz `ubuntu-22.04`, passo de status do Linux); `docs/ci-security.md` Code signing | Verificado |
-| Baixar | Comandos `sha256sum --check --ignore-missing SHA256SUMS` e `gh attestation verify <arquivo> --repo klebertiko/OpenHarness` | `release.yml` ("Write release notes"); `docs/ci-security.md` | Verificado |
+| Baixar | Comandos `sha256sum --check --ignore-missing SHA256SUMS` e `gh attestation verify <arquivo> --repo klebertiko/OHarness` | `release.yml` ("Write release notes"); `docs/ci-security.md` | Verificado |
 | Baixar | A atestação prova a origem e não substitui assinatura de editor | `docs/ci-security.md` ("GitHub attestations prove where an artifact came from") | Verificado |
 | Baixar, limites | Só o Windows tem smoke da janela; Linux e macOS só têm smoke do sidecar | `release.yml` ("Smoke desktop app" só em `build-windows`; "Smoke packaged sidecar" nos dois jobs) | Verificado |
 | Baixar, limites | Versão mínima do WebView não decidida nem imposta; renderização varia por plataforma | `docs/adr/0001-desktop-packaging.md` ("Rendering varies by platform", "Follow-up"); nenhum mínimo em `src-tauri/tauri.conf.json` | Verificado (ausência) |
-| Baixar, limites | Dados: `%LOCALAPPDATA%\OpenHarness` no Windows, `~/OpenHarness` nos demais | `backend/sidecar_entry.py` (`_data_dir`) | Verificado |
+| Baixar, limites | Dados: `%LOCALAPPDATA%\OHarness` no Windows, `~/OHarness` nos demais | `backend/sidecar_entry.py` (`_data_dir`) | Verificado |
 | Baixar, limites | Comandos do chat passam por um broker com contenção de caminho e aprovação por ação; NÃO é isolamento de SO | ADR 0004 ("Exec não é sandbox de SO") | Verificado. A palavra "sandbox" não é usada como promessa |
 | Baixar, limites | Sem atualização automática; sem matriz de testes com provedores reais por SO | `docs/release-notes/v0.0.1-alpha.md` ("What is NOT in 0.0.1-alpha") | Verificado no rascunho de notas |
 | Baixar, limites | Licença: pré-visualização pública, código disponível para avaliação, termos de redistribuição não definidos | `README.md` "License" | Verificado |
@@ -46,6 +46,7 @@ Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/
 
 ## Removido ou reescrito, e por quê
 
+- **Marca**: OpenHarness virou OHarness (#144). Nomes de instaladores `OHarness-*`, repositório `klebertiko/OHarness`, dados em `%LOCALAPPDATA%\OHarness` e `~/OHarness`, "Open Harness Model" virou "OHarness Model", e o seletor de tema usa `oharness-website-theme`. Fontes: `git show 4cdc868`, `CONTEXT.md`, `.github/workflows/release.yml`, `backend/sidecar_entry.py`. Os links do Pages e do repositório só funcionam depois de renomear o repositório no GitHub para `OHarness`.
 - **Captura de setembro** e as capturas Automate e Pull requests: essas seções não existem mais (`README.md` "Removed", PR #31). Substituídas por cinco capturas reais.
 - **"Três harnesses"**: o app lista quatro (Agent + review é definido no frontend).
 - **"Desktop em desenvolvimento / Modelo aberto por princípio"** e **"O desktop está em desenvolvimento. Por enquanto, explore o modelo"**: trocados por pré-lançamento 0.0.1-alpha e Baixar. "Aberto" não tem respaldo de licença (`README.md` "License": código disponível para avaliação).
@@ -70,25 +71,25 @@ O usuário aprovou YAML 1.2 como sintaxe dos arquivos `.ohm`, mantendo JSON nas 
 
 Decisão: `../docs/adr/0003-ohm-yaml.md`. Plano: `../docs/product/ohm-yaml-migration.md`.
 
-# Notas de conteúdo — Open Harness Model
+# Notas de conteúdo — OHarness Model
 
-Base editorial verificada no checkout local em 11/09/2026, com alterações em andamento. Estas notas descrevem o código consultado; não certificam uma versão publicada. O [manifesto](D:/Development/src/OpenHarness/website/MANIFESTO.md) distingue princípios desejados das funções existentes.
+Base editorial verificada no checkout local em 11/09/2026, com alterações em andamento. Estas notas descrevem o código consultado; não certificam uma versão publicada. O [manifesto](D:/Development/src/OHarness/website/MANIFESTO.md) distingue princípios desejados das funções existentes.
 
 ## Nome, propósito e estado da documentação
 
-**Open Harness Model (OHM)** é o nome do modelo; **`.ohm`** é a extensão canônica. O vocabulário do produto reúne Agent, Gate, HITL, Skill e Signal. McpServer e Tool são Connections; os vínculos com Providers pertencem à composição. Essa descrição conceitual não equivale a um contrato completo de execução ou a campos próprios no schema atual.
+**OHarness Model (OHM)** é o nome do modelo; **`.ohm`** é a extensão canônica. O vocabulário do produto reúne Agent, Gate, HITL, Skill e Signal. McpServer e Tool são Connections; os vínculos com Providers pertencem à composição. Essa descrição conceitual não equivale a um contrato completo de execução ou a campos próprios no schema atual.
 
-Fontes: [CONTEXT.md](D:/Development/src/OpenHarness/CONTEXT.md) e [ADR 0002](D:/Development/src/OpenHarness/docs/adr/0002-ohm-model.md).
+Fontes: [CONTEXT.md](D:/Development/src/OHarness/CONTEXT.md) e [ADR 0002](D:/Development/src/OHarness/docs/adr/0002-ohm-model.md).
 
-A migração de nomenclatura está incompleta. [README da especificação](D:/Development/src/OpenHarness/docs/harness-spec/README.md) e [HELLO.md](D:/Development/src/OpenHarness/docs/harness-spec/HELLO.md) ainda descrevem `.oharness` e apontam para a antiga fixture. A rota de modelo padrão já lê [default-agile.ohm](D:/Development/src/OpenHarness/backend/oharness/fixtures/default-agile.ohm), conforme [bundles.py](D:/Development/src/OpenHarness/backend/routers/bundles.py). Usar `.ohm` na página e tratar `.oharness` como legado legível durante a migração.
+A migração de nomenclatura está incompleta. [README da especificação](D:/Development/src/OHarness/docs/harness-spec/README.md) e [HELLO.md](D:/Development/src/OHarness/docs/harness-spec/HELLO.md) ainda descrevem `.oharness` e apontam para a antiga fixture. A rota de modelo padrão já lê [default-agile.ohm](D:/Development/src/OHarness/backend/oharness/fixtures/default-agile.ohm), conforme [bundles.py](D:/Development/src/OHarness/backend/routers/bundles.py). Usar `.ohm` na página e tratar `.oharness` como legado legível durante a migração.
 
 ## Arquivo e schema reais
 
 O arquivo é **um único documento JSON UTF-8**. “Bundle” designa esse documento com conteúdo incorporado. No caminho de leitura/exportação consultado, não há contêiner ZIP, diretório interno ou arquivo `manifest.json` separado: `manifest` é um objeto do próprio JSON.
 
-Evidências: `validate_path` lê texto e usa `json.loads` em [validate.py](D:/Development/src/OpenHarness/backend/oharness/validate.py); `downloadOHarness` serializa JSON indentado como `application/json` e usa `.ohm` por padrão em [bundlesApi.ts](D:/Development/src/OpenHarness/frontend/src/lib/bundlesApi.ts). A [biblioteca de harnesses](D:/Development/src/OpenHarness/frontend/src/components/harnesses/HarnessLibrary.tsx) aceita `.ohm`, `.oharness` e JSON, faz parse e chama a validação antes de importar. A extensão, sozinha, não atesta validade.
+Evidências: `validate_path` lê texto e usa `json.loads` em [validate.py](D:/Development/src/OHarness/backend/oharness/validate.py); `downloadOHarness` serializa JSON indentado como `application/json` e usa `.ohm` por padrão em [bundlesApi.ts](D:/Development/src/OHarness/frontend/src/lib/bundlesApi.ts). A [biblioteca de harnesses](D:/Development/src/OHarness/frontend/src/components/harnesses/HarnessLibrary.tsx) aceita `.ohm`, `.oharness` e JSON, faz parse e chama a validação antes de importar. A extensão, sozinha, não atesta validade.
 
-O contrato estrutural está em [oharness.schema.json](D:/Development/src/OpenHarness/backend/oharness/schema/oharness.schema.json), usando JSON Schema Draft 2020-12. [models.py](D:/Development/src/OpenHarness/backend/oharness/models.py) define os modelos Pydantic e `SCHEMA_VERSION = "1.0.0"`.
+O contrato estrutural está em [oharness.schema.json](D:/Development/src/OHarness/backend/oharness/schema/oharness.schema.json), usando JSON Schema Draft 2020-12. [models.py](D:/Development/src/OHarness/backend/oharness/models.py) define os modelos Pydantic e `SCHEMA_VERSION = "1.0.0"`.
 
 | Campo obrigatório na raiz | Estrutura exigida pelo JSON Schema |
 | --- | --- |
@@ -105,21 +106,21 @@ Os modelos Pydantic oferecem valores padrão para vários campos que o JSON Sche
 
 ## Validação e limites
 
-Em [validate.py](D:/Development/src/OpenHarness/backend/oharness/validate.py), a validação adicional exige nós com IDs textuais não vazios e únicos e arestas cujas origens e destinos existam. Ela não verifica integralmente tipos do catálogo, Signals, permissões, disponibilidade de Providers ou comportamento dos conteúdos incorporados.
+Em [validate.py](D:/Development/src/OHarness/backend/oharness/validate.py), a validação adicional exige nós com IDs textuais não vazios e únicos e arestas cujas origens e destinos existam. Ela não verifica integralmente tipos do catálogo, Signals, permissões, disponibilidade de Providers ou comportamento dos conteúdos incorporados.
 
-`schemaVersion` e `manifest.version` não têm restrição semântica de versão no schema. O validador não compara `schemaVersion` à constante do backend. Há ainda uma divergência concreta: `composeBundleFromCanvas`, em [bundlesApi.ts](D:/Development/src/OpenHarness/frontend/src/lib/bundlesApi.ts), cria uma base com `schemaVersion: "1.1.0"` quando não recebe modelo base, enquanto backend e fixture usam `1.0.0`. Isso não comprova a existência de um segundo schema implementado.
+`schemaVersion` e `manifest.version` não têm restrição semântica de versão no schema. O validador não compara `schemaVersion` à constante do backend. Há ainda uma divergência concreta: `composeBundleFromCanvas`, em [bundlesApi.ts](D:/Development/src/OHarness/frontend/src/lib/bundlesApi.ts), cria uma base com `schemaVersion: "1.1.0"` quando não recebe modelo base, enquanto backend e fixture usam `1.0.0`. Isso não comprova a existência de um segundo schema implementado.
 
-O [mock](D:/Development/src/OpenHarness/backend/oharness/mock_run.py) ordena o grafo topologicamente, marca etapas planejadas e sinaliza como ignoradas as que não entram nessa ordem. Não chama modelos nem executa o conteúdo incorporado; `mockProfile` não seleciona comportamentos nessa função. Um ciclo pode passar na validação estrutural e falhar no mock.
+O [mock](D:/Development/src/OHarness/backend/oharness/mock_run.py) ordena o grafo topologicamente, marca etapas planejadas e sinaliza como ignoradas as que não entram nessa ordem. Não chama modelos nem executa o conteúdo incorporado; `mockProfile` não seleciona comportamentos nessa função. Um ciclo pode passar na validação estrutural e falhar no mock.
 
-Verificações realizadas em memória, sem alterar as fontes: a fixture `.ohm` e o exemplo legado [valid-hello.oharness](D:/Development/src/OpenHarness/backend/tests/oharness/fixtures/valid-hello.oharness) passaram na validação; uma versão arbitrária também passou; um grafo cíclico passou no validador e retornou `ok: false` no mock. Não foi realizada uma homologação completa do produto.
+Verificações realizadas em memória, sem alterar as fontes: a fixture `.ohm` e o exemplo legado [valid-hello.oharness](D:/Development/src/OHarness/backend/tests/oharness/fixtures/valid-hello.oharness) passaram na validação; uma versão arbitrária também passou; um grafo cíclico passou no validador e retornou `ok: false` no mock. Não foi realizada uma homologação completa do produto.
 
 ## Portabilidade e autoridade humana
 
-A exportação de arquivo está implementada. Porém, `composeBundleFromCanvas` reduz nós a `id`, `role`, `label` e arestas a `id`, `source`, `target`. Nessa conversão, dados adicionais do canvas, como vínculos de Providers, configuração de nós e Signals nas arestas, não são preservados. Portanto, não anunciar fidelidade integral de ida e volta nem execução equivalente em qualquer ambiente. Fonte: [bundlesApi.ts](D:/Development/src/OpenHarness/frontend/src/lib/bundlesApi.ts).
+A exportação de arquivo está implementada. Porém, `composeBundleFromCanvas` reduz nós a `id`, `role`, `label` e arestas a `id`, `source`, `target`. Nessa conversão, dados adicionais do canvas, como vínculos de Providers, configuração de nós e Signals nas arestas, não são preservados. Portanto, não anunciar fidelidade integral de ida e volta nem execução equivalente em qualquer ambiente. Fonte: [bundlesApi.ts](D:/Development/src/OHarness/frontend/src/lib/bundlesApi.ts).
 
-Há pausa para nós `hitl` no [engine.py](D:/Development/src/OpenHarness/backend/engine.py): o estado passa a `awaiting_human`, o motor aguarda liberação e uma decisão `reject` interrompe a execução. O endpoint de [controle da execução](D:/Development/src/OpenHarness/backend/routers/execution.py) permite parar e retomar. Contudo, a retomada sem decisão explícita assume `approve` no motor. Descrever como ponto de intervenção implementado; não prometer aprovação humana explícita obrigatória para toda ação ou autoridade garantida por qualquer consumidor do arquivo.
+Há pausa para nós `hitl` no [engine.py](D:/Development/src/OHarness/backend/engine.py): o estado passa a `awaiting_human`, o motor aguarda liberação e uma decisão `reject` interrompe a execução. O endpoint de [controle da execução](D:/Development/src/OHarness/backend/routers/execution.py) permite parar e retomar. Contudo, a retomada sem decisão explícita assume `approve` no motor. Descrever como ponto de intervenção implementado; não prometer aprovação humana explícita obrigatória para toda ação ou autoridade garantida por qualquer consumidor do arquivo.
 
-A fixture atual inclui HITL. Já o [compilador do harness](D:/Development/src/OpenHarness/backend/oharness/compile_skills_harness.py) ainda o omite do grafo que gera, mantendo os oito papéis de agentes. Os dois artefatos não estão totalmente alinhados.
+A fixture atual inclui HITL. Já o [compilador do harness](D:/Development/src/OHarness/backend/oharness/compile_skills_harness.py) ainda o omite do grafo que gera, mantendo os oito papéis de agentes. Os dois artefatos não estão totalmente alinhados.
 
 ## Critérios para a página
 

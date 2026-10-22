@@ -2,6 +2,10 @@
 
 Esta seção substitui os números das verificações de setembro abaixo, que descrevem uma versão anterior (duas capturas, sem seção Baixar).
 
+## Atualização pós-#141/#144 (22/10/2026)
+
+As dez capturas foram refeitas na UI redesenhada (main em 944a5bb) e a marca virou OHarness: nomes de arquivo `OHarness-*`, `--repo klebertiko/OHarness`, links do Pages com `/OHarness/`. A seção Baixar e os alts foram atualizados. Os resultados medidos abaixo foram repetidos depois da fusão; ver a lista no relatório da revisão.
+
 ## O que mudou
 
 - Tour do produto com cinco capturas reais, nos dois temas: Chats, Studio, Canvas, Execução e Provedores. Legenda padrão: captura real do app 0.0.1-alpha, perfil isolado, sem provedor conectado, execução simulada (mock), interface em inglês. A captura de setembro foi removida.
@@ -51,7 +55,7 @@ Uma revisão independente identificou menu móvel permanecendo aberto ao ampliar
 
 - Implementação YAML no desktop e fidelidade do roundtrip: plano em `../docs/product/ohm-yaml-migration.md`.
 - Contrato de ciclos no motor: entrega separada no mesmo plano.
-- Publicado no GitHub Pages em 11/09/2026: `https://klebertiko.github.io/OpenHarness/`, com inglês em `/en/`, HTTPS e canonical/hreflang. Uma imagem social dedicada e um domínio próprio continuam opcionais.
+- Publicado no GitHub Pages em 11/09/2026: `https://klebertiko.github.io/OHarness/`, com inglês em `/en/`, HTTPS e canonical/hreflang. Uma imagem social dedicada e um domínio próprio continuam opcionais.
 
 O produto é mostrado em desenvolvimento, sem alegações de release, licença geral, métricas de adoção ou compatibilidade universal.
 

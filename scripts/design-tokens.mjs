@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// OpenHarness design tokens: load docs/design-system/tokens.json (DTCG), emit CSS, and prove it matches globals.css.
+// OHarness design tokens: load docs/design-system/tokens.json (DTCG), emit CSS, and prove it matches globals.css.
 //   node scripts/design-tokens.mjs --check          parity: tokens.json <-> frontend/src/app/globals.css (exit 1 on drift)
 //   node scripts/design-tokens.mjs --css [out.css]  emit CSS custom properties for every token (stdout if no file)
 // No dependencies. The app's globals.css stays the runtime source until the Tailwind 4 @theme migration lands.
@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const TOKENS_FILE = path.join(root, "docs/design-system/tokens.json");
 export const GLOBALS_FILE = path.join(root, "frontend/src/app/globals.css");
+export const TAILWIND_FILE = path.join(root, "frontend/tailwind.config.ts");
 /** Variables globals.css keeps for backwards compatibility; they alias a token and carry no value of their own. */
 const LEGACY_VARS = new Set(["--ink", "--ink-secondary", "--ink-tertiary"]);
 
@@ -93,20 +94,79 @@ export function checkParity(tokens = loadTokens(), globalsText = fs.readFileSync
   return problems;
 }
 
+/** Declarations of one `.selector { ... }` rule in a stylesheet, comments stripped. Plain string search: the selector is data, never a pattern. */
+function rule(css, selector) {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  let at = -1;
+  for (let from = 0; ; ) {
+    const i = text.indexOf(selector, from);
+    if (i < 0) return null;
+    const lineStart = i === 0 || text[i - 1] === "\n";
+    if (lineStart && /^\s*\{/.test(text.slice(i + selector.length, i + selector.length + 3))) { at = i; break; }
+    from = i + selector.length;
+  }
+  const open = text.indexOf("{", at);
+  const body = text.slice(open + 1, text.indexOf("}", open));
+  return Object.fromEntries([...body.matchAll(/([\w-]+)\s*:\s*([^;]+);/g)].map((d) => [d[1], d[2].trim()]));
+}
+
+/** The `size` and the options object of `key: ["size", { ... }]` in the Tailwind config, found by string search. */
+function tailwindSize(text, key) {
+  for (let from = 0; ; ) {
+    const i = text.indexOf(`${key}: ["`, from);
+    if (i < 0) return null;
+    from = i + 1;
+    if (i > 0 && /[\w-]/.test(text[i - 1])) continue;
+    const end = text.indexOf("}]", i);
+    if (end < 0) return null;
+    const slice = text.slice(i, end + 2);
+    return [slice, /\["([^"]+)"/.exec(slice)[1], slice.slice(slice.indexOf("{"))];
+  }
+}
+
+/** Typography tokens have no CSS variable, so they are checked against the `.t-*` rules in globals.css (weight, line height, tracking, family, size where declared) and the `fontSize` scale in tailwind.config.ts. */
+export function checkTypography(tokens = loadTokens(), globalsText = fs.readFileSync(GLOBALS_FILE, "utf8"), tailwindText = fs.readFileSync(TAILWIND_FILE, "utf8")) {
+  const problems = [];
+  const fontVar = { ui: "var(--font-ui)", mono: "var(--font-mono)" };
+  const none = (v) => v === undefined || v === "0" || v === "normal";
+  for (const tok of tokens.filter((t) => t.type === "typography")) {
+    const key = tok.name.replace(/^t-/, "");
+    const v = tok.value;
+    const family = String(v.fontFamily).includes("mono") ? "mono" : "ui";
+    const css = rule(globalsText, `.t-${key}`);
+    if (css) {
+      const fam = css["font-family"]?.split(",")[0].trim();
+      if (fam !== fontVar[family]) problems.push(`${tok.name}: .t-${key} uses ${fam}, tokens.json says ${family}`);
+      if (css["font-size"] !== undefined && css["font-size"] !== v.fontSize) problems.push(`${tok.name}: .t-${key} font-size ${css["font-size"]}, tokens.json ${v.fontSize}`);
+      if (css["font-weight"] !== undefined && Number(css["font-weight"]) !== v.fontWeight) problems.push(`${tok.name}: .t-${key} font-weight ${css["font-weight"]}, tokens.json ${v.fontWeight}`);
+      if (css["line-height"] !== undefined && css["line-height"] !== v.lineHeight) problems.push(`${tok.name}: .t-${key} line-height ${css["line-height"]}, tokens.json ${v.lineHeight}`);
+      if (!(none(css["letter-spacing"]) && none(v.letterSpacing)) && css["letter-spacing"] !== v.letterSpacing) problems.push(`${tok.name}: .t-${key} letter-spacing ${css["letter-spacing"]}, tokens.json ${v.letterSpacing}`);
+    }
+    const tw = tailwindSize(tailwindText, key);
+    if (!tw) { problems.push(`${tok.name}: no fontSize.${key} in tailwind.config.ts`); continue; }
+    const lh = /lineHeight:\s*"([^"]+)"/.exec(tw[2])?.[1];
+    const ls = /letterSpacing:\s*"([^"]+)"/.exec(tw[2])?.[1];
+    if (tw[1] !== v.fontSize) problems.push(`${tok.name}: tailwind fontSize.${key} is ${tw[1]}, tokens.json ${v.fontSize}`);
+    if (lh !== v.lineHeight) problems.push(`${tok.name}: tailwind lineHeight ${lh}, tokens.json ${v.lineHeight}`);
+    if (!(none(ls) && none(v.letterSpacing)) && ls !== v.letterSpacing) problems.push(`${tok.name}: tailwind letterSpacing ${ls}, tokens.json ${v.letterSpacing}`);
+  }
+  return problems;
+}
+
 /** CSS custom properties for every token: Graphite on :root, Ivory overrides on [data-theme="light"]. */
 export function toCss(tokens = loadTokens()) {
   const decl = (theme) => tokens
     .filter((t) => t.type !== "typography" && (theme === "dark" || t.light !== undefined))
-    .map((t) => `  --${t.name}: ${cssValue(t, theme, tokens)};`).join("\n");
+    .map((t) => `  --${t.type === "fontFamily" ? `font-${t.name}` : t.name}: ${cssValue(t, theme, tokens)};`).join("\n");
   return `/* Generated by scripts/design-tokens.mjs from docs/design-system/tokens.json. Do not edit. */\n:root {\n${decl("dark")}\n}\n[data-theme="light"] {\n${decl("light")}\n}\n`;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   if (args.includes("--check")) {
-    const problems = checkParity();
+    const problems = [...checkParity(), ...checkTypography()];
     if (problems.length) { console.error(`Token drift (${problems.length}):\n- ${problems.join("\n- ")}`); process.exit(1); }
-    console.log(`Tokens match globals.css (${loadTokens().filter((t) => t.css).length} variables checked).`);
+    console.log(`Tokens match globals.css (${loadTokens().filter((t) => t.css).length} variables checked) and the type roles match .t-* and tailwind.config.ts (${loadTokens().filter((t) => t.type === "typography").length} tokens checked).`);
   } else if (args.includes("--css")) {
     const out = args[args.indexOf("--css") + 1];
     const css = toCss();

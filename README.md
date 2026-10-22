@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="website/assets/mark.svg" width="128" alt="OpenHarness mark" />
+  <img src="website/assets/mark.svg" width="128" alt="OHarness mark" />
 </p>
 
-<h1 align="center">OpenHarness</h1>
+<h1 align="center">OHarness</h1>
 
 <p align="center">
   <strong>Agent + Harness Design Studio</strong> for your desktop.<br />
@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://klebertiko.github.io/OpenHarness/">Product site (pt-BR)</a>
+  <a href="https://klebertiko.github.io/OHarness/">Product site (pt-BR)</a>
   ·
-  <a href="https://klebertiko.github.io/OpenHarness/en/">English</a>
+  <a href="https://klebertiko.github.io/OHarness/en/">English</a>
   ·
   <a href="docs/harness-spec/README.md">OHM format</a>
   ·
@@ -33,15 +33,15 @@
 
 ## What this is
 
-OpenHarness is a **desktop application** (Tauri v2 + FastAPI sidecar) where you author and run **agent harnesses** — composed systems of Agents, Gates, HITL checkpoints, Skills, and Signals — against the providers you connect: Anthropic and OpenAI through their local CLIs, OpenRouter with an API key, Ollama (local or cloud), and Cursor for delegated agent tasks. See [Providers](#providers).
+OHarness is a **desktop application** (Tauri v2 + FastAPI sidecar) where you author and run **agent harnesses** — composed systems of Agents, Gates, HITL checkpoints, Skills, and Signals — against the providers you connect: Anthropic and OpenAI through their local CLIs, OpenRouter with an API key, Ollama (local or cloud), and Cursor for delegated agent tasks. See [Providers](#providers).
 
-The portable format is the **Open Harness Model (OHM)**: a `.ohm` bundle, authored in YAML 1.2 ([ADR 0003](docs/adr/0003-ohm-yaml.md)). Three harnesses ship bundled so you can open the app and see a full crew immediately. Each opens as an editable copy:
+The portable format is the **OHarness Model (OHM)**: a `.ohm` bundle, authored in YAML 1.2 ([ADR 0003](docs/adr/0003-ohm-yaml.md)). Three harnesses ship bundled so you can open the app and see a full crew immediately. Each opens as an editable copy:
 
 | Harness | Id | Source |
 | --- | --- | --- |
-| **Agile Harness** (the default) | `openharness.default.agile` | Compiled from the `engineering/harness` skill in `skills-framework` |
-| **DeepSeek Harness** | `openharness.example.deepseek-harness` | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness), desktop release `dsh-v0.2.1-alpha.2` |
-| **Matt Pocock skills** | `openharness.example.mattpocock-skills` | [mattpocock/skills](https://github.com/mattpocock/skills) |
+| **Agile Harness** (the default) | `oharness.default.agile` | Compiled from the `engineering/harness` skill in `skills-framework` |
+| **DeepSeek Harness** | `oharness.example.deepseek-harness` | [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness), desktop release `dsh-v0.2.1-alpha.2` |
+| **Matt Pocock skills** | `oharness.example.mattpocock-skills` | [mattpocock/skills](https://github.com/mattpocock/skills) |
 
 The last two model published projects and cite their sources in their descriptions; they set no provider and ship no secrets. Every user authors and shares their own harnesses — the bundled ones are starting points, not the product.
 
@@ -86,13 +86,13 @@ Starting points on the Studio overview are "Agent + review" and the bundled harn
 
 ### Nilo in Studio
 
-In Studio, **Ask Nilo** (or `Mod+I`) opens a side panel where you describe a flow in plain language and Nilo, the OpenHarness assistant, proposes graph edits: nodes added, wired and configured. The proposal appears as a list of changes you **Keep** or **Undo**; applying it is one undoable step, and every change is validated against the graph rules before it reaches the canvas. With a connected provider the request goes to that model (one repair attempt on an invalid reply). With none, a deterministic offline planner answers instead, and the result is tagged *Offline draft*. In the Inspector, **Assist** drafts, improves or reviews the free-text fields of agents, skills and gates, also offline when no provider is ready. Secrets, endpoints, commands and provider ids are never sent. The transcript is session-only and replies are not streamed.
+In Studio, **Ask Nilo** (or `Mod+I`) opens a side panel where you describe a flow in plain language and Nilo, the OHarness assistant, proposes graph edits: nodes added, wired and configured. The proposal appears as a list of changes you **Keep** or **Undo**; applying it is one undoable step, and every change is validated against the graph rules before it reaches the canvas. With a connected provider the request goes to that model (one repair attempt on an invalid reply). With none, a deterministic offline planner answers instead, and the result is tagged *Offline draft*. In the Inspector, **Assist** drafts, improves or reviews the free-text fields of agents, skills and gates, also offline when no provider is ready. Secrets, endpoints, commands and provider ids are never sent. The transcript is session-only and replies are not streamed.
 
 ---
 
 ## Providers
 
-Five vendors. Anthropic and OpenAI connect through the CLI you are already signed in to, so OpenHarness stores no key for them.
+Five vendors. Anthropic and OpenAI connect through the CLI you are already signed in to, so OHarness stores no key for them.
 
 | Vendor | Connects through | Notes |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ Five vendors. Anthropic and OpenAI connect through the CLI you are already signe
 | **OpenAI** | Local `codex` CLI (`codex login`) | Runs on your ChatGPT subscription. Shell commands go through a read-only sandbox. |
 | **OpenRouter** | API key (`sk-or-…`) | You pick a route, an ordered model preference, not a single model. |
 | **Ollama** | Local daemon, default `http://127.0.0.1:11434/v1`, no key | Ollama Cloud is a separate connection. |
-| **Cursor** | Local `cursor-agent` CLI (`cursor-agent login`) | Agent-only: an LLM node cannot use it, a Delegate node can. On Windows it runs inside WSL2 (distro `Ubuntu-24.04` by default, override with `OPENHARNESS_CURSOR_WSL_DISTRO`); the native Windows `cursor-agent` stays blocked. |
+| **Cursor** | Local `cursor-agent` CLI (`cursor-agent login`) | Agent-only: an LLM node cannot use it, a Delegate node can. On Windows it runs inside WSL2 (distro `Ubuntu-24.04` by default, override with `OHARNESS_CURSOR_WSL_DISTRO`); the native Windows `cursor-agent` stays blocked. |
 
 - **Chat picker.** Lists "Auto" (the first eligible connection, cloud before on-device) and the connections that can answer now. Setup stays on the Providers screen.
 - **Per-node pins and failover.** A node can pin an ordered list of connections. If one rejects the call, the next is tried, and the attempts show in the run transcript. A node with no pin uses the chat's choice. If neither resolves, the run stops at that node with an error; it never swaps providers silently. Rule: [`docs/product/provider-harness-rule.md`](docs/product/provider-harness-rule.md).
@@ -132,7 +132,7 @@ flowchart LR
 
 - **Shell** owns the window, WebView, and sidecar lifecycle (port on `127.0.0.1`, process tied to the app).
 - **Sidecar** owns execution, OHM validate/run, provider adapters, and credential storage.
-- **Credentials never leave your machine** through OpenHarness cloud — there is none for inference.
+- **Credentials never leave your machine** through OHarness cloud — there is none for inference.
 
 Packaging decision: [`docs/adr/0001-desktop-packaging.md`](docs/adr/0001-desktop-packaging.md).
 
@@ -182,7 +182,7 @@ npm run tauri:build
 Artifact:
 
 ```text
-src-tauri/target/release/bundle/nsis/OpenHarness_*_x64-setup.exe
+src-tauri/target/release/bundle/nsis/OHarness_*_x64-setup.exe
 ```
 
 Install the current-user copy and smoke-test it in one step:
@@ -191,9 +191,9 @@ Install the current-user copy and smoke-test it in one step:
 powershell -File scripts/install-desktop.ps1
 ```
 
-The script silently installs to `%LOCALAPPDATA%\Programs\OpenHarness`, refreshes the Windows icon cache, then runs the smoke test against the installed app. The smoke test fails if no sidecar listens on loopback, `/health` is not `ok`, the WebView does not render, the main window does not close, a sidecar process remains after quit, or the app writes `harness.db` or `secrets` into its install directory.
+The script silently installs to `%LOCALAPPDATA%\Programs\OHarness`, refreshes the Windows icon cache, then runs the smoke test against the installed app. The smoke test fails if no sidecar listens on loopback, `/health` is not `ok`, the WebView does not render, the main window does not close, a sidecar process remains after quit, or the app writes `harness.db` or `secrets` into its install directory.
 
-The app is single-instance. The smoke test refuses to run while another OpenHarness process is open and names the executable to close.
+The app is single-instance. The smoke test refuses to run while another OHarness process is open and names the executable to close.
 
 Smoke test on its own:
 
@@ -208,12 +208,12 @@ powershell -File scripts/smoke-desktop.ps1 -AppPath <path-to-exe>
 | `OH_SECRETS` | Store |
 | --- | --- |
 | `memory` | Process lifetime (tests / explicit dev) |
-| `file` | Default when packaged — Fernet files under `%LOCALAPPDATA%/OpenHarness/secrets` |
+| `file` | Default when packaged — Fernet files under `%LOCALAPPDATA%/OHarness/secrets` |
 | `keychain` | OS keychain (`pip install keyring`) |
 
 ---
 
-## Open Harness Model (`.ohm`)
+## OHarness Model (`.ohm`)
 
 Portable harness bundles: graph, roles, gates, embedded skills/agents/hooks.
 
@@ -230,7 +230,7 @@ cd backend
 python -m oharness validate oharness/fixtures/default-agile.ohm
 ```
 
-Default harness id: `openharness.default.agile`. The sidecar lists the bundled harnesses at `GET /bundles/examples` and returns one at `GET /bundles/examples/{id}`.
+Default harness id: `oharness.default.agile`. The sidecar lists the bundled harnesses at `GET /bundles/examples` and returns one at `GET /bundles/examples/{id}`.
 
 **YAML status.** The bundled `.ohm` files, the backend codec and the CLI use YAML 1.2. The Studio's Import and Export still read and write JSON text inside the `.ohm` file; the desktop side of the YAML migration is not finished (see [`docs/product/ohm-yaml-migration.md`](docs/product/ohm-yaml-migration.md)).
 
@@ -239,7 +239,7 @@ Default harness id: `openharness.default.agile`. The sidecar lists the bundled h
 ## Repository layout
 
 ```text
-OpenHarness/
+OHarness/
 ├── frontend/          Next.js App Router UI (static export for Tauri)
 ├── backend/           FastAPI sidecar · oharness codec · adapters · sandbox
 ├── src-tauri/         Tauri v2 shell · NSIS bundle · embedded default .ohm
@@ -267,13 +267,13 @@ Package installs in CI go through **Aikido Safe Chain** (checksum-pinned install
 
 Full policy and admin checklist: [`docs/ci-security.md`](docs/ci-security.md).
 
-A tag builds on three operating systems and ends in a **draft** GitHub Release that a maintainer reviews and publishes. A tag with a pre-release suffix (e.g. `v0.0.1-alpha`) is marked pre-release, and GitHub never serves it from `releases/latest`, so link it by tag: `https://github.com/klebertiko/OpenHarness/releases/tag/v0.0.1-alpha`. Asset names are stable and carry no version: `OpenHarness-windows-x64-setup.exe`, `OpenHarness-linux-x86_64.AppImage`, `OpenHarness-linux-amd64.deb`, `OpenHarness-macos-arm64.dmg`, `OpenHarness-macos-x64.dmg`, plus `SHA256SUMS` and the SBOM `OpenHarness-sbom.cdx.json`.
+A tag builds on three operating systems and ends in a **draft** GitHub Release that a maintainer reviews and publishes. A tag with a pre-release suffix (e.g. `v0.0.1-alpha`) is marked pre-release, and GitHub never serves it from `releases/latest`, so link it by tag: `https://github.com/klebertiko/OHarness/releases/tag/v0.0.1-alpha`. Asset names are stable and carry no version: `OHarness-windows-x64-setup.exe`, `OHarness-linux-x86_64.AppImage`, `OHarness-linux-amd64.deb`, `OHarness-macos-arm64.dmg`, `OHarness-macos-x64.dmg`, plus `SHA256SUMS` and the SBOM `OHarness-sbom.cdx.json`.
 
 Release verification (after a published tag, in the folder with the downloaded files):
 
 ```bash
 sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify OpenHarness-windows-x64-setup.exe --repo klebertiko/OpenHarness
+gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness
 ```
 
 GitHub attestations prove provenance; they do not replace Authenticode. EV / Azure Artifact Signing remains a hard requirement before treating builds as production distribution.
@@ -290,7 +290,7 @@ npm ci
 npm run dev          # http://127.0.0.1:4174
 ```
 
-Published: [klebertiko.github.io/OpenHarness](https://klebertiko.github.io/OpenHarness/) (pt-BR) · [/en/](https://klebertiko.github.io/OpenHarness/en/).
+Published: [klebertiko.github.io/OHarness](https://klebertiko.github.io/OHarness/) (pt-BR) · [/en/](https://klebertiko.github.io/OHarness/en/).
 
 ---
 
