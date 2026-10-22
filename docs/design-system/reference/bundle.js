@@ -96,7 +96,6 @@ const NILO_GRID = [
 ];
 
 /** Head only (tufts, brow, spectacles, beak): the crop used where space is tight. */
-const NILO_FACE = NILO_GRID.slice(0, 9);
 
 /** Fill per cell letter, as CSS tokens. Nilo carries her own colour — teal
     body, off-white eyes, a lighter-teal rim for the glasses and chest chevron,
