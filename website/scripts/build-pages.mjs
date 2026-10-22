@@ -18,7 +18,7 @@ const files = [
   'en/index.html', 'en/model.html', 'en/manifesto.html', 'en/MANIFESTO.md', 'en/examples/hello.ohm',
   'assets/mark.svg', 'assets/nilo.svg', 'assets/nilo-poses.json',
   'assets/sora-latin.woff2', 'assets/plex-mono-latin.woff2', 'assets/OFL-Sora.txt', 'assets/OFL-Plex.txt',
-  ...['studio','chats'].flatMap(name => ['light','dark'].map(theme => `assets/${name}-${theme}.webp`)),
+  ...['chats','studio','canvas','run','providers'].flatMap(name => ['light','dark'].map(theme => `assets/${name}-${theme}.webp`)),
 ];
 for (const file of files) {
   const destination = resolve(output, file);

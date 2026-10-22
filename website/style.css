@@ -1832,3 +1832,33 @@ h1, h2, h3 { word-spacing: .025em; }
 }
 
 .nilo-portrait { gap: 12px; }
+
+/* Download section: real asset names, unsigned-installer notes and checks. */
+.download-section .ecosystem-copy > p .button { margin-top: 8px; }
+.download-list { margin-top: 32px; }
+.download-list > div {
+  border-top: 1px solid var(--color-rule);
+  padding: 18px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+}
+.download-list strong { flex: 1 0 100%; font-size: 15px; }
+.download-list code { font-size: 12px; overflow-wrap: anywhere; }
+.download-list p { flex: 1 0 100%; margin: 0; font-size: 13px; line-height: 1.8; color: var(--color-muted); }
+.download-step { font-size: 18px; margin: 40px 0 12px; }
+.download-section .code-sample { margin-block: 16px; }
+.download-limits { margin: 0; padding-left: 18px; list-style: disc; font-size: 13px; line-height: 1.85; color: var(--color-muted); }
+.download-limits li { margin-bottom: 8px; padding-left: 4px; overflow-wrap: anywhere; }
+.download-section code, .download-limits code { overflow-wrap: anywhere; }
+.download-section .ecosystem-copy { min-width: 0; }
+.download-section .button { max-width: 100%; white-space: normal; }
+/* Five product tabs instead of two: keep the row inside the page. */
+@media (min-width: 761px) {
+  .tour-nav button { padding-inline: 12px; gap: 8px; }
+  .tour-nav button:first-child { padding-left: 0; }
+}
+@media (min-width: 761px) and (max-width: 1050px) {
+  .tour-nav button .icon { display: none; }
+}
