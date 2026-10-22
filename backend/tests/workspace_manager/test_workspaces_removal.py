@@ -172,7 +172,7 @@ def test_removal_is_refused_when_the_work_cannot_be_preserved(svc, repo, wt, mon
 def test_removal_is_refused_when_the_rescue_does_not_contain_a_changed_file(svc, repo, wt, monkeypatch):
     info, w = wt
     make_dirty(wt)
-    monkeypatch.setattr(svc, "_snapshot", lambda ctx, entry, ident: (repo.out("rev-parse", "main"), None))   # a snapshot that lost the work
+    monkeypatch.setattr(svc, "_snapshot", lambda ctx, entry, ident, links=None: (repo.out("rev-parse", "main"), None))   # a snapshot that lost the work
     report = svc.removal_check(str(repo.path), info["id"])
     with pytest.raises(WorkspaceError) as caught:
         svc.remove(str(repo.path), info["id"], report["confirmation_token"])

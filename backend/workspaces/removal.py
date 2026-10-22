@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import secrets
 import shutil
 import tempfile
@@ -26,12 +27,16 @@ from typing import Any
 from .errors import WorkspaceError
 from .gitrun import GitFailure
 from .gitstate import StatusReport, WorktreeEntry, parse_status_v2
+from .links import LinkInfo, is_under, scan_tree, unlink_link
 from .paths import ManagedRoot, canonical, is_link
 
 TOKEN_TTL_S = 600
 RESCUE_PREFIX = "refs/openharness/rescue/"
 MAX_REPORTED_PATHS = 100
 MAX_REPORTED_COMMITS = 20
+NUL = bytes(1)
+BACKSLASH = bytes([0x5C])
+_EXPIRY = re.compile(r"^[0-9]{1,12}$")
 _TOKEN_KEY = secrets.token_bytes(32)  # per process: a restart invalidates every outstanding confirmation, which is the safe direction
 _IDENTITY = {
     "GIT_AUTHOR_NAME": "OpenHarness", "GIT_AUTHOR_EMAIL": "openharness@localhost",
@@ -50,6 +55,7 @@ class InspectionState:
     missing: bool
     nested: list[str] = field(default_factory=list)
     submodules: list[str] = field(default_factory=list)
+    links: list[LinkInfo] = field(default_factory=list)
     fingerprint: str = field(default="")
 
     @property
@@ -59,6 +65,25 @@ class InspectionState:
     @property
     def pending(self) -> bool:
         return self.dirty or self.unpushed["count"] > 0
+
+
+def rescue_pathspecs(links: list[LinkInfo]) -> bytes:
+    """NUL-separated pathspecs for ``git add --all``: the whole tree, except every link (never followed, never embedded)."""
+    return b"".join(entry.encode("utf-8", "surrogateescape") + NUL
+                    for entry in [".", *(f":(exclude,literal){link.path}" for link in links)])
+
+
+def _c_quote(rel: str) -> bytes:
+    """C-style quoting git understands on ``hash-object --stdin-paths`` (so a newline in a name cannot split a record)."""
+    out = bytearray(b'"')
+    for byte in rel.encode("utf-8", "surrogateescape"):
+        if byte in (0x22, 0x5C):
+            out += BACKSLASH + bytes([byte])
+        elif 0x20 <= byte < 0x7F:
+            out.append(byte)
+        else:
+            out += BACKSLASH + b"%03o" % byte
+    return bytes(out) + b'"'
 
 
 def _invalid(reason: str) -> WorkspaceError:
@@ -104,15 +129,17 @@ class RemovalMixin:
 
     def _inspect(self, ctx, entry: WorktreeEntry, ident: str | None = None) -> dict[str, Any]:
         missing = not os.path.isdir(entry.path)
-        report, raw, stat, ignored, nested, submodules = StatusReport(), b"", {}, 0, [], []
+        report, raw, stat, ignored, nested, submodules, links = StatusReport(), b"", {}, 0, [], [], []
         if not missing:
+            links = scan_tree(entry.path).links  # first, and before git looks at the tree: the whole worktree, ignored entries too
             try:
                 raw = self.runner.run(entry.path, ["status", "--porcelain=v2", "-z", "--untracked-files=all", "--ignore-submodules=dirty"],
                                       filters=True).stdout
                 report = parse_status_v2(raw)
-                ignored_raw = self.runner.run(entry.path, ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"]).stdout
+                ignored_raw = self.runner.run(entry.path, ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"],
+                                              filters=True).stdout
                 ignored = len([name for name in ignored_raw.split(b"\0") if name])
-                for record in self.runner.run(entry.path, ["ls-files", "--stage", "-z"]).stdout.split(b"\0"):
+                for record in self.runner.run(entry.path, ["ls-files", "--stage", "-z"], filters=True).stdout.split(b"\0"):
                     mode, _, rest = record.partition(b" ")
                     rel = rest.partition(b"\t")[2].decode("utf-8", "surrogateescape")
                     if mode == b"160000" and rel and os.path.lexists(os.path.join(entry.path, rel, ".git")):
@@ -121,6 +148,9 @@ class RemovalMixin:
                 raise WorkspaceError("inspection_failed", "git could not read the state of this worktree", 409) from exc
             for rel, code in report.paths.items():
                 full = os.path.join(entry.path, rel)
+                if is_under(rel, links):
+                    stat[rel] = None  # a path reached through a link is not this worktree's own content: never stat'ed, never followed
+                    continue
                 try:
                     st = os.lstat(full)
                     stat[rel] = [st.st_size, st.st_mtime_ns]
@@ -130,10 +160,11 @@ class RemovalMixin:
                     nested.append(rel)  # an untracked directory git lists as one entry is a repository of its own
         state = InspectionState(entry=entry, report=report, status_raw=raw, stat=stat, ignored=ignored,
                                 unpushed=self._unpushed(ctx, entry), missing=missing,
-                                nested=nested, submodules=submodules)
+                                nested=nested, submodules=submodules, links=links)
         state.fingerprint = hashlib.sha256(json.dumps({
             "head": entry.head, "branch": entry.branch, "locked": entry.locked, "reason": entry.lock_reason,
             "status": hashlib.sha256(raw).hexdigest(), "stat": sorted(stat.items()), "ignored": ignored,
+            "links": [[link.path, link.target, link.kind] for link in links],
             "unpushed": [state.unpushed["count"], [c["sha"] for c in state.unpushed["commits"]]],
         }, sort_keys=True).encode("utf-8")).hexdigest()
         return {"state": state}
@@ -150,7 +181,7 @@ class RemovalMixin:
 
     def _verify_token(self, token: str, ctx, ident: str, state: InspectionState) -> None:
         head, dot, mac = (token or "").partition(".")
-        if not dot or not head.isdigit() or not mac:
+        if not dot or not _EXPIRY.match(head) or not mac:
             raise _invalid("malformed")
         if time.time() > int(head):
             raise _invalid("expired")
@@ -194,6 +225,7 @@ class RemovalMixin:
                 "changes": {"modified": report.modified, "staged": report.staged, "untracked": report.untracked,
                             "conflicted": report.conflicted, "ignored_entries": state.ignored, "paths": paths,
                             "paths_truncated": len(report.paths) > MAX_REPORTED_PATHS},
+                "links": [link.as_dict() for link in state.links],
                 "unpushed": state.unpushed, "locked": entry.locked, "lock_reason": entry.lock_reason,
                 "needs_lock_release": entry.locked, "missing": state.missing,
                 "pending_work": state.pending, "will_preserve": removable and state.pending,
@@ -235,13 +267,17 @@ class RemovalMixin:
                 if self._inspect(ctx, entry)["state"].fingerprint != state.fingerprint:
                     self.runner.run(ctx.cwd, ["update-ref", "-d", rescue["ref"]], check=False)
                     raise _invalid("stale")
+            # Only now, with the rescue proven, are the links undone: each as the link itself, so git never meets one to follow.
+            for link in state.links:
+                unlink_link(entry.path, link)
             unlocked = False
             if entry.locked:
                 self.runner.run(ctx.cwd, ["worktree", "unlock", "--", entry.path])
                 unlocked = True
-            force = state.dirty or state.missing
+            force = state.dirty or state.missing or bool(state.links)  # a tracked link just undone reads as a change to git
             try:
-                self.runner.run(ctx.cwd, ["worktree", "remove", *(["--force"] if force else []), "--", entry.path], timeout=120)
+                self.runner.run(ctx.cwd, ["worktree", "remove", *(["--force"] if force else []), "--", entry.path], timeout=120,
+                                filters=True)
             except GitFailure as exc:
                 if unlocked:
                     reason = ["--reason", entry.lock_reason] if entry.lock_reason else []
@@ -256,7 +292,8 @@ class RemovalMixin:
                     data["selected"] = None
             self.store.mutate(forget)
             branch = info["branch"]
-            return {"removed": True, "id": workspace_id, "path": info["path"], "rescue": rescue, "branch_kept": branch}
+            return {"removed": True, "id": workspace_id, "path": info["path"], "rescue": rescue, "branch_kept": branch,
+                    "links": [link.as_dict() for link in state.links]}
 
     # ------------------------------------------------------------------ preservation
 
@@ -272,7 +309,7 @@ class RemovalMixin:
         created = False
         try:
             if state.dirty:
-                commit, staged_commit = self._snapshot(ctx, entry, ident)
+                commit, staged_commit = self._snapshot(ctx, entry, ident, state.links)
             zero = "0" * len(commit)
             self.runner.run(ctx.cwd, ["update-ref", "--no-deref", ref, commit, zero])
             created = True
@@ -290,7 +327,7 @@ class RemovalMixin:
             f"git diff {entry.head} {ref}",
         ]}
 
-    def _snapshot(self, ctx, entry: WorktreeEntry, ident: str) -> tuple[str, str | None]:
+    def _snapshot(self, ctx, entry: WorktreeEntry, ident: str, links: list[LinkInfo] | None = None) -> tuple[str, str | None]:
         run, cwd = self.runner.run, Path(entry.path)
         empty_tree = run(cwd, ["hash-object", "-t", "tree", "--stdin"], input=b"").text().strip()
         base_env = {**_IDENTITY, "GIT_ATTR_SOURCE": empty_tree}
@@ -306,21 +343,31 @@ class RemovalMixin:
                     run(cwd, ["read-tree", entry.head], env={"GIT_INDEX_FILE": str(target)})
                 return {**base_env, "GIT_INDEX_FILE": str(target)}
 
+            links = links or []
+            listing = "\n".join(f"  {json.dumps(link.path, ensure_ascii=False)} -> {json.dumps(link.target, ensure_ascii=False)}" for link in links)
+            note = f"\n\nlinks found and not followed (left out of this rescue; name -> target):\n{listing}" if links else ""
             parent, staged_commit = entry.head, None
             staged_env = scratch_env("staged")
             staged = run(cwd, ["write-tree"], env=staged_env, check=False)  # fails with unmerged entries: then only the work tree is kept
             if staged.returncode == 0 and staged.text().strip() != head_tree:
                 staged_commit = run(cwd, ["commit-tree", staged.text().strip(), "-p", entry.head, "-m",
-                                          f"openharness rescue {ident}: index snapshot"], env=staged_env).text().strip()
+                                          f"openharness rescue {ident}: index snapshot{note}"], env=staged_env).text().strip()
                 parent = staged_commit
             work_env = scratch_env("worktree")
-            run(cwd, ["-c", "core.autocrlf=false", "-c", "core.safecrlf=false", "add", "--all"], env=work_env, filters=True, timeout=600)
+            # A link git already ignores (inside an ignored directory) is never added, and naming it in a pathspec makes `add` fail;
+            # only the links `add --all` could walk into need the exclusion.
+            asked = NUL.join(link.path.encode("utf-8", "surrogateescape") for link in links)
+            skipped = {n.decode("utf-8", "surrogateescape") for n in
+                       run(cwd, ["check-ignore", "-z", "--stdin"], input=asked, check=False, filters=True).stdout.split(NUL) if n} if links else set()
+            run(cwd, ["-c", "core.autocrlf=false", "-c", "core.safecrlf=false", "add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"],
+                input=rescue_pathspecs([link for link in links if link.path not in skipped]), env=work_env, filters=True, timeout=600)
             tree = run(cwd, ["write-tree"], env=work_env).text().strip()
-            commit = run(cwd, ["commit-tree", tree, "-p", parent, "-m", f"openharness rescue {ident}: work tree"], env=work_env).text().strip()
+            commit = run(cwd, ["commit-tree", tree, "-p", parent, "-m", f"openharness rescue {ident}: work tree{note}"], env=work_env).text().strip()
         return commit, staged_commit
 
     def _verify_rescue(self, ctx, ref: str, commit: str, staged_commit: str | None, entry: WorktreeEntry, state: InspectionState) -> int:
-        """Re-read the rescue from git and check that every changed file still on disk is in it."""
+        """Re-read the rescue from git and prove it: every changed file still on disk is in it with the very bytes on disk,
+        and nothing that sits behind a link got in."""
         run = self.runner.run
         stored = run(ctx.cwd, ["rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}"]).text().strip()
         if stored != commit:
@@ -328,20 +375,40 @@ class RemovalMixin:
         if not state.dirty:
             return 0
 
-        def names(rev: str) -> set[str]:
-            raw = run(ctx.cwd, ["ls-tree", "-r", "-z", "--name-only", rev]).stdout.decode("utf-8", "surrogateescape")
-            return {n for n in raw.split("\0") if n}
+        def blobs(rev: str) -> dict[str, str]:
+            found: dict[str, str] = {}
+            for row in run(ctx.cwd, ["ls-tree", "-r", "-z", rev]).stdout.split(b"\0"):
+                meta, _, name = row.partition(b"\t")
+                parts = meta.split(b" ")
+                if name and len(parts) == 3:
+                    found[name.decode("utf-8", "surrogateescape")] = parts[2].decode("ascii", "replace")
+            return found
 
-        in_work, in_index = names(commit), names(staged_commit) if staged_commit else set()
-        checked = 0
+        in_work, in_index = blobs(commit), blobs(staged_commit) if staged_commit else {}
+        if state.links:
+            tracked = {n.decode("utf-8", "surrogateescape") for n in run(entry.path, ["ls-files", "-z", "--cached"], filters=True).stdout.split(b"\0") if n}
+            for name in in_work:
+                if is_under(name, state.links) and name not in tracked:
+                    raise WorkspaceError("preservation_failed", f"{name!r} lives behind a link and must not be in the rescue; nothing was removed", 409)
+        checked: list[str] = []
         for rel, code in state.report.paths.items():
+            if is_under(rel, state.links):
+                continue  # recorded in the report and the rescue message, never read
             full = os.path.join(entry.path, rel)
             if os.path.lexists(full) and not (os.path.isdir(full) and not is_link(full)):
-                if rel.encode("utf-8", "surrogateescape").decode("utf-8", "surrogateescape") not in in_work:
+                if rel not in in_work:
                     raise WorkspaceError("preservation_failed", f"{rel!r} is not in the rescue; nothing was removed", 409)
-                checked += 1
+                checked.append(rel)
             elif code[:1] in ("A", "M", "R", "C") and staged_commit:
                 if rel not in in_index:
                     raise WorkspaceError("preservation_failed", f"staged {rel!r} is not in the rescue; nothing was removed", 409)
-                checked += 1
-        return checked
+        if checked:
+            # git's own hash of the bytes on disk (no filters, no line-ending conversion) against the blob the rescue holds.
+            lines = b"\n".join(_c_quote(rel) for rel in checked) + b"\n"
+            hashed = run(entry.path, ["hash-object", "--no-filters", "--stdin-paths"], input=lines).stdout.decode("ascii", "replace").split()
+            if len(hashed) != len(checked):
+                raise WorkspaceError("preservation_failed", "the bytes of the preserved files could not be re-read; nothing was removed", 409)
+            for rel, oid in zip(checked, hashed):
+                if in_work[rel] != oid:
+                    raise WorkspaceError("preservation_failed", f"{rel!r} differs from the bytes on disk; nothing was removed", 409)
+        return len(checked)

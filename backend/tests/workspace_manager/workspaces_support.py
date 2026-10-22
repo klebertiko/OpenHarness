@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 from workspaces.gitrun import GitRunner
 
 IDENT = ["-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false"]
@@ -20,6 +22,26 @@ PAYLOAD = "import pathlib, sys\npathlib.Path(sys.argv[1], sys.argv[2]).write_tex
 
 def posix(path) -> str:
     return os.fspath(path).replace("\\", "/")
+
+
+def make_dir_link(link, target) -> None:
+    """A directory link at ``link`` pointing at ``target``: a junction on Windows (no privilege needed), a symlink elsewhere."""
+    if sys.platform == "win32":
+        import _winapi
+        _winapi.CreateJunction(os.fspath(target), os.fspath(link))
+        return
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except OSError:
+        pytest.skip("cannot create links here")
+
+
+def make_symlink(link, target, *, directory: bool) -> None:
+    """A real symbolic link; skipped where the platform or the account does not allow creating one (WinError 1314)."""
+    try:
+        os.symlink(target, link, target_is_directory=directory)
+    except (OSError, NotImplementedError):
+        pytest.skip("symbolic links need a privilege this account does not have")
 
 
 class Repo:
