@@ -115,6 +115,7 @@
         <p>Also download <code>SHA256SUMS</code> and, in the same folder, check the checksum and the origin of the file (swap in the name of the file you downloaded):</p>
         <div class="code-sample"><div class="code-head"><span>bash</span></div><pre tabindex="0">sha256sum --check --ignore-missing SHA256SUMS
 gh attestation verify OpenHarness-windows-x64-setup.exe --repo klebertiko/OpenHarness</pre></div>
+        <p class="source-note">On Windows (PowerShell), compare the hash with the file's line in <code>SHA256SUMS</code>: <code>Get-FileHash -Algorithm SHA256 OpenHarness-windows-x64-setup.exe</code></p>
         <p class="source-note">The attestation proves where the file was built; it does not replace a publisher signature.</p>
         <h3 class="download-step">Known limits</h3>
         <ul class="download-limits">
@@ -122,7 +123,7 @@ gh attestation verify OpenHarness-windows-x64-setup.exe --repo klebertiko/OpenHa
           <li>The minimum WebView version is neither decided nor enforced, and rendering varies between WebView2, WKWebView, and WebKitGTK.</li>
           <li>On Windows, the app keeps its database and secrets in <code>%LOCALAPPDATA%\OpenHarness</code>; on other systems, in <code>~/OpenHarness</code>.</li>
           <li>There is no automatic update. Connected mode and the six connections exist, but this version does not claim that each one was tested end to end on every system.</li>
-          <li>Chat commands go through a broker in the backend, with path containment and per-action approval. This does not isolate the operating system: what you approve runs with your privileges.</li>
+          <li>Chat commands go through a broker in the backend, with path containment. In Ask mode every action asks for approval; in Auto mode only a fixed list of commands runs without asking. This does not isolate the operating system: what runs, runs with your privileges.</li>
           <li>License: public preview, source available for evaluation; redistribution terms are not defined yet.</li>
         </ul>
       </div>

@@ -52,13 +52,13 @@ Nilo is the front door — a small presence who greets you and answers what she 
 ## Product surfaces
 
 <p align="center">
-  <img src="website/assets/studio.webp" width="720" alt="Studio — harness canvas" />
+  <img src="website/assets/studio-light.webp" width="720" alt="Studio — harness canvas" />
 </p>
 
 <p align="center"><em>Studio</em> — author the graph, validate the bundle, inspect gates.</p>
 
 <p align="center">
-  <img src="website/assets/chats.webp" width="720" alt="Chats — Nilo and the crew" />
+  <img src="website/assets/chats-light.webp" width="720" alt="Chats — Nilo and the crew" />
 </p>
 
 <p align="center"><em>Chats</em> — talk to Nilo; escalate into the harness when the work needs a crew.</p>

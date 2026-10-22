@@ -8,6 +8,7 @@
 //   cd frontend && npm ci && npm run build          # produces frontend/out
 //   node scripts/capture-site-screenshots.mjs [outDir]
 //
+// The site serves WebP: convert the PNGs (e.g. Pillow: Image.open(f).convert('RGB').save(out, 'WEBP', quality=84, method=6)).
 // Env: OH_SIDECAR (default: the installed openharness-sidecar.exe, or backend run
 // with python), PLAYWRIGHT_MODULE, OH_BROWSER_CHANNEL (default msedge), OH_API_PORT.
 // Port 1420 is allowed by the sidecar CORS list (tauri dev origin); 8765 is never used.
@@ -16,7 +17,7 @@ import { createServer } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -33,6 +34,24 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const apiPort = Number(process.env.OH_API_PORT ?? 18080);
 const webPort = 1420;
 const token = "capture-token-not-a-secret";
+const types = {
+  ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
+  ".txt": "text/plain", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".ico": "image/x-icon",
+};
+const web = createServer((req, res) => {
+  let pathname;
+  try { pathname = decodeURIComponent(new URL(req.url, "http://x").pathname); } catch { res.writeHead(400); res.end(); return; }
+  const base = resolve(frontendOut, "." + pathname);
+  const file = [base, base + ".html", join(base, "index.html")]
+    .find((c) => (c === frontendOut || c.startsWith(frontendOut + sep)) && existsSync(c) && statSync(c).isFile());
+  if (!file) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream" });
+  res.end(readFileSync(file));
+});
+// Listen first: if port 1420 is taken (tauri dev), fail before anything else is started.
+await new Promise((ok, fail) => { web.once("error", fail); web.listen(webPort, "127.0.0.1", ok); });
+
+
 const dataDir = mkdtempSync(join(tmpdir(), "oh-capture-data-"));
 const installed = join(process.env.LOCALAPPDATA ?? "", "Programs", "OpenHarness", "openharness-sidecar.exe");
 const sidecarPath = process.env.OH_SIDECAR ?? installed;
@@ -41,24 +60,14 @@ if (!existsSync(sidecarPath)) throw new Error(`Sidecar not found: ${sidecarPath}
 // the first PID would leak the listener. Never start on a port something else holds.
 const portBusy = await fetch(`http://127.0.0.1:${apiPort}/health`).then(() => true, () => false);
 if (portBusy) throw new Error(`Port ${apiPort} is already in use; set OH_API_PORT.`);
+const minimalEnv = Object.fromEntries(
+  ["PATH", "SystemRoot", "SYSTEMROOT", "TEMP", "TMP", "HOME", "USERPROFILE"]
+    .filter((key) => process.env[key] !== undefined).map((key) => [key, process.env[key]]),
+);
 const sidecar = spawn(sidecarPath, [], {
-  env: { ...process.env, OH_PORT: String(apiPort), OH_SIDECAR_TOKEN: token, OH_DATA_DIR: dataDir, OH_SECRETS: "memory" },
+  env: { ...minimalEnv, OH_PORT: String(apiPort), OH_SIDECAR_TOKEN: token, OH_DATA_DIR: dataDir, OH_SECRETS: "memory" },
   stdio: "ignore",
 });
-
-const types = {
-  ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
-  ".txt": "text/plain", ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".ico": "image/x-icon",
-};
-const web = createServer((req, res) => {
-  const base = resolve(frontendOut, "." + decodeURIComponent(new URL(req.url, "http://x").pathname));
-  const file = [base, base + ".html", join(base, "index.html")]
-    .find((c) => c.startsWith(frontendOut) && existsSync(c) && statSync(c).isFile());
-  if (!file) { res.writeHead(404); res.end(); return; }
-  res.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream" });
-  res.end(readFileSync(file));
-});
-await new Promise((ok) => web.listen(webPort, "127.0.0.1", ok));
 
 const report = { capturedAt: new Date().toISOString(), apiRequests: [], writes: [], pageErrors: [], files: [] };
 let browser;

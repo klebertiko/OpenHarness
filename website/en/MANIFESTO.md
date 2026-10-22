@@ -12,6 +12,6 @@ We advocate an Open Harness Model that is open to inspection and evolution. A ha
 
 **Authority remains human.** People should define objectives, set limits, examine evidence, and decide what to accept. We want clear points of intervention, with room to stop, decline, and change course. Delegating an activity should preserve the ability to question how it was carried out.
 
-We adopted YAML for `.ohm`, favoring readable instructions, comments, and multiline content. The bundled harnesses and the command line already use this syntax; Studio import and export still use JSON, and the desktop migration is not finished. The app already offers graphs, embedded content, structural validation, and simulation. Graphs with cycles are not executable yet, and work cycles will keep requiring explicit execution rules.
+We adopted YAML for `.ohm`, favoring readable instructions, comments, and multiline content. The bundled harnesses that ship as .ohm files and the command line already use this syntax; Studio import and export still use JSON, and the desktop migration is not finished. The app already offers graphs, embedded content, structural validation, and simulation. Graphs with cycles are not executable yet, and work cycles will keep requiring explicit execution rules.
 
 Our aim is to expand this foundation with readability, portability, and human authority as decision criteria. Every announced capability should be supported by something that can be inspected. Every aspiration should remain clearly identified as work still to be done.
