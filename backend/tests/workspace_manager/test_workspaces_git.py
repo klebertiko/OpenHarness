@@ -9,7 +9,7 @@ import pytest
 from workspaces.errors import WorkspaceError
 from workspaces.gitrun import GitFailure, GitRunner
 from workspaces.validation import validate_branch_name, validate_ref
-from workspaces_support import oh_env, runner, make_repo, repo, marker_bench, posix  # noqa: F401
+from workspaces_support import posix
 
 
 def test_git_is_an_absolute_path(runner):

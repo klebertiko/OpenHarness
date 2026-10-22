@@ -8,7 +8,6 @@ import pytest
 from workspaces.errors import WorkspaceError
 from workspaces.paths import canonical
 from workspaces.service import WorkspaceService
-from workspaces_support import oh_env, runner, make_repo, repo, marker_bench, posix  # noqa: F401
 
 
 @pytest.fixture

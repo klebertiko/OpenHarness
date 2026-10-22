@@ -15,7 +15,7 @@ from workspaces.errors import WorkspaceError
 from workspaces.paths import canonical
 from workspaces.service import WorkspaceService
 from workspaces.store import StateStore
-from workspaces_support import Repo, oh_env, runner, make_repo, repo, marker_bench, posix  # noqa: F401
+from workspaces_support import Repo
 
 
 @pytest.fixture

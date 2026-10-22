@@ -10,7 +10,6 @@ import pytest
 from starlette.testclient import TestClient
 
 from main import app
-from workspaces_support import oh_env, runner, make_repo, repo, marker_bench, posix  # noqa: F401
 
 TOKEN = os.environ["OH_SIDECAR_TOKEN"]
 ROUTES = [

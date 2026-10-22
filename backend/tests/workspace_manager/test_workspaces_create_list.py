@@ -13,7 +13,7 @@ from workspaces.gitrun import GitFailure
 from workspaces.paths import canonical
 from workspaces.service import WorkspaceService
 from workspaces.store import StateStore
-from workspaces_support import oh_env, runner, make_repo, repo, marker_bench, posix  # noqa: F401
+from workspaces_support import Repo
 
 
 @pytest.fixture
@@ -145,7 +145,6 @@ def test_a_source_repository_inside_the_managed_root_is_refused(runner, oh_env):
     from workspaces.service import WorkspaceService as S
     nested = oh_env.settings.managed_root / "somewhere" / "clone"
     nested.mkdir(parents=True)
-    from workspaces_support import Repo
     clone = Repo(nested, runner)
     clone.git("init", "-q", "-b", "main")
     clone.commit("a.txt")
