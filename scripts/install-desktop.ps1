@@ -5,7 +5,21 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($InstallerPath)) {
-  $InstallerPath = Join-Path $PSScriptRoot "..\src-tauri\target\release\bundle\nsis\OpenHarness_0.1.0_x64-setup.exe"
+  # Tauri embeds the app version in the file name (OpenHarness_<version>_x64-setup.exe),
+  # including SemVer pre-releases such as 0.0.1-alpha, so match instead of hard-coding it.
+  $nsisDirectory = Join-Path $PSScriptRoot "..\src-tauri\target\release\bundle\nsis"
+  $candidates = @()
+  if (Test-Path -LiteralPath $nsisDirectory) {
+    $candidates = @(Get-ChildItem -LiteralPath $nsisDirectory -Filter "OpenHarness_*_x64-setup.exe" -File)
+  }
+  if ($candidates.Count -eq 0) {
+    throw "No installer matching OpenHarness_*_x64-setup.exe in $nsisDirectory. Build it first (npm run tauri:build) or pass -InstallerPath."
+  }
+  if ($candidates.Count -gt 1) {
+    $names = ($candidates | ForEach-Object { $_.Name }) -join ", "
+    throw "Found $($candidates.Count) installers in $nsisDirectory ($names). Remove the stale ones or pass -InstallerPath."
+  }
+  $InstallerPath = $candidates[0].FullName
 }
 
 $resolvedInstaller = (Resolve-Path -LiteralPath $InstallerPath).Path
