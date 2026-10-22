@@ -62,6 +62,8 @@ for (const theme of ["dark", "light"]) {
         if (s.nav) await click(page, s.nav);
         if (s.act) await s.act(page);
       } catch (e) { errors.push(`act: ${e.message.slice(0, 150)}`); }
+      // The Next.js dev indicator is not part of the product; keep it out of the audit and the captures.
+      await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
       await page.addScriptTag({ content: axeSource });
       const axe = await page.evaluate(async () => {
         const r = await window.axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa", "best-practice"] });

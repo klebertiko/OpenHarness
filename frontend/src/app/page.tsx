@@ -24,7 +24,7 @@ import { StudioActionsBar } from "@/components/studio/StudioActionsBar";
 import { newStudioHarness, openStudioPreset } from "@/lib/studio";
 import { BUNDLED_HARNESS_COMMAND_GROUP } from "@/lib/studioExamples";
 import { hasStudioDraft, startAutosave } from "@/lib/studioDocuments";
-import { EmptyState } from "@/components/ui";
+import { Button, EmptyState } from "@/components/ui";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
 import { useShellStore } from "@/components/shell/shellStore";
@@ -76,7 +76,7 @@ export default function Home() {
 
   const setMode = useModeStore((s) => s.setMode);
   const actions = useHarnessActions();
-  const { section, studioView, toggleLeft, toggleRight, setKeymapOpen, setSection, setStudioView } =
+  const { section, studioView, toggleLeft, toggleRight, setKeymapOpen, setPaletteOpen, setSection, setStudioView } =
     useShellStore();
   const connectionCount = useProviderStore((s) => s.connections.length);
   const [backendOk, setBackendOk] = useState(false);
@@ -307,8 +307,17 @@ export default function Home() {
         <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
         {nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-4 flex items-center justify-center">
-            <EmptyState className="pointer-events-auto max-w-[320px] bg-sub-100" title="This canvas is empty">
-              Add a block from the palette, or use Import .ohm in the bundle bar below.
+            <EmptyState
+              className="pointer-events-auto max-w-[320px] bg-sub-100"
+              title="This canvas is empty"
+              action={
+                // The Blocks list is a side panel; on a phone it is hidden, and the palette lists every block.
+                <Button className="sm:hidden" onClick={() => setPaletteOpen(true)}>
+                  Add a block
+                </Button>
+              }
+            >
+              Add a block from the Blocks list, or use Import .ohm in the bundle bar below.
             </EmptyState>
           </div>
         )}

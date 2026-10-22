@@ -1,6 +1,6 @@
 # Screen audit
 
-Measured on 2026-10-22 against `rebrand/oharness` (commit `50c7797`), before any change in this branch. Reproduce with `node frontend/scripts/audit-screens.mjs` (see the header of the script): it walks every state below in Graphite and Ivory at 1440×900 and 390×844, runs axe-core (WCAG 2.2 AA + best practices), and records console errors, hit-target sizes, loaded fonts and overflow. Screenshots of this baseline are in [`before/`](./before). The sidecar was running with an empty database, so lists are in their empty state. The unreachable-sidecar state was checked separately by pointing the app at a closed port (results under *Sidecar unreachable*).
+Measured on 2026-10-22 against `rebrand/oharness` (commit `50c7797`), before any change in this branch. The sections up to *Order of work* are that baseline; **After the redesign** at the end records the same measurements on this branch. Reproduce with `node frontend/scripts/audit-screens.mjs` (see the header of the script): it walks every state below in Graphite and Ivory at 1440×900 and 390×844, runs axe-core (WCAG 2.2 AA + best practices), and records console errors, hit-target sizes, loaded fonts and overflow. Screenshots of this baseline are in [`before/`](./before). The sidecar was running with an empty database, so lists are in their empty state. The unreachable-sidecar state was checked separately by pointing the app at a closed port (results under *Sidecar unreachable*).
 
 Baseline checks before the work: `eslint --max-warnings=0` clean, `tsc --noEmit` clean, `vitest` 118 files / 908 tests passing, `design-tokens --check` parity ok, `check-contrast` ok with the documented known defects.
 
@@ -130,3 +130,50 @@ Console noise: 7 to 13 failed-resource errors per screen are the browser's own n
 4. Studio overview and editor (toolbar consolidation).
 5. Providers.
 6. Sweep: arbitrary sizes and radii, `ink-faint` reading text, re-run this audit, update README contrast table.
+
+## After the redesign
+
+The same script, the same 24 states (6 states × 2 themes × 2 widths), on the tip of `feat/screens-redesign`. Captures are in [`after/`](./after) next to the baseline in [`before/`](./before), same file names. The baseline captures show the Next.js dev indicator (the round "N" at the bottom left); it is not part of the product and the script now hides it.
+
+| Measure | Before | After |
+| --- | --- | --- |
+| axe violations (WCAG 2.2 AA + best practices) | 19 of 24 states had at least one (`color-contrast` on every Ivory state, `heading-order`, `page-has-heading-one`, `region`) | **0 of 24** |
+| Console errors on a healthy sidecar | 5 of 24 states (the favicon 404 on Chats, the React Flow attribution warning in the editor) | **0** |
+| Hit targets under 24px | 18 of 24 states (2 on Chats at desktop, 9 on the editor, 1 on Providers) | **0** |
+| Fonts loaded | none (system fallback) | Sora 400/500/600 and IBM Plex Mono 400/500, self-hosted |
+| Theme at first contentful paint | applied after hydration | applied before paint (`/theme-init.js`), asserted in e2e |
+| Arbitrary font sizes and radii in `src` | 163 `text-[Npx]`, 58 `rounded-[…]` | **0**, enforced with raw colours by `src/design-system/guardrails.test.ts` |
+| Required contrast pairs failing | 6 known defects | **0** |
+| Identical action offered more than once in the editor | Export ×3, Import ×3, Save ×2 | each action once |
+
+`npm run test:e2e` runs `scripts/e2e-screens.mjs` against the static export: it repeats the axe run in a real browser (colour contrast included) on four screens, both themes and both widths, and checks the theme at first paint, the loaded faces, the skip link, the palette's focus return, the focus ring and sideways scroll at 390px.
+
+### Defect by defect
+
+| ID | Status | What changed |
+| --- | --- | --- |
+| X1 fonts | fixed | `src/app/fonts.ts`, woff2 + OFL licences, metric-matched fallback |
+| X2 theme flash | fixed | blocking `/theme-init.js` sets `data-theme`, `color-scheme`, `theme-color` |
+| X3 `ink-faint` as reading text | fixed | value corrected to 4.5:1 on all four substrates; reading text moved to `ink-mute` |
+| X4 `warn`/`fault` as text | fixed | `text-warn-text`, `text-fault-text` everywhere; a guardrail forbids the bare forms |
+| X5 `signal` as text | fixed | `text-signal-text` |
+| X6 `line` as control edge | fixed | `line-strong` on every input, secondary button and select |
+| X7 focus ring | fixed | one `:focus-visible` rule, 2px signal at 2px offset; `oh-focus-inner` only inside clipped lists; `outline-none` allowed in five named places |
+| X8 arbitrary type and radii | fixed | `t-*` scale (`t-meta` is 11px), radius tokens; guardrail |
+| X9 small targets | fixed | `control-sm/md/lg`; every size is 36px below 640px |
+| X10 `Agent` in the header | fixed | the header names the destination |
+| X11 Portuguese strings | fixed | composer, tool cards, reducer notices, permission hooks; tests updated |
+| X13 machine-flavoured copy | fixed | status bar in words, palette without the count and the slogan |
+| X14 reading size | fixed | `t-reading` 14/1.6, 68ch measure |
+| X15 favicon | fixed | `public/icon.svg` from `brand/app-icon.svg` |
+| E1 Chats with the sidecar down | fixed | the harness picker says `Harness unavailable` and offers Retry; no `Loading…` beside an error |
+| E2/E3 Providers with the sidecar down | partly | the stale-usage notice is in words with the reason; the connection list still shows each provider as the offline template defines it (a store decision in `providers/`, left alone) |
+| S4 duplicated actions, no inspector on narrow windows | fixed | one run bar, one file bar, one bundle dock; the inspector opens as a sheet below 1020px |
+
+### Not done, and why
+
+- `providers/providerStore.ts` selects OpenRouter by default (`selectedId: "openrouter"`), so the Providers screen opens on the last provider of "Needs setup" rather than the first. It is store logic in a module this task does not change; the list now shows the selection with `aria-current` and a signal bar so it is at least visible.
+- Latin-extended glyphs fall back to the system face (see `adoption.md`).
+- The harness library sheet (S8) was only reachable from states that need a populated sidecar; it is covered by its unit test and uses the same `Sheet`, but it was not captured.
+- Playwright snapshots (pixel baselines) are not in; the catalogue at `/dev/design-system` is the page to snapshot.
+- The `Inspector` tab bar and the panel header repeat the word; a single header would be tidier and touches the copilot module's tab contract.

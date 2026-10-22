@@ -10,7 +10,7 @@ First the tokens mirror exactly what the code does today: parity, zero visual ch
 
 - `frontend/src/app/globals.css` stays the runtime source of the variables until the Tailwind 4 `@theme` migration (#120) lands. `docs/design-system/tokens.json` is the spec it must match, name for name: `scripts/design-tokens.mjs --check` fails on any value that differs, any variable `globals.css` declares that no token maps to, and any theme override the tokens do not describe. After #120, update the `css` mapping in the tokens (and the parser's block selectors) to the `@theme` names; the contract does not change.
 - `tokens.json` marks every token with a status: `code` (mirrors a variable in `globals.css`), `hardcoded` (the value lives in a component, no variable yet), `tailwind` (comes from the Tailwind scale) or `proposed` (new, not yet in the app).
-- Components in `frontend/src/components/ui/` do not exist yet. A reference implementation (React, vanilla classic script, tokens only) is kept in `docs/design-system/reference/` with a local preview page; the real components arrive in a separate pull request with tests and a catalogue page, and are not adopted in `agent/`, `providers/` or `agent-run/` until the owners of those modules coordinate.
+- Components live in `frontend/src/components/ui/` (Button, Input, Badge, Kbd, Panel, ListRow, Notice, EmptyState, Skeleton, Segmented, Sheet, plus the existing Combobox), tested with vitest and axe, and shown at `/dev/design-system`. The reference implementation in `docs/design-system/reference/` remains the specification. The screens redesign (`audit/screens.md`) adopted them across every destination, including `agent/`, `providers/` and `agent-run/`; only presentation changed in those modules, not their stores, hooks or reducers, so their owners should review the diff for that boundary.
 
 ## Drift found in the app
 
@@ -35,8 +35,12 @@ First the tokens mirror exactly what the code does today: parity, zero visual ch
 
 ## Status and next steps
 
-Done in this pull request: tokens in DTCG format, the brand book, the experience contract, the Nilo rulebook, parity and contrast checks, `design.md` aligned to the code, and a reference implementation of Button, Input, Badge, Panel, ListRow, Kbd and Nilo (rendered and checked by eye in both themes; Playwright snapshots are not in yet).
+Done: tokens in DTCG format, the brand book, the experience contract, the Nilo rulebook, parity and contrast checks (no known defects left), self-hosted fonts, theme before paint, the corrected and new tokens in `globals.css`, the `ui/` components with tests, the guardrail test, and the redesign of every destination (`audit/screens.md`, with before and after captures in both themes).
 
-1. Visual change, after #120: fonts self-hosted and preloaded, theme set before paint, contrast corrections, `t-meta` to 11px, with before and after in both themes.
-2. Components in `frontend/src/components/ui/` (Button, Input, Badge, Panel, ListRow, Kbd) with vitest and accessibility tests, plus a `/dev/design-system` catalogue page and Playwright snapshots in both themes.
-3. Adoption in existing screens, coordinated with the owners of each module.
+Still open:
+
+1. The Tailwind 4 `@theme` migration (#120) and Biome (#119): not a prerequisite for any of this work. When #120 lands, update the `css` mapping in `tokens.json` and the parser's block selectors in `scripts/design-tokens.mjs` to the `@theme` names; `tailwind.config.ts` in this branch (colours `*.text`, `line.strong`, `control-*` spacing, radii, durations) needs the same move into `@theme`.
+2. `latin-ext` for the two faces, when a locale needs it.
+3. Playwright pixel snapshots of `/dev/design-system` in both themes.
+4. Decide with the providers owners whether the Providers screen should open on the first provider rather than OpenRouter (`providerStore.selectedId`).
+5. Open decision kept from before: radius 10 and 7 against the shipped 4, 6 and 8.

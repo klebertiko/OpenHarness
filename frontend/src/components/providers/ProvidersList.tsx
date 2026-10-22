@@ -141,8 +141,8 @@ function BudgetStrip() {
       </div>
       {loading && !summary && <p role="status" className="t-body text-ink-mute">Loading usage…</p>}
       {error && (
-        <Notice tone="warn" className="mt-2" title="Usage may be out of date">
-          Spend and budget could be stale. <span className="t-meta [overflow-wrap:anywhere]">{error}</span>
+        <Notice tone="warn" className="mt-2">
+          Usage may be out of date. <span className="t-meta [overflow-wrap:anywhere]">{error}</span>
         </Notice>
       )}
       {editing ? (
