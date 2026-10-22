@@ -24,7 +24,7 @@ describe("design tokens", () => {
   });
 
   it("keep the README contrast table current", () => {
-    const readme = fs.readFileSync(path.join(repoRoot, "docs/design-system/README.md"), "utf8");
+    const readme = fs.readFileSync(path.join(repoRoot, "docs/design-system/README.md"), "utf8").replace(/\r\n/g, "\n");
     const match = /<!-- contrast:start -->\n([\s\S]*?)\n<!-- contrast:end -->/.exec(readme);
     expect(match, "README is missing the contrast markers").not.toBeNull();
     expect(match![1].trim()).toBe(script("check-contrast.mjs", "--md").trim());
