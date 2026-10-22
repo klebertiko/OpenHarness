@@ -56,6 +56,8 @@ class InspectionState:
     nested: list[str] = field(default_factory=list)
     submodules: list[str] = field(default_factory=list)
     links: list[LinkInfo] = field(default_factory=list)
+    admin_dir: str | None = None  # <common>/worktrees/<name>: git deletes it recursively on `worktree remove`
+    admin_links: list[LinkInfo] = field(default_factory=list)
     fingerprint: str = field(default="")
 
     @property
@@ -145,8 +147,39 @@ class RemovalMixin:
         branch = own[len("refs/heads/"):] if own and own.startswith("refs/heads/") else None
         return {"count": count, "branch": branch, "has_upstream": upstream, "commits": commits}
 
+    def _admin_dir(self, ctx, entry: WorktreeEntry) -> str | None:
+        """The worktree's administrative directory, found from the repository side (never through the worktree's own ``.git`` file,
+        which a process in the workspace can rewrite): the one ``<common>/worktrees/*`` whose ``gitdir`` file names this worktree.
+        None for the principal worktree (its ``.git`` is the repository itself). No match, or more than one, fails closed."""
+        if canonical(entry.path) == canonical(ctx.common_dir.parent):
+            return None
+        base = os.path.join(os.fspath(ctx.common_dir), "worktrees")
+        wanted = canonical(entry.path)
+        found: list[str] = []
+        try:
+            if is_link(base):
+                raise OSError("worktrees is a link")
+            with os.scandir(base) as iterator:
+                for item in iterator:
+                    try:
+                        if item.is_symlink() or is_link(item.path) or not item.is_dir(follow_symlinks=False):
+                            continue
+                        with open(os.path.join(item.path, "gitdir"), "rb") as handle:
+                            pointer = handle.read(4096).decode("utf-8", "surrogateescape").strip()
+                    except OSError:
+                        continue
+                    if pointer and canonical(os.path.dirname(pointer)) == wanted:
+                        found.append(item.path)
+        except OSError as exc:
+            raise WorkspaceError("inspection_failed", "the worktree's administrative directory could not be read", 409) from exc
+        if len(found) != 1:
+            raise WorkspaceError("inspection_failed", "the worktree's administrative directory could not be identified, so it cannot be proven safe to remove", 409)
+        return found[0]
+
     def _inspect(self, ctx, entry: WorktreeEntry, ident: str | None = None) -> dict[str, Any]:
         missing = not os.path.isdir(entry.path)
+        admin = self._admin_dir(ctx, entry)
+        admin_links = scan_tree(admin).links if admin else []  # the directory git deletes along with the worktree, scanned like it
         report, raw, stat, ignored, nested, submodules, links = StatusReport(), b"", {}, 0, [], [], []
         if not missing:
             links = scan_tree(entry.path).links  # first, and before git looks at the tree: the whole worktree, ignored entries too
@@ -178,11 +211,12 @@ class RemovalMixin:
                     nested.append(rel)  # an untracked directory git lists as one entry is a repository of its own
         state = InspectionState(entry=entry, report=report, status_raw=raw, stat=stat, ignored=ignored,
                                 unpushed=self._unpushed(ctx, entry), missing=missing,
-                                nested=nested, submodules=submodules, links=links)
+                                nested=nested, submodules=submodules, links=links, admin_dir=admin, admin_links=admin_links)
         state.fingerprint = hashlib.sha256(json.dumps({
             "head": entry.head, "branch": entry.branch, "locked": entry.locked, "reason": entry.lock_reason,
             "status": hashlib.sha256(raw).hexdigest(), "stat": sorted(stat.items()), "ignored": ignored,
             "links": [[link.path, link.target, link.kind] for link in links],
+            "admin_links": [[link.path, link.target, link.kind] for link in admin_links],
             "unpushed": [state.unpushed["count"], [c["sha"] for c in state.unpushed["commits"]]],
         }, sort_keys=True).encode("utf-8")).hexdigest()
         return {"state": state}
@@ -246,6 +280,7 @@ class RemovalMixin:
                             "conflicted": report.conflicted, "ignored_entries": state.ignored, "paths": paths,
                             "paths_truncated": len(report.paths) > MAX_REPORTED_PATHS},
                 "links": [link.as_dict() for link in state.links],
+                "admin_links": [link.as_dict() for link in state.admin_links],
                 "unpushed": state.unpushed, "locked": entry.locked, "lock_reason": entry.lock_reason,
                 "needs_lock_release": entry.locked, "missing": state.missing,
                 "pending_work": state.pending, "will_preserve": removable and state.pending,
@@ -264,6 +299,16 @@ class RemovalMixin:
             if is_link(current):
                 raise WorkspaceError("unsafe_destination", "a link sits on the path of this workspace; refusing to follow it", 409)
             current = current.parent
+
+    @staticmethod
+    def _links_now(entry: WorktreeEntry, state: InspectionState) -> list[LinkInfo]:
+        """Every link in the worktree and its administrative directory right now (all of them were undone, so any is new)."""
+        found: list[LinkInfo] = []
+        if os.path.isdir(entry.path):
+            found += scan_tree(entry.path).links
+        if state.admin_dir:
+            found += [LinkInfo(f"(admin)/{link.path}", link.target, link.kind, link.is_dir) for link in scan_tree(state.admin_dir).links]
+        return found
 
     def remove(self, repo: str, workspace_id: str, token: str, release_lock: bool = False) -> dict[str, Any]:
         ctx = self._open(repo)
@@ -292,18 +337,36 @@ class RemovalMixin:
             # Only now, with the rescue proven, are the links undone: each as the link itself, so git never meets one to follow.
             for link in state.links:
                 unlink_link(entry.path, link)
+            for link in state.admin_links:
+                unlink_link(state.admin_dir, link)
             unlocked = False
             if entry.locked:
                 self.runner.run(ctx.cwd, ["worktree", "unlock", "--", entry.path])
                 unlocked = True
-            force = state.dirty or state.missing or bool(state.links)  # a tracked link just undone reads as a change to git
+
+            def relock() -> None:
+                if unlocked:
+                    reason = ["--reason", entry.lock_reason] if entry.lock_reason else []
+                    self.runner.run(ctx.cwd, ["worktree", "lock", *reason, "--", entry.path], check=False)
+
+            # The last look, immediately before git walks the tree: nothing may have become a link since the scan that was confirmed.
+            try:
+                late = self._links_now(entry, state)
+            except WorkspaceError:
+                relock()
+                raise
+            if late:
+                relock()
+                if rescue:
+                    self.runner.run(ctx.cwd, ["update-ref", "-d", rescue["ref"]], check=False)  # the work is still in the worktree
+                raise WorkspaceError("unsafe_destination", "a link appeared in the workspace just before removal; nothing was removed", 409,
+                                     links=[link.as_dict() for link in late])
+            force = state.dirty or state.missing or bool(state.links) or bool(state.admin_links)  # an undone tracked link reads as a change
             try:
                 self.runner.run(ctx.cwd, ["worktree", "remove", *(["--force"] if force else []), "--", entry.path], timeout=120,
                                 filters=True)
             except GitFailure as exc:
-                if unlocked:
-                    reason = ["--reason", entry.lock_reason] if entry.lock_reason else []
-                    self.runner.run(ctx.cwd, ["worktree", "lock", *reason, "--", entry.path], check=False)
+                relock()
                 raise WorkspaceError("remove_failed", "git could not remove the worktree", 409, detail=exc.stderr.strip()[:300],
                                      rescue=rescue) from exc
 
@@ -315,7 +378,7 @@ class RemovalMixin:
             self.store.mutate(forget)
             branch = info["branch"]
             return {"removed": True, "id": workspace_id, "path": info["path"], "rescue": rescue, "branch_kept": branch,
-                    "links": [link.as_dict() for link in state.links]}
+                    "links": [link.as_dict() for link in state.links], "admin_links": [link.as_dict() for link in state.admin_links]}
 
     # ------------------------------------------------------------------ orphaned workspaces
 
