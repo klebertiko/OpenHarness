@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Panel } from "@/components/shell/Panel";
@@ -185,27 +186,18 @@ export function CopilotPanel() {
                 submit(draft);
               }
             }}
-            className="w-full resize-none rounded-control border border-line-soft bg-sub-200 px-2 py-1.5 text-title leading-5 text-ink placeholder:text-ink-mute hover:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-50"
+            className="w-full resize-none rounded-control border border-line-strong bg-sub-200 px-2 py-1.5 text-title leading-5 text-ink placeholder:text-ink-mute hover:bg-sub-300 disabled:opacity-50"
           />
           <div className="mt-1.5 flex items-center justify-between">
             <span className="t-meta text-ink-mute">{draft.length > COUNTER_FROM ? `${draft.length} / ${MAX_PROMPT}` : "Enter to send · Shift+Enter for a new line"}</span>
             {provider ? (
-              <button
-                type="button"
-                disabled={blocked || draft.trim() === ""}
-                onClick={() => submit(draft)}
-                className="h-7 rounded-control bg-signal px-3 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              <Button variant="primary" disabled={blocked || draft.trim() === ""} onClick={() => submit(draft)}>
                 Send
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                onClick={requestSetup}
-                className="h-7 rounded-control bg-signal px-3 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
-              >
+              <Button variant="primary" onClick={requestSetup}>
                 {missing?.text ?? "Connect a provider to send"}
-              </button>
+              </Button>
             )}
           </div>
         </div>

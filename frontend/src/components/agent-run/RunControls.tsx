@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { clock, tokens as fmtTokens } from "./format";
 import type { RunState, RunStatus } from "./types";
 
@@ -28,29 +29,24 @@ function Btn({
   chord?: string;
   title?: string;
 }) {
-  const base =
-    "inline-flex h-[22px] items-center gap-1.5 rounded-control px-2 text-body font-[500] leading-none transition disabled:cursor-not-allowed disabled:opacity-40";
-  const tones = {
-    primary: "bg-signal text-signal-ink hover:bg-signal-deep hover:text-ink",
-    quiet: "border border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink",
-    danger: "border border-line bg-sub-200 text-ink-dim hover:border-fault hover:text-fault",
-  }[tone];
   return (
-    <button type="button" title={title} onClick={onClick} disabled={disabled} className={`${base} ${tones}`}>
+    <Button
+      size="sm"
+      variant={tone === "primary" ? "primary" : tone === "danger" ? "danger" : "secondary"}
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+    >
       {children}
       {chord && (
         <kbd
-          className="oh-kbd"
-          style={
-            tone === "primary"
-              ? { borderColor: "var(--signal-ink)", background: "transparent", color: "var(--signal-ink)" }
-              : undefined
-          }
+          className="t-meta rounded-control border px-1"
+          style={tone === "primary" ? { borderColor: "var(--signal-ink)", color: "var(--signal-ink)" } : { borderColor: "var(--line)" }}
         >
           {chord}
         </kbd>
       )}
-    </button>
+    </Button>
   );
 }
 

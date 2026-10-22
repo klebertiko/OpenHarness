@@ -8,6 +8,7 @@ import { KeymapSheet } from "./KeymapSheet";
 import { HarnessLibrarySheet } from "./HarnessLibrarySheet";
 import { useShellStore, LEFT_MIN, LEFT_MAX, RIGHT_MIN, RIGHT_MAX, type RailSection } from "./shellStore";
 import { isEditingTarget, isTypeaheadTarget, matchesChord, useIsMac } from "./keys";
+import { Sheet } from "@/components/ui";
 import { shellNavCommands, type Command } from "./commands";
 import { useModeStore } from "@/store/modeStore";
 import { useProviderStore } from "@/components/providers/providerStore";
@@ -103,6 +104,8 @@ interface Props {
   left: React.ReactNode;
   stage: React.ReactNode;
   right: React.ReactNode;
+  /** Closes the right panel's content. Below 1020px the panel is a sheet and this is what dismissing it does. */
+  onDismissRight?: () => void;
 }
 
 export function AppShell({
@@ -120,6 +123,7 @@ export function AppShell({
   left,
   stage,
   right,
+  onDismissRight,
 }: Props) {
   const mac = useIsMac();
   const shell = useShellStore();
@@ -311,6 +315,19 @@ export function AppShell({
           backendOk={backendOk}
         />
       )}
+
+      {/* Too narrow for a column: the same panel opens as a sheet, so a node can
+          still be inspected and Nilo still reached on a phone or a small window. */}
+      <Sheet
+        open={narrow.right && !immersive && Boolean(right) && Boolean(onDismissRight)}
+        onOpenChange={(v) => !v && onDismissRight?.()}
+        title="Inspector"
+        hideTitle
+        showClose
+        className="h-[min(640px,calc(100dvh-var(--h-titlebar)-20px))] w-[min(520px,calc(100vw-24px))]"
+      >
+        <div className="min-h-0 flex-1">{right}</div>
+      </Sheet>
 
       <CommandPalette
         open={paletteOpen}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/Button";
 import { useEffect, useRef, useState } from "react";
 import { Check, Trash2, Upload, Workflow } from "lucide-react";
 
@@ -77,16 +78,9 @@ export function HarnessLibrary({ onPicked }: { onPicked?: (bundle: HarnessBundle
               if (f) void onImportFile(f);
             }}
           />
-          <button
-            type="button"
-            disabled={busy}
-            title="Import a .ohm file"
-            onClick={() => fileRef.current?.click()}
-            className="inline-flex h-6 items-center gap-1.5 rounded-panel px-2 text-body font-[500] text-ink-mute transition-colors hover:bg-sub-200 hover:text-ink disabled:opacity-40"
-          >
-            <Upload size={13} strokeWidth={1.8} />
+          <Button size="sm" variant="ghost" disabled={busy} title="Import a .ohm file" onClick={() => fileRef.current?.click()} icon={<Upload size={13} strokeWidth={1.8} aria-hidden />}>
             Import
-          </button>
+          </Button>
         </>
       }
     >
@@ -129,7 +123,7 @@ export function HarnessLibrary({ onPicked }: { onPicked?: (bundle: HarnessBundle
               }
               trailing={
                 active ? (
-                  <span className="inline-flex items-center gap-1 text-body font-[500] text-signal-text">
+                  <span className="inline-flex items-center gap-1 text-body font-medium text-signal-text">
                     <Check size={13} strokeWidth={2} />
                     {onPicked ? "Current" : "In use"}
                   </span>

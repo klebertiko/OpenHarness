@@ -317,7 +317,7 @@ export function Combobox({
     >
       {o.leading}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-title font-[500] leading-5 text-ink">{o.label}</span>
+        <span className="block truncate text-title font-medium leading-5 text-ink">{o.label}</span>
         {o.detail && <span className="t-meta block truncate text-ink-mute">{o.detail}</span>}
       </span>
       {o.trailing}
@@ -337,7 +337,7 @@ export function Combobox({
       rows.push(
         <div key={"g:" + g} role="group" aria-labelledby={g ? headingId : undefined}>
           {g && (
-            <div id={headingId} role="presentation" className="px-3 pb-1 pt-2 text-meta font-[500] text-ink-mute">
+            <div id={headingId} role="presentation" className="px-3 pb-1 pt-2 text-meta font-medium text-ink-mute">
               {g}
             </div>
           )}
@@ -458,7 +458,7 @@ export function ComboAction({ children, onClick, disabled }: { children: ReactNo
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="oh-focus-inner flex h-control-md w-full items-center gap-2 rounded-control px-2 text-left text-body font-[500] text-ink-dim max-sm:h-control-lg transition-colors hover:bg-sub-200 hover:text-ink active:bg-sub-300 disabled:cursor-wait disabled:opacity-60"
+      className="oh-focus-inner flex h-control-md w-full items-center gap-2 rounded-control px-2 text-left text-body font-medium text-ink-dim max-sm:h-control-lg transition-colors hover:bg-sub-200 hover:text-ink active:bg-sub-300 disabled:cursor-wait disabled:opacity-60"
     >
       {children}
     </button>

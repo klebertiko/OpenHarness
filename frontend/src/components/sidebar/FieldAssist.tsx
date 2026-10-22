@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PenLine } from "lucide-react";
 import { assistField } from "@/lib/copilot/api";
@@ -160,10 +161,6 @@ export function useFieldAssist(nodeId: string, field: AssistField): AssistContro
   return { field, open, setOpen, phase, seconds, intent, setIntent, hasText, disabled: isRunning, result, error, run, cancel, discard, use };
 }
 
-const quietBtn =
-  "h-6 rounded-control border border-line px-2 text-body text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40";
-const primaryBtn =
-  "h-6 rounded-control bg-signal px-2.5 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40";
 
 export function AssistToggle({ ctl }: { ctl: AssistController }) {
   return (
@@ -188,7 +185,7 @@ export function AssistRow({ ctl }: { ctl: AssistController }) {
     return (
       <div role="status" className="mt-1.5 flex items-center gap-2">
         <span className="t-meta text-ink-mute">Working · {ctl.seconds}s</span>
-        <button type="button" onClick={ctl.cancel} className={quietBtn}>Cancel</button>
+        <Button size="sm" variant="secondary" onClick={ctl.cancel}>Cancel</Button>
       </div>
     );
   }
@@ -212,11 +209,11 @@ export function AssistRow({ ctl }: { ctl: AssistController }) {
         )}
         <div className="flex items-center gap-2">
           {review ? (
-            <button type="button" className={primaryBtn} onClick={() => ctl.run("improve", response.notes.join("\n"))}>Improve with these</button>
+            <Button size="sm" variant="primary" onClick={() => ctl.run("improve", response.notes.join("\n"))}>Improve with these</Button>
           ) : (
-            <button type="button" className={primaryBtn} onClick={ctl.use}>Use this</button>
+            <Button size="sm" variant="primary" onClick={ctl.use}>Use this</Button>
           )}
-          <button type="button" className={quietBtn} onClick={ctl.discard}>Discard</button>
+          <Button size="sm" variant="secondary" onClick={ctl.discard}>Discard</Button>
         </div>
       </div>
     );
@@ -229,8 +226,8 @@ export function AssistRow({ ctl }: { ctl: AssistController }) {
       )}
       {ctl.hasText ? (
         <div className="flex items-center gap-2">
-          <button type="button" className={quietBtn} onClick={() => ctl.run("improve")}>Improve</button>
-          <button type="button" className={quietBtn} onClick={() => ctl.run("review")}>Review</button>
+          <Button size="sm" variant="secondary" onClick={() => ctl.run("improve")}>Improve</Button>
+          <Button size="sm" variant="secondary" onClick={() => ctl.run("review")}>Review</Button>
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -247,9 +244,9 @@ export function AssistRow({ ctl }: { ctl: AssistController }) {
                 ctl.run("draft");
               }
             }}
-            className="h-7 min-w-0 flex-1 rounded-control border border-line-soft bg-sub-200 px-2 text-title text-ink placeholder:text-ink-mute hover:border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+            className="h-control-md min-w-0 flex-1 rounded-control border border-line-strong bg-sub-200 px-2 text-title text-ink placeholder:text-ink-mute hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
           />
-          <button type="button" className={primaryBtn} disabled={!ctl.intent.trim()} onClick={() => ctl.run("draft")}>Draft</button>
+          <Button size="sm" variant="primary" disabled={!ctl.intent.trim()} onClick={() => ctl.run("draft")}>Draft</Button>
         </div>
       )}
     </div>

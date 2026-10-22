@@ -88,7 +88,7 @@ export function HarnessSwitch({ onOpenStudio }: HarnessSwitchProps) {
         status={libraryHydrated ? "ready" : error ? "error" : "loading"}
         loadingText="Loading harnesses…"
         errorText="Couldn't load harnesses."
-        triggerClassName="h-control-md max-w-[260px] px-2.5 text-body font-[500] text-ink-dim hover:text-ink max-sm:h-control-lg"
+        triggerClassName="h-control-md max-w-[260px] px-2.5 text-body font-medium text-ink-dim hover:text-ink max-sm:h-control-lg"
         trigger={
           <>
             <Workflow size={14} strokeWidth={1.8} className={enabled ? "flex-none text-signal-text" : "flex-none text-ink-mute"} aria-hidden />

@@ -49,7 +49,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={loading || undefined}
       onClick={loading ? (e) => e.preventDefault() : onClick}
       className={cn(
-        "relative inline-flex flex-none select-none items-center justify-center gap-2 whitespace-nowrap rounded-control border border-transparent font-[500] transition-colors",
+        "relative inline-flex flex-none select-none items-center justify-center gap-2 whitespace-nowrap rounded-control border border-transparent font-medium transition-colors",
         "disabled:cursor-not-allowed disabled:opacity-45 aria-[busy=true]:cursor-progress",
         SIZE[size],
         iconOnly && SQUARE[size],

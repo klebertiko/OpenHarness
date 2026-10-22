@@ -80,8 +80,8 @@ function ToolbarButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className={`grid h-[22px] w-[24px] place-items-center border-r border-line-soft text-ink-mute transition-colors last:border-r-0 hover:bg-sub-300 hover:text-ink ${
-        danger ? "hover:text-fault" : ""
+      className={`grid h-6 w-6 place-items-center border-r border-line-soft text-ink-mute transition-colors last:border-r-0 hover:bg-sub-300 hover:text-ink ${
+        danger ? "hover:text-fault-text" : ""
       }`}
     >
       <Icon size={12} strokeWidth={1.7} absoluteStrokeWidth />
@@ -257,7 +257,7 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
                         }
                         className="oh-focus-inner t-meta truncate rounded-none underline decoration-dotted underline-offset-2"
                         style={{
-                          color: pout.tone === "accept" ? "var(--signal-deep)" : "var(--fault-text)",
+                          color: pout.tone === "accept" ? "var(--signal-text)" : "var(--fault-text)",
                         }}
                       >
                         {pout.label}
@@ -268,9 +268,9 @@ export function BaseNode({ id, type, data, selected, spec, note }: BaseNodeProps
                         style={{
                           color:
                             pout.tone === "accept"
-                              ? "var(--signal-deep)"
+                              ? "var(--signal-text)"
                               : pout.tone === "reject"
-                                ? "var(--fault)"
+                                ? "var(--fault-text)"
                                 : "var(--ink-mute)",
                         }}
                       >

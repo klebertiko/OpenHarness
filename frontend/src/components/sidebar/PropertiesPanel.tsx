@@ -34,7 +34,7 @@ import { connectionLabel } from "@/components/agent-run/pinnedConnection";
 const ADAPTERS: AdapterType[] = ["mock", "claude", "ollama", "openai", "lmstudio", "codex"];
 
 const inputCls =
-  `${styles.fieldControl} w-full rounded-control border border-line-soft bg-sub-200 px-2 py-1 text-title text-ink transition-colors hover:border-line`;
+  `${styles.fieldControl} w-full rounded-control border border-line-strong bg-sub-200 px-2 py-1 text-title text-ink transition-colors hover:bg-sub-300`;
 const textareaCls = `${inputCls} h-[76px] resize-none text-body leading-relaxed`;
 
 /** Picker trigger styled like the inspector's other fields. */
@@ -123,9 +123,9 @@ function PortTable({ nodeId, type }: { nodeId: string; type: NodeType }) {
       {rows.map((r) => {
         const tone =
           r.port.tone === "accept"
-            ? "var(--signal-deep)"
+            ? "var(--signal-text)"
             : r.port.tone === "reject"
-              ? "var(--fault)"
+              ? "var(--fault-text)"
               : "var(--ink-mute)";
         const wired = r.wires.length > 0;
         return (
@@ -267,7 +267,7 @@ export function PropertiesPanel() {
     return (
       <Panel title="Inspector" className="h-full">
         <div className="flex h-full flex-col items-center justify-center gap-2 px-6">
-          <p className="text-center text-title font-[600] text-ink-dim">Select a block</p>
+          <p className="text-center text-title font-semibold text-ink-dim">Select a block</p>
           <p className="max-w-[190px] text-center text-body leading-5 text-ink-mute">
             Inspect its connections and edit its settings here. Add a block from the Blocks panel to get started.
           </p>

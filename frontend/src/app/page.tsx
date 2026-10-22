@@ -24,6 +24,7 @@ import { StudioActionsBar } from "@/components/studio/StudioActionsBar";
 import { newStudioHarness, openStudioPreset } from "@/lib/studio";
 import { BUNDLED_HARNESS_COMMAND_GROUP } from "@/lib/studioExamples";
 import { hasStudioDraft, startAutosave } from "@/lib/studioDocuments";
+import { EmptyState } from "@/components/ui";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
 import { useShellStore } from "@/components/shell/shellStore";
@@ -304,7 +305,13 @@ export default function Home() {
       <StudioActionsBar />
       <div className="relative min-h-0 flex-1">
         <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
-        {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-title leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
+        {nodes.length === 0 && (
+          <div className="pointer-events-none absolute inset-4 flex items-center justify-center">
+            <EmptyState className="pointer-events-auto max-w-[320px] bg-sub-100" title="This canvas is empty">
+              Add a block from the palette, or use Import .ohm in the bundle bar below.
+            </EmptyState>
+          </div>
+        )}
       </div>
       <ValidateDock />
     </div>
@@ -337,16 +344,16 @@ export default function Home() {
             <Toolbar
               onRun={actions.run}
               onStop={actions.stop}
-              onSave={actions.save}
-              onExport={actions.exportJson}
-              onImport={actions.importJson}
-              saveMsg={actions.saveMsg}
             />
           ) : null
         }
         left={left}
         stage={stage}
         right={isStudio && studioView === "editor" && (selectedNodeId || copilotOpen) ? <StudioSidePanel /> : null}
+        onDismissRight={() => {
+          setSelectedNode(null);
+          useCopilotStore.getState().close();
+        }}
       />
     </ReactFlowProvider>
   );

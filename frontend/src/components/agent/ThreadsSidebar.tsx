@@ -69,7 +69,7 @@ export function ThreadsSidebar() {
         <nav ref={listRef} aria-label="Chats" onKeyDown={onKeyDown} className="flex flex-col pb-2">
           {groups.map(({ label, items }) => (
             <section key={label} aria-label={label} className="px-1.5 pt-2">
-              <h3 className="px-2 pb-1 text-meta font-[500] text-ink-mute">{label}</h3>
+              <h3 className="px-2 pb-1 text-meta font-medium text-ink-mute">{label}</h3>
               <ul className="flex flex-col gap-px">
                 {items.map((thread) => (
                   <ThreadRow key={thread.id} thread={thread} active={thread.id === activeThreadId} onSelect={() => selectThread(thread.id)} />
@@ -80,7 +80,7 @@ export function ThreadsSidebar() {
 
           {archived.length > 0 && (
             <details className="mt-2 px-1.5">
-              <summary className="oh-focus-inner min-h-control-md cursor-pointer list-none rounded-control px-2 py-1.5 text-meta font-[500] text-ink-mute marker:content-none hover:text-ink">
+              <summary className="oh-focus-inner min-h-control-md cursor-pointer list-none rounded-control px-2 py-1.5 text-meta font-medium text-ink-mute marker:content-none hover:text-ink">
                 Archived · {archived.length}
               </summary>
               <ul className="flex flex-col gap-px pt-1">
@@ -269,7 +269,7 @@ function MenuItem({ icon: Icon, children, onClick, danger = false }: { icon: typ
       role="menuitem"
       onClick={onClick}
       className={cn(
-        "oh-focus-inner flex min-h-control-md w-full items-center gap-2 rounded-control px-2 py-1 text-left text-body font-[500] transition-colors max-sm:min-h-control-lg",
+        "oh-focus-inner flex min-h-control-md w-full items-center gap-2 rounded-control px-2 py-1 text-left text-body font-medium transition-colors max-sm:min-h-control-lg",
         danger ? "text-fault-text hover:bg-sub-200" : "text-ink-dim hover:bg-sub-200 hover:text-ink",
       )}
     >

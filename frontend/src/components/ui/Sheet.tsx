@@ -1,7 +1,9 @@
 "use client";
 import * as Dialog from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "./Button";
 
 /**
  * A modal float: the command palette, the keyboard map, the harness library.
@@ -16,6 +18,7 @@ export function Sheet({
   title,
   hideTitle = false,
   placement = "center",
+  showClose = false,
   className,
   children,
 }: {
@@ -26,6 +29,8 @@ export function Sheet({
   hideTitle?: boolean;
   /** `top` hangs from the title bar like the palette; `center` is a standard sheet. */
   placement?: "top" | "center";
+  /** A visible Close button, for sheets a touch user must be able to dismiss without a keyboard. */
+  showClose?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -58,6 +63,11 @@ export function Sheet({
           )}
         >
           <Dialog.Title className={hideTitle ? "sr-only" : "t-title flex-none border-b border-line-soft px-3 py-2 text-ink"}>{title}</Dialog.Title>
+          {showClose && (
+            <Dialog.Close asChild>
+              <Button iconOnly size="sm" variant="ghost" aria-label="Close" className="absolute right-1 top-1 z-10" icon={<X size={14} aria-hidden />} />
+            </Dialog.Close>
+          )}
           {children}
         </Dialog.Content>
       </Dialog.Portal>

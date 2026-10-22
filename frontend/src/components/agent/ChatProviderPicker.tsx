@@ -124,7 +124,7 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
       open={open}
       onOpenChange={setOpen}
       header={readyCount === 0 ? "No provider is ready to answer. Set one up in Providers." : "Chat default. Agents with a pinned connection use their own provider."}
-      triggerClassName="h-control-md max-w-[260px] px-2 text-body font-[500] text-ink-dim max-sm:h-control-lg"
+      triggerClassName="h-control-md max-w-[260px] px-2 text-body font-medium text-ink-dim max-sm:h-control-lg"
       trigger={
         <>
           <span className={"h-1.5 w-1.5 flex-none rounded-full " + dotClass} aria-hidden />
@@ -140,7 +140,7 @@ export function ChatProviderPicker({ onConnect }: { onConnect: () => void }) {
         >
           <span className="truncate">Manage providers</span>
           {needSetup > 0 && (
-            <span className="ml-auto flex-none text-meta font-[400] text-ink-mute">
+            <span className="ml-auto flex-none text-meta font-normal text-ink-mute">
               {needSetup} {needSetup === 1 ? "needs" : "need"} setup
             </span>
           )}

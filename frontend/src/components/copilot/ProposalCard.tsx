@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { useReactFlow } from "@xyflow/react";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useCopilotStore, type Proposal } from "@/store/copilotStore";
@@ -59,22 +60,12 @@ export function ProposalCard({ turnId, proposal }: { turnId: string; proposal: P
         })}
       </ul>
       <div className="flex items-center gap-2 border-t border-line-soft px-3 py-2">
-        <button
-          type="button"
-          onClick={() => keep(turnId)}
-          className="h-7 rounded-control bg-signal px-3 text-body font-[500] text-signal-ink transition-colors hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
-        >
+        <Button variant="primary" onClick={() => keep(turnId)}>
           Keep
-        </button>
-        <button
-          type="button"
-          onClick={() => undo(turnId)}
-          disabled={!canUndo}
-          title={canUndo ? undefined : "The graph changed since — use Undo (Mod+Z)"}
-          className="h-7 rounded-control border border-line px-3 text-body font-medium text-ink hover:bg-sub-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        </Button>
+        <Button onClick={() => undo(turnId)} disabled={!canUndo} title={canUndo ? undefined : "The graph changed since — use Undo (Mod+Z)"}>
           Undo
-        </button>
+        </Button>
       </div>
     </section>
   );

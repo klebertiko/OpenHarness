@@ -97,8 +97,8 @@ try {
   assert.deepEqual(executions[1].graph_json.nodes.find(n => n.id === 'impl').data.providerIds, ['openai']);
   checks.push('Mock/live serialized mode and selected pin verified; execution response stubbed');
   step = 'OHM roundtrip and rejected import';
-  // Two .ohm inputs exist (actions bar, validate dock); the dock reports "Imported · <id>".
-  const upload = bundle => page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').nth(1).setInputFiles({ name: 'roundtrip.ohm', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
+  // The validate dock owns the .ohm import input and reports "Imported · <id>".
+  const upload = bundle => page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').first().setInputFiles({ name: 'roundtrip.ohm', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
   await upload(fixture); await page.getByText('Imported · ' + fixture.manifest.id, { exact: true }).waitFor();
   const first = await download('first.ohm'); assert.deepEqual(authored(first), fixture);
   await upload(first); await page.getByText('Imported · ' + fixture.manifest.id, { exact: true }).waitFor();

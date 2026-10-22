@@ -81,7 +81,7 @@ export function WorkspacePicker() {
       onChange={(id) => setChosen(id || null)}
       onOpenChange={(open) => open && setNotice(null)}
       width={280}
-      triggerClassName="h-control-md max-w-[180px] px-2 text-body font-[500] text-ink-mute hover:text-ink max-sm:h-control-lg"
+      triggerClassName="h-control-md max-w-[180px] px-2 text-body font-medium text-ink-mute hover:text-ink max-sm:h-control-lg"
       trigger={
         <>
           <Folder size={13} strokeWidth={1.8} className="flex-none" aria-hidden />

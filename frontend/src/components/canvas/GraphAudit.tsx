@@ -75,22 +75,15 @@ export function GraphAudit() {
 
   return (
     <div className="pointer-events-none absolute right-[10px] top-[10px] z-10 flex w-[188px] flex-col items-end gap-[5px]">
-      <div className="oh-float pointer-events-auto flex h-[24px] w-full items-center gap-2 px-2">
-        <span
-          aria-hidden
-          className="h-[6px] w-[6px] flex-none rounded-none"
-          style={{ background: clean ? "var(--signal-deep)" : "var(--warn)" }}
-        />
-        <span className="t-label flex-1 text-ink-dim">
-          {clean ? "Graph wireable" : `${faults.length + (noEntry ? 1 : 0)} unwired`}
-        </span>
-        <span className="t-meta text-ink-mute">
-          {nodes.length}n·{edges.length}e
+      <div role="status" className="oh-float pointer-events-auto flex min-h-control-sm w-full items-center gap-2 px-2">
+        <span aria-hidden className={`h-1.5 w-1.5 flex-none rounded-none ${clean ? "bg-signal" : "bg-warn"}`} />
+        <span className="t-body flex-1 text-ink-dim">
+          {clean ? "All nodes wired" : `${faults.length + (noEntry ? 1 : 0)} not wired`}
         </span>
       </div>
 
       {noEntry && (
-        <div className="oh-float pointer-events-auto flex w-full items-center gap-2 px-2 py-[4px]">
+        <div className="oh-float pointer-events-auto flex w-full items-center gap-2 px-2 py-1">
           <span className="t-body flex-1 truncate text-ink-mute">No input node</span>
           <span className="t-meta flex-none text-warn-text">entry</span>
         </div>
@@ -101,7 +94,7 @@ export function GraphAudit() {
           key={f.nodeId}
           type="button"
           onClick={() => reveal(f.nodeId)}
-          className="oh-float pointer-events-auto flex w-full items-center gap-2 px-2 py-[4px] text-left transition-colors hover:bg-sub-200"
+          className="oh-float oh-focus-inner pointer-events-auto flex min-h-control-md w-full items-center gap-2 px-2 py-1 text-left transition-colors hover:bg-sub-200"
         >
           <span className="t-body flex-1 truncate text-ink-dim">{f.label}</span>
           <span className="t-meta flex-none text-warn-text">{f.note}</span>

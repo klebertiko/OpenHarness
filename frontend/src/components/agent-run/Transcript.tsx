@@ -538,13 +538,13 @@ function NodeBreakdown({
       <caption className="sr-only">Per-node latency and token attribution for this run</caption>
       <thead>
         <tr className="t-label text-ink-mute">
-          <th scope="col" className="px-1.5 pb-1 text-left font-[600]">
+          <th scope="col" className="px-1.5 pb-1 text-left font-semibold">
             node
           </th>
-          <th scope="col" className="px-1.5 pb-1 text-right font-[600]">
+          <th scope="col" className="px-1.5 pb-1 text-right font-semibold">
             latency
           </th>
-          <th scope="col" className="px-1.5 pb-1 text-right font-[600]">
+          <th scope="col" className="px-1.5 pb-1 text-right font-semibold">
             tokens
           </th>
         </tr>

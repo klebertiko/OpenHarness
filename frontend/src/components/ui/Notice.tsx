@@ -33,7 +33,7 @@ export function Notice({
     <div role={tone === "fault" ? "alert" : "status"} className={cn("flex items-start gap-2 rounded-control border px-3 py-2 text-body", box, className)}>
       <Icon aria-hidden size={14} className={cn("mt-0.5 flex-none", text)} />
       <div className="min-w-0 flex-1">
-        {title && <p className={cn("font-[500]", tone === "info" ? "text-ink" : text)}>{title}</p>}
+        {title && <p className={cn("font-medium", tone === "info" ? "text-ink" : text)}>{title}</p>}
         {children && <div className="text-ink-dim">{children}</div>}
       </div>
       {action && <div className="flex flex-none items-center">{action}</div>}

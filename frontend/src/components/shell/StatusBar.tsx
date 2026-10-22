@@ -34,7 +34,7 @@ export function StatusBar({ mode, running, nodeCount, edgeCount, selectedId, bac
   const setKeymapOpen = useShellStore((s) => s.setKeymapOpen);
 
   return (
-    <footer aria-label="Status" className="flex h-statusbar flex-none items-stretch border-t border-line bg-sub-100">
+    <footer aria-label="Status" className="flex h-statusbar flex-none items-stretch bg-sub-100 shadow-[inset_0_1px_0_var(--line)]">
       <Cell>
         <span className={cn("h-1.5 w-1.5 rounded-none", running ? "bg-signal" : "bg-ink-mute")} aria-hidden />
         <span className="text-ink-dim" role="status">{running ? "Running" : "Ready"}</span>

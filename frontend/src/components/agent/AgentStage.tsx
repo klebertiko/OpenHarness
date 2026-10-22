@@ -324,7 +324,7 @@ export function AgentStage() {
                   m.role === "user" ? "self-end px-4 py-3 oh-agent-message--user" : "self-start pl-4 oh-agent-message--assistant",
                 ].join(" ")}
               >
-                <span className="text-body font-[500] text-ink-mute">
+                <span className="text-body font-medium text-ink-mute">
                   {m.role === "user" ? "You" : m.providerLabel ? `OHarness · ${m.providerLabel}` : "OHarness"}
                 </span>
                 <div className={["max-w-[68ch] whitespace-pre-wrap break-words text-reading", m.role === "user" ? "text-ink" : "text-ink-dim"].join(" ")}>

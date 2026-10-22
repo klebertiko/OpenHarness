@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { useEffect, useRef, useState } from "react";
 import css from "./agentRun.module.css";
 import type { Segment } from "./types";
@@ -100,26 +101,15 @@ export function Gate({
         />
 
         <div className="mt-2 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onResolve("approve", note.trim())}
-            className="inline-flex h-[24px] items-center gap-1.5 rounded-control bg-signal px-2.5 text-body font-[500] leading-none text-signal-ink transition hover:bg-signal-deep hover:text-ink"
-          >
+          <Button variant="primary" size="sm" onClick={() => onResolve("approve", note.trim())}>
             Approve &amp; continue
-            <kbd
-              className="oh-kbd"
-              style={{ borderColor: "var(--signal-ink)", background: "transparent", color: "var(--signal-ink)" }}
-            >
+            <kbd className="t-meta rounded-control border px-1" style={{ borderColor: "var(--signal-ink)", color: "var(--signal-ink)" }}>
               ⏎
             </kbd>
-          </button>
-          <button
-            type="button"
-            onClick={() => onResolve("reject", note.trim())}
-            className="inline-flex h-[24px] items-center rounded-control border border-line bg-sub-200 px-2.5 text-body font-[500] leading-none text-ink-dim transition hover:border-fault hover:text-fault"
-          >
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => onResolve("reject", note.trim())}>
             Reject &amp; end run
-          </button>
+          </Button>
           <span className="t-meta ml-auto text-ink-mute">nothing downstream runs until you answer</span>
         </div>
       </div>

@@ -137,7 +137,7 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
       <button
         type="button"
         onClick={onBack}
-        className="flex flex-none items-center gap-1.5 px-2.5 py-2 text-body font-[500] text-ink-mute transition-colors hover:text-ink"
+        className="flex flex-none items-center gap-1.5 px-2.5 py-2 text-body font-medium text-ink-mute transition-colors hover:text-ink"
       >
         <ArrowLeft size={13} strokeWidth={1.8} />
         All activity
@@ -147,7 +147,7 @@ function RunDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
       {run && s && (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-          <p className="text-reading font-[500] text-ink">{run.harnessName || "Ad-hoc run"}</p>
+          <p className="text-reading font-medium text-ink">{run.harnessName || "Ad-hoc run"}</p>
           <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-body">
             <dt className="text-ink-mute">Status</dt>
             <dd className="flex items-center gap-1.5 text-ink-dim">
