@@ -110,3 +110,26 @@ def test_a_failed_worktree_add_carries_no_absolute_path(svc, repo, oh_env, monke
     text = str(caught.value.to_dict())
     assert str(oh_env.tmp) not in text and oh_env.tmp.as_posix() not in text and "some dir" not in text
     assert "refs/heads/x" in text  # ref names are not paths and stay readable
+
+
+LONE_SURROGATE = '"' + chr(92) + 'ud800"'
+
+
+@pytest.mark.parametrize("method,url,body", [
+    ("post", "/workspaces", '{"repo": "x", "ref": %s}'),
+    ("post", "/workspaces", '{"repo": %s, "ref": "main"}'),
+    ("post", "/workspaces", '{"repo": "x", "ref": "main", "branch": %s}'),
+    ("put", "/workspaces/selected", '{"repo": "x", "id": %s}'),
+    ("post", "/workspaces/main/removal-check", '{"repo": %s}'),
+    ("post", "/workspaces/main/remove", '{"repo": "x", "confirmation_token": %s}'),
+    ("post", "/workspaces", '{"repo": "x", "ref": "main", %s: 1}'),
+    ("post", "/workspaces", '{"repo": "x", "ref": "main", "extra": [{"deep": %s}]}'),
+])
+def test_a_lone_surrogate_in_a_body_is_a_422_not_a_500(client, method, url, body):
+    response = getattr(client, method)(url, content=body % LONE_SURROGATE, headers={"Content-Type": "application/json"})
+    assert response.status_code == 422 and response.json()["detail"]["code"] == "invalid_json"
+
+
+def test_a_paired_surrogate_escape_is_a_character_not_an_error(client):
+    response = client.post("/workspaces", content='{"repo": "x", "ref": "main", "branch": "' + chr(92) + 'ud83d' + chr(92) + 'ude00"}', headers={"Content-Type": "application/json"})
+    assert response.status_code == 400 and response.json()["detail"]["code"] == "invalid_branch"  # the emoji is judged by the branch rules

@@ -31,8 +31,23 @@ def _finite_float(text: str) -> float:
     return value
 
 
+def _has_lone_surrogate(value: Any) -> bool:
+    """A string (or key) anywhere in the parsed body that holds a lone UTF-16 surrogate: it cannot be encoded as UTF-8 anywhere downstream."""
+    if isinstance(value, str):
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            return True
+        return False
+    if isinstance(value, dict):
+        return any(_has_lone_surrogate(key) or _has_lone_surrogate(item) for key, item in value.items())
+    if isinstance(value, list):
+        return any(_has_lone_surrogate(item) for item in value)
+    return False
+
+
 async def strict_json(request: Request) -> None:
-    """Refuse ``NaN``/``Infinity`` in a body with a 422 before validation runs.
+    """Refuse ``NaN``/``Infinity``, out-of-range numbers and lone surrogates in a body with a 422 before validation runs.
 
     Python's JSON parser accepts them, and pydantic then echoes the offending value into its error report, which the response
     encoder cannot serialise: a 500 for what is plainly a client mistake.
@@ -41,10 +56,12 @@ async def strict_json(request: Request) -> None:
     if not raw:
         return
     try:
-        json.loads(raw, parse_constant=_no_non_finite, parse_float=_finite_float)
+        parsed = json.loads(raw, parse_constant=_no_non_finite, parse_float=_finite_float)
+        if _has_lone_surrogate(parsed):  # "\ud800": valid JSON, but pydantic echoes it into an error body (or git gets it) and the encoder fails
+            raise ValueError("a lone surrogate is not valid JSON")
     except ValueError as exc:
         if "is not valid JSON" in str(exc):
-            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN, Infinity and numbers beyond the float range are not valid"}) from exc
+            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN, Infinity, numbers beyond the float range and lone surrogates are not valid"}) from exc
         # any other parse failure is reported by FastAPI's own body handling
 
 
