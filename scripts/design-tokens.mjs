@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// OHarness design tokens: load docs/design-system/tokens.json (DTCG), emit CSS, and prove it matches globals.css.
+// OpenHarness design tokens: load docs/design-system/tokens.json (DTCG), emit CSS, and prove it matches globals.css.
 //   node scripts/design-tokens.mjs --check          parity: tokens.json <-> frontend/src/app/globals.css (exit 1 on drift)
 //   node scripts/design-tokens.mjs --css [out.css]  emit CSS custom properties for every token (stdout if no file)
 // No dependencies. The app's globals.css stays the runtime source until the Tailwind 4 @theme migration lands.

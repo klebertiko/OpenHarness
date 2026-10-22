@@ -1,6 +1,6 @@
 # Nilo and brand
 
-Nilo, the scholar owl, is the OHarness identity: the title-bar mark, the app icon and the animated guide are one character. The grid, the frames and the animation loop live in `frontend/src/components/brand/`; this document is the rulebook for them.
+Nilo, the scholar owl, is the OpenHarness identity: the title-bar mark, the app icon and the animated guide are one character. The grid, the frames and the animation loop live in `frontend/src/components/brand/`; this document is the rulebook for them.
 
 ## One source of truth
 

@@ -1,4 +1,4 @@
-Nilo, the OHarness owl: a 16 by 13 pixel sprite that acts out what the agent is doing. She is the product's identity and its only mascot. Read `Nilo` in the brand sections for when she may appear.
+Nilo, the OpenHarness owl: a 16 by 13 pixel sprite that acts out what the agent is doing. She is the product's identity and its only mascot. Read `Nilo` in the brand sections for when she may appear.
 
 **You provide:** a `state` (`idle`, `thinking`, `working`, `waiting`, `success`, `error`, `sleeping`), an integer `cell` size (6 for Chats home, 4 inside a narrower panel), and a `label` when she is not decorative. Add `interactive` for the one hero placement on a surface; it renders a button.
 
