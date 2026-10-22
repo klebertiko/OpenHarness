@@ -1,0 +1,1057 @@
+
+ RUN  v4.1.11 C:/Users/klebe/AppData/Local/Temp/openharness-qa-ab567a542950401bb7fc4112cbfc06b8
+
+xxxxxxx
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > preserves independent drafts when switching chats
+AssertionError: expected '' to be 'draft A' // Object.is equality
+
+- Expected
++ Received
+
+- draft A
+
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:46:25
+     44|   fireEvent.change(input(), { target: { value: "draft B" } });
+     45|   act(() => useThreadStore.getState().selectThread(a));
+     46|   expect(input().value).toBe("draft A");
+       |                         ^
+     47| });
+     48|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > shows streamed text and saves completion only in the originating chat
+TestingLibraryElementError: Unable to find a label with the text of: Live answer
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="oh-agent-stage flex h-full min-h-0 flex-col"
+    >
+      <div
+        class="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12"
+      >
+        <div
+          class="mx-auto flex max-w-[760px] flex-col gap-7 pb-6 pt-3"
+        >
+          <div
+            class="flex max-w-[88%] flex-col gap-2 self-end px-4 py-3 oh-agent-message--user"
+          >
+            <span
+              class="text-[11px] font-[600] tracking-[0.02em] text-ink-faint"
+            >
+              You
+            </span>
+            <div
+              class="whitespace-pre-wrap text-[15px] leading-7 text-ink"
+            >
+              Explain this
+            </div>
+          </div>
+          <div
+            class="flex flex-col gap-1"
+          >
+            <div
+              class="flex items-center gap-3"
+              role="status"
+            >
+              <svg
+                aria-hidden="true"
+                class=""
+                height="24"
+                shape-rendering="crispEdges"
+                viewBox="0 0 18 12"
+                width="36"
+              >
+                <path
+                  d="M13 1h1v1h-1z"
+                  fill="var(--nilo-eye)"
+                />
+                <path
+                  d="M3 3h1v1h-1zM5 3h1v1h-1zM14 3h1v1h-1zM16 3h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM16 4h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM16 5h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM11 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM11 7h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM6 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM11 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM15 8h1v1h-1zM8 9h1v1h-1zM11 9h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM6 10h1v1h-1zM8 10h1v1h-1zM11 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM15 10h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1z"
+                  fill="var(--nilo-body)"
+                />
+                <path
+                  d="M3 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM16 6h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM15 7h1v1h-1zM16 7h1v1h-1zM3 8h1v1h-1zM7 8h1v1h-1zM12 8h1v1h-1zM16 8h1v1h-1zM3 9h1v1h-1zM7 9h1v1h-1zM12 9h1v1h-1zM16 9h1v1h-1zM3 10h1v1h-1zM7 10h1v1h-1zM12 10h1v1h-1zM16 10h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM7 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM16 11h1v1h-1z"
+                  fill="var(--nilo-rim)"
+                />
+                <path
+                  d="M4 9h1v1h-1zM5 9h1v1h-1zM6 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1zM15 9h1v1h-1z"
+                  fill="var(--nilo-pupil)"
+                />
+                <path
+                  d="M9 9h1v1h-1zM10 9h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1z"
+                  fill="var(--nilo-beak)"
+                />
+              </svg>
+              <div
+                class="min-w-0"
+              >
+                <p
+                  class="text-[13px] leading-5 text-ink"
+                >
+                  <span
+                    aria-hidden="true"
+                  >
+                    Thinking
+                    …
+                  </span>
+                  <span
+                    class="sr-only"
+                  >
+                    OpenHarness is working
+                  </span>
+
+                  <span
+                    aria-hidden="true"
+                    class="font-mono text-[12px] tabular-nums text-ink-faint"
+                  >
+                    0s
+                     · 0 tok
+                  </span>
+                </p>
+                <p
+                  class="text-[12px] leading-5 text-ink-mute"
+                >
+                  Waiting on the provider.
+                </p>
+              </div>
+            </div>
+          </div>
+          <button
+            aria-controls="_r_5_"
+            aria-expanded="false"
+            class="self-start rounded-control text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+            type="button"
+          >
+            Show run detail
+          </button>
+          <div />
+        </div>
+      </div>
+      <div
+        class="flex-none px-3 pb-4 pt-2 sm:px-6"
+      >
+        <div
+          class="oh-agent-composer mx-auto max-w-[820px]"
+        >
+          <div
+            class="relative min-w-0"
+          >
+            <textarea
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-label="Message OpenHarness"
+              class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+              disabled=""
+              placeholder="Waiting on this run — click Stop to send something new"
+              rows="2"
+            />
+            <div
+              class="flex flex-wrap items-center gap-2 px-4 pb-1 pt-1"
+            >
+              <div
+                aria-label="Permission mode"
+                class="inline-flex overflow-hidden rounded-control border border-line-soft"
+                role="radiogroup"
+                title="Shift+Tab alterna o modo"
+              >
+                <button
+                  aria-checked="true"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 bg-sub-300 text-ink"
+                  disabled=""
+                  role="radio"
+                  title="Ask: every command waits for your approval"
+                  type="button"
+                >
+                  Ask
+                </button>
+                <button
+                  aria-checked="false"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+                  disabled=""
+                  role="radio"
+                  title="Auto: read-only git and listings run without asking. In a trusted workspace it also runs the project's own scripts (npm, pytest) without asking. Everything else asks"
+                  type="button"
+                >
+                  Auto
+                </button>
+                <button
+                  aria-checked="false"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+                  disabled=""
+                  role="radio"
+                  title="Plan: read-only. Commands are refused; files can still be read"
+                  type="button"
+                >
+                  Plan
+                </button>
+              </div>
+              <span
+                class="text-[11px] text-ink-faint"
+              >
+                pede aprovação
+                 · Shift+Tab
+              </span>
+            </div>
+          </div>
+          <div
+            class="flex items-center gap-2 px-2.5 pb-2.5 pt-1"
+          >
+            <div />
+            <button
+              aria-expanded="false"
+              aria-haspopup="listbox"
+              aria-label="Chat provider: Local test · Verified · test-model"
+              class="inline-flex min-w-0 items-center gap-1.5 rounded-control transition-colors hover:bg-sub-200 active:bg-sub-300 aria-expanded:bg-sub-200 disabled:cursor-not-allowed disabled:opacity-50 h-8 max-w-[260px] px-2 text-[11px] font-[550] text-ink-dim"
+              title="Local test · Verified · test-model"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-1.5 w-1.5 flex-none rounded-full bg-signal"
+              />
+              <span
+                class="min-w-0 truncate"
+              >
+                Local test · Verified
+              </span>
+            </button>
+            <div />
+            <span
+              class="flex-1"
+            />
+            <span
+              class="hidden text-[11px] text-ink-faint sm:inline"
+            >
+              Ctrl ↵ to send
+            </span>
+            <button
+              aria-label="Stop run"
+              class="grid h-8 w-8 flex-none place-items-center rounded-[8px] border border-line text-ink-mute transition-colors hover:bg-sub-200 hover:text-ink"
+              title="Stop run"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-square"
+                fill="currentColor"
+                height="11"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="11"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  height="18"
+                  rx="2"
+                  width="18"
+                  x="3"
+                  y="3"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/queries/label-text.js:111:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:56:17
+     54|   event("node_start", { node_id: "reply", adapter: "ollama", model: "t…
+     55|   event("node_stream", { node_id: "reply", chunk: "Visible while strea…
+     56|   expect(screen.getByLabelText("Live answer").textContent).toContain("…
+       |                 ^
+     57|   let b = "";
+     58|   act(() => { b = useThreadStore.getState().createThread("B"); });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > recovers an instruction after a transport failure before a run id exists
+TestingLibraryElementError: Unable to find an accessible element with the role "alert"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "Show run detail":
+  <button
+    aria-controls="_r_8_"
+    aria-expanded="false"
+    class="self-start rounded-control text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+    type="button"
+  />
+
+  Name "Chat provider: Local test · Verified · test-model":
+  <button
+    aria-expanded="false"
+    aria-haspopup="listbox"
+    aria-label="Chat provider: Local test · Verified · test-model"
+    class="inline-flex min-w-0 items-center gap-1.5 rounded-control transition-colors hover:bg-sub-200 active:bg-sub-300 aria-expanded:bg-sub-200 disabled:cursor-not-allowed disabled:opacity-50 h-8 max-w-[260px] px-2 text-[11px] font-[550] text-ink-dim"
+    title="Local test · Verified · test-model"
+    type="button"
+  />
+
+  Name "Send message":
+  <button
+    aria-label="Send message"
+    class="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Message OpenHarness":
+  <textarea
+    aria-autocomplete="list"
+    aria-haspopup="listbox"
+    aria-label="Message OpenHarness"
+    class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+    placeholder="Ask OpenHarness… Type / for commands and skills"
+    rows="2"
+  />
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "Permission mode":
+  <div
+    aria-label="Permission mode"
+    class="inline-flex overflow-hidden rounded-control border border-line-soft"
+    role="radiogroup"
+    title="Shift+Tab alterna o modo"
+  />
+
+  --------------------------------------------------
+  radio:
+
+  Name "Ask":
+  <button
+    aria-checked="true"
+    class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 bg-sub-300 text-ink"
+    role="radio"
+    title="Ask: every command waits for your approval"
+    type="button"
+  />
+
+  Name "Auto":
+  <button
+    aria-checked="false"
+    class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+    role="radio"
+    title="Auto: read-only git and listings run without asking. In a trusted workspace it also runs the project's own scripts (npm, pytest) without asking. Everything else asks"
+    type="button"
+  />
+
+  Name "Plan":
+  <button
+    aria-checked="false"
+    class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+    role="radio"
+    title="Plan: read-only. Commands are refused; files can still be read"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="oh-agent-stage flex h-full min-h-0 flex-col"
+    >
+      <div
+        class="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12"
+      >
+        <div
+          class="mx-auto flex max-w-[760px] flex-col gap-7 pb-6 pt-3"
+        >
+          <div
+            class="flex max-w-[88%] flex-col gap-2 self-end px-4 py-3 oh-agent-message--user"
+          >
+            <span
+              class="text-[11px] font-[600] tracking-[0.02em] text-ink-faint"
+            >
+              You
+            </span>
+            <div
+              class="whitespace-pre-wrap text-[15px] leading-7 text-ink"
+            >
+              Recover my prompt
+            </div>
+          </div>
+          <button
+            aria-controls="_r_8_"
+            aria-expanded="false"
+            class="self-start rounded-control text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+            type="button"
+          >
+            Show run detail
+          </button>
+          <div />
+        </div>
+      </div>
+      <div
+        class="flex-none px-3 pb-4 pt-2 sm:px-6"
+      >
+        <div
+          class="oh-agent-composer mx-auto max-w-[820px]"
+        >
+          <div
+            class="relative min-w-0"
+          >
+            <textarea
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-label="Message OpenHarness"
+              class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Ask OpenHarness… Type / for commands and skills"
+              rows="2"
+            />
+            <div
+              class="flex flex-wrap items-center gap-2 px-4 pb-1 pt-1"
+            >
+              <div
+                aria-label="Permission mode"
+                class="inline-flex overflow-hidden rounded-control border border-line-soft"
+                role="radiogroup"
+                title="Shift+Tab alterna o modo"
+              >
+                <button
+                  aria-checked="true"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 bg-sub-300 text-ink"
+                  role="radio"
+                  title="Ask: every command waits for your approval"
+                  type="button"
+                >
+                  Ask
+                </button>
+                <button
+                  aria-checked="false"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+                  role="radio"
+                  title="Auto: read-only git and listings run without asking. In a trusted workspace it also runs the project's own scripts (npm, pytest) without asking. Everything else asks"
+                  type="button"
+                >
+                  Auto
+                </button>
+                <button
+                  aria-checked="false"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+                  role="radio"
+                  title="Plan: read-only. Commands are refused; files can still be read"
+                  type="button"
+                >
+                  Plan
+                </button>
+              </div>
+              <span
+                class="text-[11px] text-ink-faint"
+              >
+                pede aprovação
+                 · Shift+Tab
+              </span>
+            </div>
+          </div>
+          <div
+            class="flex items-center gap-2 px-2.5 pb-2.5 pt-1"
+          >
+            <div />
+            <button
+              aria-expanded="false"
+              aria-haspopup="listbox"
+              aria-label="Chat provider: Local test · Verified · test-model"
+              class="inline-flex min-w-0 items-center gap-1.5 rounded-control transition-colors hover:bg-sub-200 active:bg-sub-300 aria-expanded:bg-sub-200 disabled:cursor-not-allowed disabled:opacity-50 h-8 max-w-[260px] px-2 text-[11px] font-[550] text-ink-dim"
+              title="Local test · Verified · test-model"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-1.5 w-1.5 flex-none rounded-full bg-signal"
+              />
+              <span
+                class="min-w-0 truncate"
+              >
+                Local test · Verified
+              </span>
+            </button>
+            <div />
+            <span
+              class="flex-1"
+            />
+            <span
+              class="hidden text-[11px] text-ink-faint sm:inline"
+            >
+              Ctrl ↵ to send
+            </span>
+            <button
+              aria-label="Send message"
+              class="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
+              disabled=""
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-up"
+                fill="none"
+                height="16"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.2"
+                viewBox="0 0 24 24"
+                width="16"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m5 12 7-7 7 7"
+                />
+                <path
+                  d="M12 19V5"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:71:17
+     69|   send("Recover my prompt");
+     70|   act(() => vi.mocked(startDirectRun).mock.calls[0][2](new Error("side…
+     71|   expect(screen.getByRole("alert").textContent).toContain("sidecar off…
+       |                 ^
+     72|   fireEvent.click(screen.getByRole("button", { name: "Reuse instructio…
+     73|   expect(input().value).toBe("Recover my prompt");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > offers a model per direct turn without changing the connection default
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Model for next turn: Connection default"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "What are we working on?":
+  <h1
+    class="t-display text-[clamp(2rem,3.6vw,3rem)] font-[600] leading-[1.08] text-ink"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="mt-3 text-[14px] leading-6 text-ink-mute"
+  />
+
+  Name "":
+  <p
+    class="mt-5 text-[12px] text-ink-faint"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "Nilo, the OpenHarness owl guide":
+  <button
+    aria-label="Nilo, the OpenHarness owl guide"
+    class="relative cursor-pointer oh-nilo hidden flex-none sm:block"
+    type="button"
+  />
+
+  Name "Build something":
+  <button
+    class="group flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:text-ink"
+    type="button"
+  />
+
+  Name "Work through a task":
+  <button
+    class="group flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:text-ink"
+    type="button"
+  />
+
+  Name "Understand a project":
+  <button
+    class="group flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:text-ink"
+    type="button"
+  />
+
+  Name "Chat provider: Local test · Verified · test-model":
+  <button
+    aria-expanded="false"
+    aria-haspopup="listbox"
+    aria-label="Chat provider: Local test · Verified · test-model"
+    class="inline-flex min-w-0 items-center gap-1.5 rounded-control transition-colors hover:bg-sub-200 active:bg-sub-300 aria-expanded:bg-sub-200 disabled:cursor-not-allowed disabled:opacity-50 h-8 max-w-[260px] px-2 text-[11px] font-[550] text-ink-dim"
+    title="Local test · Verified · test-model"
+    type="button"
+  />
+
+  Name "Send message":
+  <button
+    aria-label="Send message"
+    class="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Message OpenHarness":
+  <textarea
+    aria-autocomplete="list"
+    aria-haspopup="listbox"
+    aria-label="Message OpenHarness"
+    class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+    placeholder="Ask OpenHarness… Type / for commands and skills"
+    rows="2"
+  />
+
+  --------------------------------------------------
+  radiogroup:
+
+  Name "Permission mode":
+  <div
+    aria-label="Permission mode"
+    class="inline-flex overflow-hidden rounded-control border border-line-soft"
+    role="radiogroup"
+    title="Shift+Tab alterna o modo"
+  />
+
+  --------------------------------------------------
+  radio:
+
+  Name "Ask":
+  <button
+    aria-checked="true"
+    class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 bg-sub-300 text-ink"
+    role="radio"
+    title="Ask: every command waits for your approval"
+    type="button"
+  />
+
+  Name "Auto":
+  <button
+    aria-checked="false"
+    class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+    role="radio"
+    title="Auto: read-only git and listings run without asking. In a trusted workspace it also runs the project's own scripts (npm, pytest) without asking. Everything else asks"
+    type="button"
+  />
+
+  Name "Plan":
+  <button
+    aria-checked="false"
+    class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+    role="radio"
+    title="Plan: read-only. Commands are refused; files can still be read"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="oh-agent-stage flex h-full min-h-0 flex-col"
+    >
+      <div
+        class="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12"
+      >
+        <div
+          class="oh-agent-welcome mx-auto flex w-full max-w-[680px] flex-col pt-[clamp(4rem,13vh,9rem)]"
+        >
+          <div
+            class="mb-8 flex items-end justify-between gap-8"
+          >
+            <div
+              class="max-w-[560px]"
+            >
+              <h1
+                class="t-display text-[clamp(2rem,3.6vw,3rem)] font-[600] leading-[1.08] text-ink"
+              >
+                What are we working on?
+              </h1>
+              <p
+                class="mt-3 text-[14px] leading-6 text-ink-mute"
+              >
+                Describe a task, or pick one to start.
+              </p>
+            </div>
+            <button
+              aria-label="Nilo, the OpenHarness owl guide"
+              class="relative cursor-pointer oh-nilo hidden flex-none sm:block"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="block"
+                height="102"
+                shape-rendering="crispEdges"
+                viewBox="0 0 18 17"
+                width="108"
+              >
+                <path
+                  d="M2 2h1v1h-1zM4 2h1v1h-1zM13 2h1v1h-1zM15 2h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM13 3h1v1h-1zM15 3h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM13 4h1v1h-1zM14 4h1v1h-1zM15 4h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM12 5h1v1h-1zM13 5h1v1h-1zM14 5h1v1h-1zM15 5h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM10 7h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM12 8h1v1h-1zM13 8h1v1h-1zM14 8h1v1h-1zM7 9h1v1h-1zM10 9h1v1h-1zM3 10h1v1h-1zM4 10h1v1h-1zM5 10h1v1h-1zM7 10h1v1h-1zM10 10h1v1h-1zM12 10h1v1h-1zM13 10h1v1h-1zM14 10h1v1h-1zM7 11h1v1h-1zM8 11h1v1h-1zM9 11h1v1h-1zM10 11h1v1h-1zM1 12h1v1h-1zM2 12h1v1h-1zM3 12h1v1h-1zM4 12h1v1h-1zM5 12h1v1h-1zM10 12h1v1h-1zM11 12h1v1h-1zM12 12h1v1h-1zM13 12h1v1h-1zM14 12h1v1h-1zM15 12h1v1h-1zM16 12h1v1h-1zM2 13h1v1h-1zM3 13h1v1h-1zM4 13h1v1h-1zM5 13h1v1h-1zM10 13h1v1h-1zM11 13h1v1h-1zM12 13h1v1h-1zM13 13h1v1h-1zM14 13h1v1h-1zM15 13h1v1h-1zM3 14h1v1h-1zM4 14h1v1h-1zM5 14h1v1h-1zM6 14h1v1h-1zM9 14h1v1h-1zM10 14h1v1h-1zM11 14h1v1h-1zM12 14h1v1h-1zM13 14h1v1h-1zM14 14h1v1h-1zM5 15h1v1h-1zM6 15h1v1h-1zM11 15h1v1h-1zM12 15h1v1h-1z"
+                  fill="var(--nilo-body)"
+                />
+                <path
+                  d="M2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM11 6h1v1h-1zM12 6h1v1h-1zM13 6h1v1h-1zM14 6h1v1h-1zM15 6h1v1h-1zM2 7h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM11 7h1v1h-1zM12 7h1v1h-1zM13 7h1v1h-1zM14 7h1v1h-1zM15 7h1v1h-1zM2 8h1v1h-1zM6 8h1v1h-1zM11 8h1v1h-1zM15 8h1v1h-1zM2 9h1v1h-1zM6 9h1v1h-1zM11 9h1v1h-1zM15 9h1v1h-1zM2 10h1v1h-1zM6 10h1v1h-1zM11 10h1v1h-1zM15 10h1v1h-1zM2 11h1v1h-1zM3 11h1v1h-1zM4 11h1v1h-1zM5 11h1v1h-1zM6 11h1v1h-1zM11 11h1v1h-1zM12 11h1v1h-1zM13 11h1v1h-1zM14 11h1v1h-1zM15 11h1v1h-1zM6 12h1v1h-1zM7 12h1v1h-1zM8 12h1v1h-1zM9 12h1v1h-1zM6 13h1v1h-1zM7 13h1v1h-1zM8 13h1v1h-1zM9 13h1v1h-1zM7 14h1v1h-1zM8 14h1v1h-1z"
+                  fill="var(--nilo-rim)"
+                />
+                <path
+                  d="M3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM12 9h1v1h-1zM13 9h1v1h-1zM14 9h1v1h-1z"
+                  fill="var(--nilo-pupil)"
+                />
+                <path
+                  d="M8 9h1v1h-1zM9 9h1v1h-1zM8 10h1v1h-1zM9 10h1v1h-1z"
+                  fill="var(--nilo-beak)"
+                />
+              </svg>
+            </button>
+          </div>
+          <div
+            class="divide-y divide-line-soft border-y border-line-soft"
+          >
+            <button
+              class="group flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:text-ink"
+              type="button"
+            >
+              <span
+                class="grid h-8 w-8 place-items-center text-ink-faint transition-colors group-hover:text-signal"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="lucide lucide-code-xml lucide-code-2"
+                  fill="none"
+                  height="16"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.7"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="m18 16 4-4-4-4"
+                  />
+                  <path
+                    d="m6 8-4 4 4 4"
+                  />
+                  <path
+                    d="m14.5 4-5 16"
+                  />
+                </svg>
+              </span>
+              <span
+                class="text-[13px] font-[550] text-ink-dim group-hover:text-ink"
+              >
+                Build something
+              </span>
+            </button>
+            <button
+              class="group flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:text-ink"
+              type="button"
+            >
+              <span
+                class="grid h-8 w-8 place-items-center text-ink-faint transition-colors group-h...
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:79:26
+     77| it("offers a model per direct turn without changing the connection def…
+     78|   render(<AgentStage />);
+     79|   fireEvent.click(screen.getByRole("button", { name: "Model for next t…
+       |                          ^
+     80|   fireEvent.change(screen.getByRole("combobox"), { target: { value: "c…
+     81|   fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > dispatches slash tool instructions through the same preset contract from the send button
+AssertionError: expected { Object (instruction, mode, ...) } to match object { instruction: '', tools: { …(1) } }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "instruction": "",
+-   "tools": {
+-     "preset": {
+-       "name": "read",
+-       "path": "README.md",
+-     },
+-   },
++   "instruction": "/read README.md",
+  }
+
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:91:54
+     89|   render(<AgentStage />);
+     90|   send("/read README.md");
+     91|   expect(vi.mocked(startDirectRun).mock.calls[0][0]).toMatchObject({ i…
+       |                                                      ^
+     92| });
+     93|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > does not send shell syntax from the send button when the composer warns
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      Object {
+        "connection_id": "local",
+        "cwd": undefined,
+        "instruction": "/exec npm test && whoami",
+        "mode": "local",
+        "step": false,
+      },
+      [Function onEvent],
+      [Function onClose],
+    ]
+
+
+Number of calls: 1
+
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:97:30
+     95|   render(<AgentStage />);
+     96|   send("/exec npm test && whoami");
+     97|   expect(startDirectRun).not.toHaveBeenCalled();
+       |                              ^
+     98|   expect(screen.getByRole("button", { name: "Send message" }).hasAttri…
+     99| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/components/agent/AgentStage.delivery.test.tsx > stops a turn and reuses its instruction without automatically sending again
+TestingLibraryElementError: Unable to find an element with the text: The turn stopped. You can reuse your instruction when ready.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="oh-agent-stage flex h-full min-h-0 flex-col"
+    >
+      <div
+        class="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12"
+      >
+        <div
+          class="mx-auto flex max-w-[760px] flex-col gap-7 pb-6 pt-3"
+        >
+          <div
+            class="flex max-w-[88%] flex-col gap-2 self-end px-4 py-3 oh-agent-message--user"
+          >
+            <span
+              class="text-[11px] font-[600] tracking-[0.02em] text-ink-faint"
+            >
+              You
+            </span>
+            <div
+              class="whitespace-pre-wrap text-[15px] leading-7 text-ink"
+            >
+              Stop and recover this
+            </div>
+          </div>
+          <div
+            class="flex max-w-[88%] flex-col gap-2 self-start pl-4 oh-agent-message--assistant"
+          >
+            <span
+              class="text-[11px] font-[600] tracking-[0.02em] text-ink-faint"
+            >
+              OpenHarness
+            </span>
+            <div
+              class="whitespace-pre-wrap text-[15px] leading-7 text-ink-dim"
+            >
+              Run stopped.
+            </div>
+            <div
+              class="flex flex-col gap-2"
+            >
+              <button
+                aria-controls="_r_q_"
+                aria-expanded="false"
+                class="self-start rounded-control text-[12px] text-ink-faint underline-offset-2 hover:text-ink-mute hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+                type="button"
+              >
+                Show run detail
+              </button>
+            </div>
+          </div>
+          <div />
+        </div>
+      </div>
+      <div
+        class="flex-none px-3 pb-4 pt-2 sm:px-6"
+      >
+        <div
+          class="oh-agent-composer mx-auto max-w-[820px]"
+        >
+          <div
+            class="relative min-w-0"
+          >
+            <textarea
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-label="Message OpenHarness"
+              class="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Ask OpenHarness… Type / for commands and skills"
+              rows="2"
+            />
+            <div
+              class="flex flex-wrap items-center gap-2 px-4 pb-1 pt-1"
+            >
+              <div
+                aria-label="Permission mode"
+                class="inline-flex overflow-hidden rounded-control border border-line-soft"
+                role="radiogroup"
+                title="Shift+Tab alterna o modo"
+              >
+                <button
+                  aria-checked="true"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 bg-sub-300 text-ink"
+                  role="radio"
+                  title="Ask: every command waits for your approval"
+                  type="button"
+                >
+                  Ask
+                </button>
+                <button
+                  aria-checked="false"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+                  role="radio"
+                  title="Auto: read-only git and listings run without asking. In a trusted workspace it also runs the project's own scripts (npm, pytest) without asking. Everything else asks"
+                  type="button"
+                >
+                  Auto
+                </button>
+                <button
+                  aria-checked="false"
+                  class="h-6 px-2.5 text-[11px] font-[550] outline-none focus-visible:ring-1 focus-visible:ring-signal disabled:opacity-50 text-ink-mute hover:bg-sub-200"
+                  role="radio"
+                  title="Plan: read-only. Commands are refused; files can still be read"
+                  type="button"
+                >
+                  Plan
+                </button>
+              </div>
+              <span
+                class="text-[11px] text-ink-faint"
+              >
+                pede aprovação
+                 · Shift+Tab
+              </span>
+            </div>
+          </div>
+          <div
+            class="flex items-center gap-2 px-2.5 pb-2.5 pt-1"
+          >
+            <div />
+            <button
+              aria-expanded="false"
+              aria-haspopup="listbox"
+              aria-label="Chat provider: Local test · Verified · test-model"
+              class="inline-flex min-w-0 items-center gap-1.5 rounded-control transition-colors hover:bg-sub-200 active:bg-sub-300 aria-expanded:bg-sub-200 disabled:cursor-not-allowed disabled:opacity-50 h-8 max-w-[260px] px-2 text-[11px] font-[550] text-ink-dim"
+              title="Local test · Verified · test-model"
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="h-1.5 w-1.5 flex-none rounded-full bg-signal"
+              />
+              <span
+                class="min-w-0 truncate"
+              >
+                Local test · Verified
+              </span>
+            </button>
+            <div />
+            <span
+              class="flex-1"
+            />
+            <span
+              class="hidden text-[11px] text-ink-faint sm:inline"
+            >
+              Ctrl ↵ to send
+            </span>
+            <button
+              aria-label="Send message"
+              class="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
+              disabled=""
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-arrow-up"
+                fill="none"
+                height="16"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.2"
+                viewBox="0 0 24 24"
+                width="16"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="m5 12 7-7 7 7"
+                />
+                <path
+                  d="M12 19V5"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../../.codex/worktrees/ca7d/OpenHarness/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/agent/AgentStage.delivery.test.tsx:108:17
+
+    106|   event("run_stopped", {});
+    107|   event("harness_done", { status: "stopped", total_tokens: 0 });
+    108|   expect(screen.getByText("The turn stopped. You can reuse your instru…
+       |                 ^
+    109|   fireEvent.click(screen.getByRole("button", { name: "Reuse instructio…
+    110|   expect(input().value).toBe("Stop and recover this");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed (7)
+   Start at  00:11:18
+   Duration  9.98s (transform 4.41s, setup 0ms, import 7.03s, tests 1.07s, environment 1.31s)
