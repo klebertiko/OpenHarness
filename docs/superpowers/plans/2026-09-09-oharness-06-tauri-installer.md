@@ -1,8 +1,8 @@
-# OpenHarness 06 — Tauri Sidecar + Installer Implementation Plan
+# OHarness 06 — Tauri Sidecar + Installer Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 
-**Goal:** Package OpenHarness as a real desktop app with Tauri v2, FastAPI sidecar lifecycle, keychain secrets, and a Windows installer — without Nightwolf port/zombie bugs.
+**Goal:** Package OHarness as a real desktop app with Tauri v2, FastAPI sidecar lifecycle, keychain secrets, and a Windows installer — without Nightwolf port/zombie bugs.
 
 **Architecture:** `src-tauri/` owns window chrome (decorations false). Sidecar binary = PyInstaller (or embedded python) running uvicorn. Frontend `output: "export"` static files. Shutdown module mirrors Nightwolf lessons with numeric port equality + tree kill. Keychain via `tauri-plugin-stronghold` or OS keyring crate replacing file_store.
 
@@ -80,7 +80,7 @@
 ### Task 6: Workspace index sync
 
 **Files:**
-- Modify: `D:\Development\CLAUDE.md`, `AGENTS.md`, `.cursor/rules/workspace.mdc` — replace HarnessSimulator with OpenHarness
+- Modify: `D:\Development\CLAUDE.md`, `AGENTS.md`, `.cursor/rules/workspace.mdc` — replace HarnessSimulator with OHarness
 
 - [ ] **Step 1:** Update project index rows
 

@@ -91,7 +91,7 @@ export function TitleBar({
       >
         <Mark />
         <span className="oh-wordmark select-none text-[13px] font-[600] tracking-[-0.03em] text-ink">
-          OpenHarness
+          OHarness
         </span>
       </div>
 

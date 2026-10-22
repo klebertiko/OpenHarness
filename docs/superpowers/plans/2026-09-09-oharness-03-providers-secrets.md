@@ -1,4 +1,4 @@
-# OpenHarness 03 — Providers, Secrets, Runtime Router Implementation Plan
+# OHarness 03 — Providers, Secrets, Runtime Router Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 

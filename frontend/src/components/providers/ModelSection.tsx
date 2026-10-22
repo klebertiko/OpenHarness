@@ -98,7 +98,7 @@ export function CursorHandoff({ c }: { c: Connection }) {
   return (
     <Block
       title="Handoff"
-      lede="Cursor runs the agent; OpenHarness hands it the task and reads the result back. Chat cannot use it — it answers agent tasks only."
+      lede="Cursor runs the agent; OHarness hands it the task and reads the result back. Chat cannot use it — it answers agent tasks only."
     >
       <div className="grid gap-2 sm:grid-cols-2">
         <Card
