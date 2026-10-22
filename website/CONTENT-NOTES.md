@@ -37,7 +37,7 @@ Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/
 | Baixar | A atestação prova a origem e não substitui assinatura de editor | `docs/ci-security.md` ("GitHub attestations prove where an artifact came from") | Verificado |
 | Baixar, limites | Só o Windows tem smoke da janela; Linux e macOS só têm smoke do sidecar | `release.yml` ("Smoke desktop app" só em `build-windows`; "Smoke packaged sidecar" nos dois jobs) | Verificado |
 | Baixar, limites | Versão mínima do WebView não decidida nem imposta; renderização varia por plataforma | `docs/adr/0001-desktop-packaging.md` ("Rendering varies by platform", "Follow-up"); nenhum mínimo em `src-tauri/tauri.conf.json` | Verificado (ausência) |
-| Baixar, limites | Dados: `%LOCALAPPDATA%\OHarness` no Windows, `~/OHarness` nos demais | `backend/sidecar_entry.py` (`_data_dir`) | Verificado |
+| Baixar, limites | App instalado: banco e segredos na pasta de dados local do app, nomeada com o identificador (`%LOCALAPPDATA%\dev.oharness.app` no Windows; macOS e Linux usam a pasta equivalente, sem caminho citado) | `src-tauri/src/lib.rs` (`spawn_sidecar`: `OH_DATA_DIR` = `app_local_data_dir()`); `src-tauri/tauri.conf.json` (`identifier`); `backend/sidecar_entry.py` (`_data_dir`, `OH_SECRETS_DIR`) | Verificado no código. `%LOCALAPPDATA%\OHarness` e `~/OHarness` só valem para o sidecar executado sozinho, sem `OH_DATA_DIR` |
 | Baixar, limites | Comandos do chat passam por um broker com contenção de caminho e aprovação por ação; NÃO é isolamento de SO | ADR 0004 ("Exec não é sandbox de SO") | Verificado. A palavra "sandbox" não é usada como promessa |
 | Baixar, limites | Sem atualização automática; sem matriz de testes com provedores reais por SO | `docs/release-notes/v0.0.1-alpha.md` ("What is NOT in 0.0.1-alpha") | Verificado no rascunho de notas |
 | Baixar, limites | Licença: pré-visualização pública, código disponível para avaliação, termos de redistribuição não definidos | `README.md` "License" | Verificado |
@@ -46,7 +46,7 @@ Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/
 
 ## Removido ou reescrito, e por quê
 
-- **Marca**: OpenHarness virou OHarness (#144). Nomes de instaladores `OHarness-*`, repositório `klebertiko/OHarness`, dados em `%LOCALAPPDATA%\OHarness` e `~/OHarness`, "Open Harness Model" virou "OHarness Model", e o seletor de tema usa `oharness-website-theme`. Fontes: `git show 4cdc868`, `CONTEXT.md`, `.github/workflows/release.yml`, `backend/sidecar_entry.py`. Os links do Pages e do repositório só funcionam depois de renomear o repositório no GitHub para `OHarness`.
+- **Marca**: OpenHarness virou OHarness (#144). Nomes de instaladores `OHarness-*`, repositório `klebertiko/OHarness`, dados do app instalado em `%LOCALAPPDATA%\dev.oharness.app` (identificador Tauri novo; a pasta antiga `%LOCALAPPDATA%\dev.openharness.app` não é migrada e a chave do arquivo de segredos deriva do caminho, então chaves antigas precisam ser digitadas de novo), "Open Harness Model" virou "OHarness Model", e o seletor de tema usa `oharness-website-theme`. Fontes: `git show 4cdc868`, `CONTEXT.md`, `.github/workflows/release.yml`, `backend/sidecar_entry.py`. Os links do Pages e do repositório só funcionam depois de renomear o repositório no GitHub para `OHarness`.
 - **Captura de setembro** e as capturas Automate e Pull requests: essas seções não existem mais (`README.md` "Removed", PR #31). Substituídas por cinco capturas reais.
 - **"Três harnesses"**: o app lista quatro (Agent + review é definido no frontend).
 - **"Desktop em desenvolvimento / Modelo aberto por princípio"** e **"O desktop está em desenvolvimento. Por enquanto, explore o modelo"**: trocados por pré-lançamento 0.0.1-alpha e Baixar. "Aberto" não tem respaldo de licença (`README.md` "License": código disponível para avaliação).
@@ -60,7 +60,7 @@ Escopo: `index.html`, `model.html`, `manifesto.html`, `MANIFESTO.md` e `locales/
 ## Pendências conhecidas
 
 - Os links de download só funcionam após a publicação da release. Nenhuma tag rodou `release.yml` de ponta a ponta: confira nomes de arquivo e estado de assinatura no rascunho antes de publicar.
-- O `README.md` raiz tem badges desatualizados (Windows apenas; `.ohm` YAML, enquanto o Studio usa JSON) e referencia `website/assets/studio.webp` e `chats.webp`, que não existem mais. Não foi alterado aqui.
+- O `README.md` raiz tinha badges desatualizados (Windows apenas; `.ohm` YAML, enquanto o Studio usa JSON); as referências às capturas foram atualizadas para `canvas-light.webp` e `chats-light.webp`. Os badges não foram alterados.
 - O gerador (`scripts/build-locales.mjs`) continua emitindo comentários `nosemgrep` de integridade nos metadados canonical e hreflang (comportamento anterior, não novo).
 
 ---

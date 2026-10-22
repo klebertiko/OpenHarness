@@ -52,16 +52,16 @@ Nilo is the front door — a small presence who greets you and answers what she 
 ## Product surfaces
 
 <p align="center">
-  <img src="website/assets/studio-light.webp" width="720" alt="Studio — harness canvas" />
+  <img src="website/assets/canvas-light.webp" width="720" alt="Studio — harness canvas" />
 </p>
 
-<p align="center"><em>Studio</em> — author the graph, validate the bundle, inspect gates.</p>
+<p align="center"><em>Studio</em> — the Agile Harness on the canvas after auto-arrange, with the validation badge reporting one node not wired.</p>
 
 <p align="center">
-  <img src="website/assets/chats-light.webp" width="720" alt="Chats — Nilo and the crew" />
+  <img src="website/assets/chats-light.webp" width="720" alt="Chats — Nilo, empty state" />
 </p>
 
-<p align="center"><em>Chats</em> — talk to Nilo; escalate into the harness when the work needs a crew.</p>
+<p align="center"><em>Chats</em> — the empty state: Nilo, the Ask / Auto / Plan modes, the harness picker, and a prompt to connect a provider.</p>
 
 The app has three destinations, reachable with `Alt+1` to `Alt+3`.
 
@@ -208,7 +208,7 @@ powershell -File scripts/smoke-desktop.ps1 -AppPath <path-to-exe>
 | `OH_SECRETS` | Store |
 | --- | --- |
 | `memory` | Process lifetime (tests / explicit dev) |
-| `file` | Default when packaged — Fernet files under `%LOCALAPPDATA%/OHarness/secrets` |
+| `file` | Default when packaged — Fernet files under `secrets` in the app data folder (`%LOCALAPPDATA%\dev.oharness.app\secrets` on Windows) |
 | `keychain` | OS keychain (`pip install keyring`) |
 
 ---

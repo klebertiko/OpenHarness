@@ -121,7 +121,7 @@ gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness<
         <ul class="download-limits">
           <li>A janela do app só tem teste automatizado no Windows. Em Linux e macOS, a integração contínua compila e testa apenas o sidecar, o serviço local do app.</li>
           <li>A versão mínima do WebView não está decidida nem imposta, e a renderização varia entre WebView2, WKWebView e WebKitGTK.</li>
-          <li>No Windows, o app guarda banco e segredos em <code>%LOCALAPPDATA%\OHarness</code>; nos outros sistemas, em <code>~/OHarness</code>.</li>
+          <li>No app instalado, o banco e os segredos ficam na pasta de dados local do app, nomeada com o identificador <code>dev.oharness.app</code>: no Windows, <code>%LOCALAPPDATA%\dev.oharness.app</code>; no macOS e no Linux, a pasta equivalente do sistema.</li>
           <li>Não há atualização automática. O modo conectado e as seis conexões existem, mas esta versão não afirma que cada uma foi testada de ponta a ponta em todos os sistemas.</li>
           <li>Os comandos do chat passam por um intermediário no backend, com contenção de caminhos. No modo Ask, cada ação pede aprovação; no modo Auto, só uma lista fixa de comandos roda sem perguntar. Isso não isola o sistema operacional: o que roda, roda com os seus privilégios.</li>
           <li>Licença: pré-visualização pública, código disponível para avaliação; os termos de redistribuição ainda não foram definidos.</li>

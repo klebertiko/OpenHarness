@@ -31,7 +31,9 @@ Correções feitas durante a verificação: com cinco abas, o tour estourava a l
 - Contraste e acessibilidade da seção Baixar foram vistos, não medidos com ferramenta.
 - O site publicado (GitHub Pages) não foi reexaminado: esta revisão está só na branch.
 
-# Verificação da página — 11/09/2026 (histórico)
+# Verificação da página — 11/09/2026 (histórico, superado pela revisão acima)
+
+Os números e as listas desta seção descrevem a versão de setembro (duas capturas, sem seção Baixar, marca anterior) e foram superados. Ficam só como registro.
 
 
 Implementação independente do desktop. Não houve chamadas de escrita ao backend, execução de providers, criação de chats ou persistência de automações. As capturas do produto foram feitas em contexto isolado com gravações de API bloqueadas.
