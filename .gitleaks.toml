@@ -20,16 +20,17 @@ paths = [
   '''backend/sandbox/secrets\.py''',
 ]
 
-# The rebrand commit renamed the placeholder secret references in backend tests
-# ("openharness/..." to "oharness/..."), which the generic-api-key rule reads as
-# keys. They are labels for a keychain entry, not values. Commit AND path, so the
-# exception covers nothing else; it can go once the rebrand lands on main.
+# Placeholder keychain labels in backend tests, e.g. "secretRef": "oharness/anthropic".
+# They name an entry in the secret store; they are not values, and the
+# generic-api-key rule reads the key name "secretRef" as a credential. Both the
+# path and the exact shape must match, so nothing else is exempted.
 [[allowlists]]
-description = "Renamed placeholder secretRef labels in backend tests (rebrand commit)"
+description = "Placeholder secretRef labels (oharness/<provider>) in backend tests"
 condition = "AND"
-commits = [
-  '''50c77979834276cfd7f9e50105bee2fe8478afa0''',
-]
 paths = [
   '''backend/tests/test_[a-z_]+\.py''',
+]
+regexTarget = "line"
+regexes = [
+  '''"secretRef"\s*:\s*"oharness/[a-z0-9_.-]+"''',
 ]
