@@ -43,9 +43,14 @@ describe("theme-init.js (runs before first paint)", () => {
 
   it("keeps theme-color equal to --sub-000 of each theme in globals.css", () => {
     const css = fs.readFileSync(path.resolve(__dirname, "../app/globals.css"), "utf8");
-    const sub = (block: string) => new RegExp(`${block}[^}]*?--sub-000:\\s*([^;]+);`).exec(css)![1].trim();
-    expect(THEME_COLOR.dark).toBe(sub(":root"));
-    expect(THEME_COLOR.light).toBe(sub('\\[data-theme="light"\\]'));
+    // The value of --sub-000 inside the block that starts at `marker`, found by string search.
+    const sub = (marker: string) => {
+      const from = css.indexOf(marker);
+      const decl = css.indexOf("--sub-000:", from) + "--sub-000:".length;
+      return css.slice(decl, css.indexOf(";", decl)).trim();
+    };
+    expect(THEME_COLOR.dark).toBe(sub(":root {"));
+    expect(THEME_COLOR.light).toBe(sub('[data-theme="light"]'));
   });
 });
 

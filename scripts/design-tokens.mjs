@@ -94,11 +94,34 @@ export function checkParity(tokens = loadTokens(), globalsText = fs.readFileSync
   return problems;
 }
 
-/** Declarations of one `.selector { ... }` rule in a stylesheet, comments stripped. */
+/** Declarations of one `.selector { ... }` rule in a stylesheet, comments stripped. Plain string search: the selector is data, never a pattern. */
 function rule(css, selector) {
-  const m = new RegExp(`(?:^|\\n)${selector.replace(/[.]/g, "\\.")}\\s*\\{([^}]*)\\}`).exec(css.replace(/\/\*[\s\S]*?\*\//g, ""));
-  if (!m) return null;
-  return Object.fromEntries([...m[1].matchAll(/([\w-]+)\s*:\s*([^;]+);/g)].map((d) => [d[1], d[2].trim()]));
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  let at = -1;
+  for (let from = 0; ; ) {
+    const i = text.indexOf(selector, from);
+    if (i < 0) return null;
+    const lineStart = i === 0 || text[i - 1] === "\n";
+    if (lineStart && /^\s*\{/.test(text.slice(i + selector.length, i + selector.length + 3))) { at = i; break; }
+    from = i + selector.length;
+  }
+  const open = text.indexOf("{", at);
+  const body = text.slice(open + 1, text.indexOf("}", open));
+  return Object.fromEntries([...body.matchAll(/([\w-]+)\s*:\s*([^;]+);/g)].map((d) => [d[1], d[2].trim()]));
+}
+
+/** The `size` and the options object of `key: ["size", { ... }]` in the Tailwind config, found by string search. */
+function tailwindSize(text, key) {
+  for (let from = 0; ; ) {
+    const i = text.indexOf(`${key}: ["`, from);
+    if (i < 0) return null;
+    from = i + 1;
+    if (i > 0 && /[\w-]/.test(text[i - 1])) continue;
+    const end = text.indexOf("}]", i);
+    if (end < 0) return null;
+    const slice = text.slice(i, end + 2);
+    return [slice, /\["([^"]+)"/.exec(slice)[1], slice.slice(slice.indexOf("{"))];
+  }
 }
 
 /** Typography tokens have no CSS variable, so they are checked against the `.t-*` rules in globals.css (weight, line height, tracking, family, size where declared) and the `fontSize` scale in tailwind.config.ts. */
@@ -119,7 +142,7 @@ export function checkTypography(tokens = loadTokens(), globalsText = fs.readFile
       if (css["line-height"] !== undefined && css["line-height"] !== v.lineHeight) problems.push(`${tok.name}: .t-${key} line-height ${css["line-height"]}, tokens.json ${v.lineHeight}`);
       if (!(none(css["letter-spacing"]) && none(v.letterSpacing)) && css["letter-spacing"] !== v.letterSpacing) problems.push(`${tok.name}: .t-${key} letter-spacing ${css["letter-spacing"]}, tokens.json ${v.letterSpacing}`);
     }
-    const tw = new RegExp(`\\b${key}:\\s*\\["([^"]+)",\\s*\\{([^}]*)\\}\\]`).exec(tailwindText);
+    const tw = tailwindSize(tailwindText, key);
     if (!tw) { problems.push(`${tok.name}: no fontSize.${key} in tailwind.config.ts`); continue; }
     const lh = /lineHeight:\s*"([^"]+)"/.exec(tw[2])?.[1];
     const ls = /letterSpacing:\s*"([^"]+)"/.exec(tw[2])?.[1];

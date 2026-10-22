@@ -19,3 +19,16 @@ paths = [
   '''backend/tests/test_sandbox_secrets\.py''',
   '''backend/sandbox/secrets\.py''',
 ]
+
+# Studio e2e evidence files (.ohm fixtures with a placeholder "secretRef": "vaultref:fixture")
+# that commit c38758c added by mistake and f78fbf1 removed. Both conditions must hold, so
+# the exception covers nothing else in that commit or in the tree.
+[[allowlists]]
+description = "Accidentally committed e2e evidence fixtures (removed in the next commit)"
+condition = "AND"
+commits = [
+  '''c38758c13f0431a0ff94d383c11de68deca74ea5''',
+]
+paths = [
+  '''\.harness/sprint-[^/]+/story-[^/]+/evidence/.*''',
+]

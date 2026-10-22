@@ -11,7 +11,7 @@
  * Needs the playwright and axe-core dev dependencies; does not install a browser.
  */
 import { createRequire } from "node:module";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -19,10 +19,12 @@ const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 const axeSource = readFileSync(require.resolve("axe-core/axe.min.js"), "utf8");
 
-const OUT = process.env.OUT || join(tmpdir(), "oharness-audit");
 const BASE = process.env.BASE || "http://localhost:3000";
 const API = process.env.OH_API || "http://127.0.0.1:8000";
+// OUT is a directory you choose; without one, a private (0700) temp directory is created.
+const OUT = process.env.OUT || mkdtempSync(join(tmpdir(), "oharness-audit-"));
 mkdirSync(OUT, { recursive: true });
+console.log(`Writing to ${OUT}`);
 
 const click = async (page, name) => {
   await page.getByRole("button", { name, exact: true }).first().click({ timeout: 3000 });
