@@ -1,0 +1,6 @@
+<!-- @dsCard group="Forms" height=200 -->
+<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:var(--space-4);background:var(--sub-000);color:var(--ink-dim);font:400 12px/1.5 var(--font-ui)}.row{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;margin-bottom:var(--space-3)}.cap{font:400 10.5px/1.4 var(--font-mono);color:var(--ink-mute);margin-bottom:var(--space-1)}</style></head><body><div id="r"></div><script>
+var h=React.createElement,O=window.OH;
+function App(){return h(React.Fragment,null,h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:"var(--space-4)"}},h(O.Input,{label:"Anthropic key",placeholder:"Paste your key",mono:true,hint:"Stored in the OS keychain."}),h(O.Input,{label:"Harness name",defaultValue:"Review loop",hint:"Shown in the header."}),h(O.Input,{label:"Sidecar port",defaultValue:"80x0",error:"Use digits only, 1024 to 65535.",mono:true}),h(O.Input,{label:"Workspace",disabled:true,defaultValue:"~/workspace"})))}
+ReactDOM.createRoot(document.getElementById('r')).render(h(App));
+</script></body></html>
