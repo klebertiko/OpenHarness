@@ -106,3 +106,30 @@ it("an older validation cannot overwrite a newer result", async () => {
   expect(screen.getByText("Validation failed")).toBeTruthy();
   expect(screen.queryByText("Bundle valid")).toBeNull();
 });
+
+it("keeps a validation result when React Flow measures the nodes while it is in flight", async () => {
+  // Measuring is view state, not an edit (studioDocuments VIEW_NODE_KEYS); on a slow
+  // machine it lands after Validate was clicked and used to discard "Bundle valid".
+  useHarnessSessionStore.setState({ activeBundle: structuredClone(fixture) });
+  useCanvasStore.setState({ nodes: [{ id: "n", type: "agent" as const, position: { x: 0, y: 0 }, data: { label: "N" } }] });
+  let done!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { done = resolve; })));
+  render(<ValidateDock />); fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+  await waitFor(() => expect(done).toBeTypeOf("function"));
+  act(() => useCanvasStore.setState({ nodes: useCanvasStore.getState().nodes.map(n => ({ ...n, measured: { width: 220, height: 96 }, width: 220, height: 96, resizing: false })) }));
+  await act(async () => done(new Response(JSON.stringify({ ok: true, errors: [] }))));
+  expect(screen.getByText("Bundle valid")).toBeTruthy();
+});
+
+it("keeps a validation result when autosave assigns the harness its record id while it is in flight", async () => {
+  // The id is storage bookkeeping set by the first autosave (studioDocuments persist), not authored content.
+  useHarnessSessionStore.setState({ activeBundle: structuredClone(fixture) });
+  useCanvasStore.setState({ harnessMeta: { id: null, name: "Draft", description: "" } });
+  let done!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { done = resolve; })));
+  render(<ValidateDock />); fireEvent.click(screen.getByRole("button", { name: "Validate" }));
+  await waitFor(() => expect(done).toBeTypeOf("function"));
+  act(() => useCanvasStore.getState().setHarnessMeta({ id: "e2e-harness" }));
+  await act(async () => done(new Response(JSON.stringify({ ok: true, errors: [] }))));
+  expect(screen.getByText("Bundle valid")).toBeTruthy();
+});

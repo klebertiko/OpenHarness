@@ -4,19 +4,22 @@ import { CheckCircle2, Download, FlaskConical, Upload } from "lucide-react";
 import { composeBundleFromCanvas, isOHarnessBundle, mockBundle, validateBundle, type MockStep } from "@/lib/bundlesApi";
 import { saveOhmFile } from "@/lib/ohmFile";
 import { openStudioBundle } from "@/lib/studio";
+import { VIEW_EDGE_KEYS, VIEW_NODE_KEYS } from "@/lib/studioDocuments";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
 type DockStatus = "idle" | "working" | "ok" | "error";
-// Selection, dragging and run telemetry do not change what was validated.
-function without(record: object, keys: string[]) {
+// Selection, dragging, measuring and run telemetry do not change what was validated.
+function without(record: object, keys: readonly string[]) {
   return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.includes(key)));
 }
 function draftKey() {
   const { nodes, edges, harnessMeta } = useCanvasStore.getState();
   const activeBundle = useHarnessSessionStore.getState().activeBundle;
   return JSON.stringify({
-    nodes: nodes.map(node => ({ ...without(node, ["selected", "dragging", "measured"]), data: without(node.data, ["status", "output", "error", "tokens", "latencyMs"]) })),
-    edges: edges.map(edge => without(edge, ["selected"])), harnessMeta, activeBundle,
+    nodes: nodes.map(node => ({ ...without(node, VIEW_NODE_KEYS), data: without(node.data, ["status", "output", "error", "tokens", "latencyMs"]) })),
+    edges: edges.map(edge => without(edge, VIEW_EDGE_KEYS)),
+    // The record id is assigned by the first autosave; it is not something the person authored.
+    harnessMeta: { name: harnessMeta.name, description: harnessMeta.description }, activeBundle,
   });
 }
 export function ValidateDock() {

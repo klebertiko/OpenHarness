@@ -42,6 +42,8 @@ await context.route('**/*', async route => {
   let body = responses[key];
   if (key === 'POST /bundles/validate') body = { ok: !rejectValidation, errors: rejectValidation ? ['Isolated invalid bundle'] : [] };
   if (key === 'POST /harnesses/') body = { id: 'e2e-harness', name: req.postDataJSON().name };
+  // Autosave of an edit to the harness the first POST created; whether it lands as a POST or a PUT depends on timing.
+  if (req.method() === 'PUT' && /^\/harnesses\/[^/]+$/.test(url.pathname)) body = { id: url.pathname.split('/').pop(), name: req.postDataJSON().name };
   if (key === 'POST /bundles/mock') body = { ok: true, errors: [], steps: [{ nodeId: 'impl', role: 'agent', status: 'simulated', note: 'isolated plan' }] };
   if (!body) { unexpected.push(key); return route.fulfill({ status: 501, body: '{}' }); }
   return route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
