@@ -24,6 +24,8 @@ export interface ToolCall {
     decision?: "approve" | "reject";
     note?: string;
   };
+  /** The permission mode, not a person, let this command run without the approval gate. */
+  autoApproved?: { mode: string; reason: string };
   denied?: { reason: "rejected" | "approval_timeout" | "policy"; note: string };
   truncated?: boolean;
   timedOut?: boolean;

@@ -18,7 +18,7 @@ As três páginas possuem versões estáticas nos dois idiomas, inclusive sem Ja
 
 Edite o conteúdo português nas páginas da raiz e as traduções em `locales/en-US.json`. Execute `npm run build` para regenerar `en/`, os downloads traduzidos, os seletores e os metadados canônicos/hreflang. O gerador recusa texto novo sem tradução; não edite as páginas inglesas geradas diretamente. Os textos dinâmicos ficam em `i18n.js`; os rótulos de tema em `theme.js` carregam antes da pintura da página.
 
-`npm run build:pages` gera somente os arquivos públicos em um diretório novo `artifacts/pages-<id>/` e informa o caminho. Para escolher o destino, use `npm run build:pages -- <diretorio-ainda-inexistente>`. Destinos existentes são recusados sem alteração; o gerador verifica o inventário final. A branch `gh-pages` recebe os arquivos públicos na raiz, incluindo `.nojekyll`. Não publique a pasta inteira de desenvolvimento: notas, testes, servidor local e artefatos internos ficam fora da lista de arquivos públicos. O aplicativo e seus PRs continuam na `main` e nas branches de trabalho.
+`npm run build:pages` gera somente os arquivos públicos em um diretório novo `artifacts/pages-<id>/` e informa o caminho. Para escolher o destino, use `npm run build:pages -- <diretorio-ainda-inexistente>`. Destinos existentes são recusados sem alteração; o gerador verifica o inventário final. O workflow `.github/workflows/pages.yml` executa `build:pages` a cada push na `main` que altere `website/**` e publica o artefato com GitHub Actions (detalhes e cut-over em `docs/ci-security.md`). Não edite a branch `gh-pages` à mão; ela fica só como fallback até o primeiro deploy pelo workflow ser verificado. Não publique a pasta inteira de desenvolvimento: notas, testes, servidor local e artefatos internos ficam fora da lista de arquivos públicos. O aplicativo e seus PRs continuam na `main` e nas branches de trabalho.
 
 Antes de publicar, siga `SECURITY.md`: testes, revisão independente e ausência de achados conhecidos não resolvidos ou não aceitos explicitamente pelo responsável. `npm run test:publication` verifica isolamento do artefato; `npm run test:security` verifica a aplicação real da CSP e a recuperação do Nilo nos dois idiomas. Esses testes são internos e não entram na publicação.
 
@@ -35,7 +35,7 @@ Antes de publicar, siga `SECURITY.md`: testes, revisão independente e ausência
 - `examples/ohm.schema.json`: cópia do schema do backend. Atualizar junto da referência quando ele mudar.
 - `theme.js`: tema do sistema na primeira visita e escolha persistida entre as três páginas.
 - `nilo.js` e `motion.css`/`motion.js`: demonstração do mascote, cena com enquadramentos e entradas suaves.
-- `assets`: fontes Sora/IBM Plex Mono e marca já usadas pelo app; capturas reais de uma sessão isolada de demonstração. A captura Automate mostra um rascunho, sem persistência.
+- `assets`: fontes Sora/IBM Plex Mono e marca já usadas pelo app; capturas reais de uma sessão isolada de demonstração. Só Studio e Chats são publicadas; as capturas Automate e Pull requests ficam no repositório, fora da lista pública, desde 10/10/2026.
 
 O site não acessa o backend, não executa agentes, não coleta dados e não anuncia instalador disponível. Links são relativos para funcionar também sob subdiretórios. As URLs canônicas apontam para o GitHub Pages acima.
 
@@ -53,7 +53,7 @@ YAML 1.2 é a sintaxe adotada para `.ohm`; o desktop ainda precisa implementar a
 
 ## Temas, leitura e movimento
 
-O seletor no cabeçalho alterna claro/escuro. A preferência fica em `openharness-website-theme`; sem escolha, acompanha o sistema. As capturas reais de Studio, Chats, Automate e Pull requests acompanham o tema. Os dados das capturas são de demonstração, sem gravações no backend.
+O seletor no cabeçalho alterna claro/escuro. A preferência fica em `openharness-website-theme`; sem escolha, acompanha o sistema. As capturas reais de Studio e Chats acompanham o tema. Os dados das capturas são de demonstração, sem gravações no backend.
 
 Textos de leitura usam 15–17 px, com referências e controles menores a partir de 12 px. Os títulos preservam espaços quando uma quebra de linha deixa de aparecer no celular. O manifesto acompanha o fluxo da página para não invadir a nota seguinte.
 

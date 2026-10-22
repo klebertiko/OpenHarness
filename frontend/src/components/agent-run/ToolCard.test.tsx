@@ -222,3 +222,16 @@ it("colours the card border for high risk, a pending approval, or neither — in
   const neither = render(<ToolCard call={{ ...pending, approval: undefined }} runId="r1" />);
   expect(border(neither.container)).toBe("var(--line-soft)");
 });
+
+it("a command that ran under the workspace mode says so, so the transcript records why no person was asked", () => {
+  const auto: ToolCall = { callId: "c2", name: "exec", args: "{}", argv: ["git", "status"], origin: "preset", ok: true, exitCode: 0, result: "clean",
+    autoApproved: { mode: "auto_workspace", reason: "workspace" } };
+  render(<ToolCard call={auto} runId="r1" />);
+  expect(screen.getByText("auto-aprovado: modo workspace")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull();
+});
+
+it("a command approved by a person carries no auto-approved label", () => {
+  render(<ToolCard call={{ ...pending, approval: { ...pending.approval!, decision: "approve" }, ok: true }} runId="r1" />);
+  expect(screen.queryByText(/auto-aprovado/)).toBeNull();
+});

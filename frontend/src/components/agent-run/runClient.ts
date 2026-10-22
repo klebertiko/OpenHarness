@@ -7,6 +7,7 @@
 
 import { apiUrl } from "@/lib/apiBase";
 import type { HarnessGraph } from "@/lib/types";
+import type { PermissionMode } from "@/lib/permissionMode";
 
 export interface StartRunPayload {
   graph_json?: HarnessGraph;
@@ -97,7 +98,15 @@ export interface DirectRunPayload {
   model?: string;
   cwd?: string;
   /** Chat tools broker (contract v1.1 §2.4). Absent → the run behaves exactly as before. */
-  tools?: { enabled?: boolean; preset?: ToolPresetPayload; summarize?: boolean };
+  tools?: {
+    enabled?: boolean;
+    preset?: ToolPresetPayload;
+    summarize?: boolean;
+    /** Conversation key. The sidecar looks up this thread's stored permission mode. */
+    thread_id?: string;
+    /** What the screen shows; the sidecar uses the stricter of this and the stored mode. */
+    permission_mode?: PermissionMode;
+  };
 }
 
 /** Harness-off path — one adapter turn via `/execute/direct`. */

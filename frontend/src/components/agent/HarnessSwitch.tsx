@@ -49,8 +49,13 @@ export function HarnessSwitch({ onOpenStudio }: HarnessSwitchProps) {
     () => [
       { id: NONE_ID, label: "No harness", detail: "Direct conversation with the model" },
       ...entries.map((e) => ({ id: e.id, label: splitHarnessName(e.name).title, detail: harnessSubtitle(e) })),
+      // A harness put in use from Studio (e.g. the sample) is not a library
+      // entry; keep it selectable so the picker shows what is really running.
+      ...(activeBundle?.manifest?.id && !entries.some((e) => e.id === activeBundle.manifest.id)
+        ? [{ id: activeBundle.manifest.id, label: splitHarnessName(activeBundle.manifest.name || activeBundle.manifest.id).title, detail: "From Studio" }]
+        : []),
     ],
-    [entries],
+    [entries, activeBundle],
   );
 
   const activeId = enabled ? (activeBundle?.manifest?.id ?? NONE_ID) : NONE_ID;

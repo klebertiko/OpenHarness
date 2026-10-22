@@ -4,6 +4,8 @@ import {
   canvasEdgeToBundleEdge,
   composeBundleFromCanvas,
   fetchDefault,
+  fetchExample,
+  fetchExamples,
   isOHarnessBundle,
   mockBundle,
   validateBundle,
@@ -49,6 +51,34 @@ describe("bundlesApi", () => {
 
     const bundle = await fetchDefault();
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:8000/bundles/default", { cache: "no-store" });
+    expect(bundle.manifest.id).toBe("hello");
+  });
+
+  it("fetchExamples GETs /bundles/examples and returns the catalog items", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          examples: [{ id: "hello", name: "Hello", description: "min", tags: [], bundle: sample }],
+        }),
+      })
+    );
+
+    const items = await fetchExamples();
+    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:8000/bundles/examples", { cache: "no-store" });
+    expect(items.map((i) => i.id)).toEqual(["hello"]);
+    expect(items[0].bundle.manifest.id).toBe("hello");
+  });
+
+  it("fetchExample GETs one example by encoded id", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => sample }));
+
+    const bundle = await fetchExample("openharness.example.deepseek-harness");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/bundles/examples/openharness.example.deepseek-harness",
+      { cache: "no-store" }
+    );
     expect(bundle.manifest.id).toBe("hello");
   });
 

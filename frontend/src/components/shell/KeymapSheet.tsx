@@ -23,6 +23,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
       ["Mod+Enter", "Run harness"],
       ["Mod+S", "Save harness"],
       ["Mod+Shift+M", "Cycle execution mode"],
+      ["Shift+Tab", "Cycle chat permission mode (composer)"],
     ],
   },
   {
@@ -38,7 +39,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Mod+B", "Toggle left panel"],
       ["Mod+Alt+B", "Toggle inspector (Studio)"],
-      ["Mod+I", "Ask Copilot (Studio)"],
+      ["Mod+I", "Ask Nilo (Studio)"],
     ],
   },
   {
@@ -46,6 +47,7 @@ const GROUPS: { title: string; rows: [string, string][] }[] = [
     rows: [
       ["Mod+Z", "Undo"],
       ["Mod+Shift+Z", "Redo"],
+      ["Shift+L", "Auto-arrange graph (Studio)"],
       ["Mod+Shift+E", "Export graph JSON (advanced)"],
     ],
   },

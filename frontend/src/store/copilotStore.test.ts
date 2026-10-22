@@ -93,7 +93,7 @@ describe("copilotStore.send", () => {
     await copilot().send("add a reviewer", { mode: "mock" });
     expect(canvas().nodes.map((n) => n.id)).toEqual(["a1", "h1", "s1"]);
     const last = copilot().turns.at(-1)!;
-    expect(last.error).toMatchObject({ text: "The graph changed while Copilot was working", retry: "add a reviewer" });
+    expect(last.error).toMatchObject({ text: "The graph changed while Nilo was working", retry: "add a reviewer" });
     expect(last.proposal).toBeUndefined();
     expect(copilot().marks).toEqual({});
   });

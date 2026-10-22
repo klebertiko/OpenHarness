@@ -30,6 +30,8 @@ await context.route("http://127.0.0.1:8000/**", async route => {
   const request = `${route.request().method()} ${path}`;
   const responses = {
     "GET /bundles/default": fixture,
+    "GET /bundles/examples": { examples: [] },
+    "GET /harnesses/": [],
     "GET /health": { status: "ok" },
     "GET /cowork/projects": { projects: [] },
     "GET /providers/connections": { connections: [] },
@@ -47,7 +49,8 @@ await context.route("http://127.0.0.1:8000/**", async route => {
 });
 
 async function upload(bundle, name) {
-  await page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').setInputFiles({
+  // Studio has two import inputs (actions bar, then Validate dock); this flow asserts the dock's "Imported · id" status.
+  await page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').nth(1).setInputFiles({
     name, mimeType: "application/json", buffer: Buffer.from(JSON.stringify(bundle)),
   });
   await page.getByText(`Imported · ${bundle.manifest.id}`, { exact: true }).waitFor();
@@ -75,7 +78,7 @@ try {
   await page.goto(process.env.OHM_E2E_URL || "http://127.0.0.1:3000", { waitUntil: "networkidle" });
   assert.equal(await page.getByText("Unhandled Runtime Error", { exact: true }).count(), 0, "Next.js must not show a runtime error overlay");
   await page.getByRole("button", { name: "Studio", exact: true }).click();
-  await page.getByRole("button", { name: /Open sample/ }).click();
+  await page.getByRole("button", { name: "Open harness: Agent + review", exact: true }).click();
   await upload(fixture, "fixture.ohm");
   const first = await download("first.ohm");
   assert.deepEqual(authoring(first), fixture, "First download must preserve the authored fixture");

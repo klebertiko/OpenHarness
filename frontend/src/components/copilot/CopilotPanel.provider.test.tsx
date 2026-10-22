@@ -27,7 +27,7 @@ const conn = (over: Partial<Connection>): Connection =>
 
 const initial = { providers: useProviderStore.getState(), chat: useChatProviderStore.getState(), setup: useChatSetupRequestStore.getState() };
 const renderPanel = () => render(<ReactFlowProvider><CopilotPanel /></ReactFlowProvider>);
-const composer = () => screen.getByRole("textbox", { name: "Ask Copilot" }) as HTMLTextAreaElement;
+const composer = () => screen.getByRole("textbox", { name: "Ask Nilo" }) as HTMLTextAreaElement;
 
 beforeEach(() => {
   mockPlan.mockReset();

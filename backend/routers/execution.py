@@ -5,11 +5,10 @@ import time
 import uuid
 
 import anyio
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
@@ -17,7 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import usage_tracking
 from database import SessionLocal, get_db
-from models import Harness, ExecutionLog, CoworkProject
+from models import Harness, ExecutionLog, CoworkProject, RunRecord, RunEvent, RunArtifact
+from run_store import RunWriter, metadata, event_view, artifact_view, journal_stream
 from adapters import get_adapter, AdapterConfig
 from engine import RUNS, RunControl, STATUS_COMPLETE, STATUS_ERROR, STATUS_STOPPED, _sse, execute_harness
 from triage import decide_with_laya, route_message
@@ -25,7 +25,9 @@ from usage_tracking import BudgetExceededError
 from providers.resolution import ProviderResolutionError, resolve_node_provider
 from providers.outcomes import failure_details
 from sandbox.approval import ApprovalConflict
-from sandbox.broker import ToolBroker, redact_value
+from sandbox.broker import ToolBroker
+from sandbox.permission import effective_mode
+from sandbox.permission_store import get_thread_mode, is_workspace_trusted
 from sandbox.schemas import ToolsRequest
 
 router = APIRouter(prefix="/execute", tags=["execution"])
@@ -72,10 +74,12 @@ async def _validated_project_cwd(db: AsyncSession, requested: str | None) -> str
     if not requested:
         return None
     result = await db.execute(select(CoworkProject).where(CoworkProject.root_path == requested))
-    if result.scalars().first() is None:
+    project = result.scalars().first()
+    if project is None:
         return None
     try:
-        p = Path(requested).resolve()
+        # The stored root (equal to `requested`, but read from the database), never the request string itself.
+        p = Path(project.root_path).resolve()
         if p.is_dir():
             return str(p)
     except OSError:
@@ -371,10 +375,13 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
         status="running",
     )
     db.add(log)
+    db.add(RunRecord(id=run_id, source="harness"))
     await db.commit()
 
     control = RunControl(run_id, step=body.step)
     RUNS[run_id] = control
+
+    writer = RunWriter(run_id)
 
     async def event_stream():
         status = "error"
@@ -417,6 +424,10 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
                         if parsed["event"] == "harness_done":
                             status = parsed["data"].get("status", "complete")
                     yield chunk
+        except GeneratorExit:
+            control.stop.set()
+            status = "interrupted"
+            raise
         except asyncio.CancelledError:
             # The client hung up. Unwind the run rather than leaking a control
             # handle that nothing will ever release.
@@ -424,57 +435,60 @@ async def run_harness(body: ExecuteRequest, request: Request, db: AsyncSession =
             status = "stopped"
             raise
         except Exception as exc:  # noqa: BLE001
-            yield f"event: error\ndata: {json.dumps({'error': str(exc)})}\n\n"
+            status = "error"
+            evt = {"event": "error", "data": failure_details(exc)}
+            events.append(evt)
+            yield _sse(evt["event"], evt["data"])
         finally:
             RUNS.pop(run_id, None)
             # A fresh session: the request-scoped one is torn down by its
             # dependency and cannot be relied on inside a streaming generator.
-            async with SessionLocal() as session:
-                finished = await session.get(ExecutionLog, run_id)
-                if finished:
-                    finished.status = status
-                    finished.result_json = json.dumps({"events": events})
-                    finished.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                # The run's outcome is known now — this is the ledger's one
-                # write point (see models.UsageRecord's docstring). Real
-                # spend only: usage_tracking.record_usage already refuses
-                # zero-token and mock/unresolved turns, so mock-mode runs
-                # and a run that failed before any adapter call contribute
-                # nothing here, by construction rather than a special case.
-                usage_rows = _usage_rows_from_events(
-                    events, run_id=run_id, source="harness", connections=connections
-                )
-                # The triage/intake call above (if any) already spent real
-                # tokens deciding whether to engage the harness. When it
-                # routed to a direct reply instead, that spend is already in
-                # `events` above (via `_reply_only_events`, tagged
-                # source="harness"). When it decided to engage the harness,
-                # `routed` was otherwise only read for its `.engage_harness`
-                # flag and this real spend was silently dropped — recorded
-                # here, under its own `source="triage"`, so it is never lost
-                # (SEC P3-2). `record_usage` already refuses a zero-token or
-                # no-adapter row, same guard `_usage_rows_from_events` above
-                # already relies on for the same reason.
-                if routed is not None and routed.engage_harness and routed.tokens > 0:
-                    usage_rows.append(
-                        dict(
-                            run_id=run_id,
-                            node_id=None,
-                            source="triage",
-                            connection_id=routed.connection_id or None,
-                            provider=(
-                                (connections or {}).get(routed.connection_id) or {}
-                            ).get("provider", "") if routed.connection_id else "",
-                            adapter=routed.adapter_name,
-                            model=routed.model,
-                            tokens_total=routed.tokens,
-                        )
+            await writer.finish(status)
+            with anyio.CancelScope(shield=True):
+                await persist_usage(events)
+
+    async def persist_usage(events):
+        async with SessionLocal() as session:
+            # The run's outcome is known now — this is the ledger's one
+            # write point (see models.UsageRecord's docstring). Real
+            # spend only: usage_tracking.record_usage already refuses
+            # zero-token and mock/unresolved turns, so mock-mode runs
+            # and a run that failed before any adapter call contribute
+            # nothing here, by construction rather than a special case.
+            usage_rows = _usage_rows_from_events(
+                events, run_id=run_id, source="harness", connections=connections
+            )
+            # The triage/intake call above (if any) already spent real
+            # tokens deciding whether to engage the harness. When it
+            # routed to a direct reply instead, that spend is already in
+            # `events` above (via `_reply_only_events`, tagged
+            # source="harness"). When it decided to engage the harness,
+            # `routed` was otherwise only read for its `.engage_harness`
+            # flag and this real spend was silently dropped — recorded
+            # here, under its own `source="triage"`, so it is never lost
+            # (SEC P3-2). `record_usage` already refuses a zero-token or
+            # no-adapter row, same guard `_usage_rows_from_events` above
+            # already relies on for the same reason.
+            if routed is not None and routed.engage_harness and routed.tokens > 0:
+                usage_rows.append(
+                    dict(
+                        run_id=run_id,
+                        node_id=None,
+                        source="triage",
+                        connection_id=routed.connection_id or None,
+                        provider=(
+                            (connections or {}).get(routed.connection_id) or {}
+                        ).get("provider", "") if routed.connection_id else "",
+                        adapter=routed.adapter_name,
+                        model=routed.model,
+                        tokens_total=routed.tokens,
                     )
-                await usage_tracking.record_usage_rows(session, usage_rows)
-                await session.commit()
+                )
+            await usage_tracking.record_usage_rows(session, usage_rows)
+            await session.commit()
 
     return StreamingResponse(
-        event_stream(),
+        journal_stream(event_stream(), writer, _parse_sse_chunk, _sse),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -550,11 +564,19 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
         id=run_id, harness_id="direct", harness_name="Direct execution", status="running",
         result_json=json.dumps({"source": "direct", "events": []}),
     ))
+    db.add(RunRecord(id=run_id, source="direct"))
     await db.commit()
     control = RunControl(run_id, step=body.step)
     RUNS[run_id] = control
     control.tool_mode = tool_options is not None
-    broker = ToolBroker(cwd, adapter_name, control, tool_options) if tool_options else None
+    permission_mode = None
+    workspace_trusted = False
+    if tool_options:
+        # The conversation's stored mode is the ceiling; the request can only tighten it.
+        stored = await get_thread_mode(db, tool_options.thread_id)
+        permission_mode = effective_mode(stored, tool_options.permission_mode)
+        workspace_trusted = await is_workspace_trusted(db, cwd)
+    broker = ToolBroker(cwd, adapter_name, control, tool_options, permission_mode=permission_mode, workspace_trusted=workspace_trusted) if tool_options else None
     node_view = {
         "node_id": node_id,
         "type": "llm",
@@ -565,23 +587,23 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
         "intrinsic": False,
     }
 
+    writer = RunWriter(run_id)
+
     async def event_stream():
-        status = STATUS_COMPLETE
+        status = STATUS_ERROR
         total_tokens = 0
         node_tokens = 0
         tokens_estimated = False
         collected: list[str] = []
         nodes_run = 0
         started = time.time()
-        events: list[dict] = []
 
         def emit(event: str, data: dict) -> str:
-            events.append({"event": event, "data": redact_value(data) if broker else data})
             return _sse(event, data)
 
         try:
             if broker:
-                yield emit('capabilities', {'node_id': node_id, **broker.capabilities})
+                yield emit('capabilities', {'node_id': node_id, **broker.capabilities, 'permission_mode': broker.permission_mode, 'workspace_trusted': broker.workspace_trusted})
             if budget_status is not None and budget_status.state == "warning":
                 warn_evt = _budget_warning_event(budget_status)
                 yield emit(warn_evt["event"], warn_evt["data"])
@@ -679,6 +701,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                         )
                         yield emit("run_stopped", {"at_node": node_id})
                     else:
+                        status = STATUS_COMPLETE
                         yield emit(
                             "node_done",
                             {
@@ -710,16 +733,16 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                     "nodes_run": nodes_run,
                 },
             )
+        except GeneratorExit:
+            control.stop.set()
+            status = "interrupted"
+            raise
         except asyncio.CancelledError:
             control.stop.set()
             status = STATUS_STOPPED
             total_tokens = node_tokens or len("".join(collected)) // 4
             tokens_estimated = not node_tokens
-            # There is no client left to receive these terminal replay events.
-            emit("run_stopped", {"at_node": node_id})
-            emit("harness_done", {"status": status, "total_tokens": total_tokens,
-                                  "tokens_estimated": tokens_estimated,
-                                  "elapsed_ms": int((time.time() - started) * 1000), "nodes_run": 0})
+            # No terminal event was delivered: retain partial journal coverage.
             raise
         except Exception as exc:  # noqa: BLE001
             status = STATUS_ERROR
@@ -731,14 +754,9 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
             # tokens (a stopped-before-anything-streamed run), so this needs
             # no extra guard to keep the ledger real-usage-only.
             # Starlette cancels the response scope on disconnect; finish the log anyway.
+            await writer.finish(status)
             with anyio.CancelScope(shield=True):
                 async with SessionLocal() as session:
-                    finished = await session.get(ExecutionLog, run_id)
-                    if finished:
-                        finished.status = "failed" if status == STATUS_ERROR else status
-                        finished.result_json = json.dumps({"source": "direct", "events": events})
-                        finished.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                    await session.commit()
                     if total_tokens > 0:
                         await usage_tracking.record_usage(
                             session,
@@ -753,7 +771,7 @@ async def run_direct(body: DirectRequest, request: Request, db: AsyncSession = D
                         )
 
     return StreamingResponse(
-        event_stream(),
+        journal_stream(event_stream(), writer, _parse_sse_chunk, _sse),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -822,6 +840,7 @@ async def list_logs(db: AsyncSession = Depends(get_db)):
             "harness_id": lg.harness_id,
             "harness_name": lg.harness_name,
             "source": json.loads(lg.result_json or "{}").get("source", "harness"),
+            **metadata(await db.get(RunRecord, lg.id)),
             "status": lg.status,
             "started_at": lg.started_at.isoformat() if lg.started_at else None,
             "finished_at": lg.finished_at.isoformat() if lg.finished_at else None,
@@ -835,7 +854,13 @@ async def get_log_detail(log_id: str, db: AsyncSession = Depends(get_db)):
     lg = await db.get(ExecutionLog, log_id)
     if not lg:
         raise HTTPException(404, f"Run '{log_id}' not found")
+    record = await db.get(RunRecord, log_id)
+    result = json.loads(lg.result_json) if lg.result_json else None
+    if record:
+        events = (await db.scalars(select(RunEvent).where(RunEvent.run_id == log_id).order_by(RunEvent.sequence))).all()
+        result = {"source": record.source, "events": [{"event": e.event_type, "data": json.loads(e.data_json)} for e in events]}
     return {
+        **metadata(record),
         "id": lg.id,
         "harness_id": lg.harness_id,
         "harness_name": lg.harness_name,
@@ -843,5 +868,38 @@ async def get_log_detail(log_id: str, db: AsyncSession = Depends(get_db)):
         "status": lg.status,
         "started_at": lg.started_at.isoformat() if lg.started_at else None,
         "finished_at": lg.finished_at.isoformat() if lg.finished_at else None,
-        "result": json.loads(lg.result_json) if lg.result_json else None,
+        "result": result,
+        "artifacts": await list_artifacts(log_id, db),
     }
+
+
+async def _require_log(db, log_id):
+    if not await db.get(ExecutionLog, log_id):
+        raise HTTPException(404, "Run not found")
+
+
+@router.get("/logs/{log_id}/events")
+async def list_events(log_id: str, after: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=500), db: AsyncSession = Depends(get_db)):
+    await _require_log(db, log_id)
+    record = await db.get(RunRecord, log_id)
+    rows = (await db.scalars(select(RunEvent).where(RunEvent.run_id == log_id, RunEvent.sequence > after)
+                            .order_by(RunEvent.sequence).limit(limit + 1))).all()
+    page = rows[:limit]
+    return {**metadata(record), 'events': [event_view(e) for e in page],
+            'next_cursor': page[-1].sequence if page else after, 'has_more': len(rows) > limit}
+
+
+@router.get("/logs/{log_id}/artifacts")
+async def list_artifacts(log_id: str, db: AsyncSession = Depends(get_db)):
+    await _require_log(db, log_id)
+    rows = (await db.scalars(select(RunArtifact).where(RunArtifact.run_id == log_id)
+                            .order_by(RunArtifact.event_sequence))).all()
+    return [artifact_view(a) for a in rows]
+
+
+@router.get("/logs/{log_id}/artifacts/{artifact_id}")
+async def get_artifact(log_id: str, artifact_id: str, db: AsyncSession = Depends(get_db)):
+    artifact = await db.get(RunArtifact, artifact_id)
+    if not artifact or artifact.run_id != log_id:
+        raise HTTPException(404, "Artifact not found")
+    return artifact_view(artifact, content=True)

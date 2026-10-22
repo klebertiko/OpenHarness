@@ -82,6 +82,25 @@ export async function fetchDefault(): Promise<OHarnessBundle> {
   return readJson<OHarnessBundle>(res);
 }
 
+/** One bundled example harness, as listed by `GET /bundles/examples`. */
+export interface ExampleHarness {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  bundle: OHarnessBundle;
+}
+
+export async function fetchExamples(): Promise<ExampleHarness[]> {
+  const res = await fetch(apiUrl("/bundles/examples"), { cache: "no-store" });
+  return (await readJson<{ examples: ExampleHarness[] }>(res)).examples;
+}
+
+export async function fetchExample(id: string): Promise<OHarnessBundle> {
+  const res = await fetch(apiUrl(`/bundles/examples/${encodeURIComponent(id)}`), { cache: "no-store" });
+  return readJson<OHarnessBundle>(res);
+}
+
 export async function validateBundle(bundle: unknown): Promise<ValidateResult> {
   const res = await fetch(apiUrl("/bundles/validate"), {
     method: "POST",

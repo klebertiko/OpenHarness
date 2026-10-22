@@ -31,8 +31,17 @@ class Discover(StrictModel):
     name: Literal['discover'] = 'discover'
 
 
+PermissionMode = Literal['plan', 'ask', 'auto_workspace']
+# Opaque, client-chosen conversation key: short, no path or control characters.
+THREAD_ID_PATTERN = r'^[A-Za-z0-9_-]{1,64}$'
+
+
 class ToolsRequest(StrictModel):
     enabled: bool = False
+    # The conversation this run belongs to. Its stored mode is the ceiling;
+    # `permission_mode` may only tighten it (see sandbox.permission.effective_mode).
+    thread_id: str | None = Field(default=None, pattern=THREAD_ID_PATTERN)
+    permission_mode: PermissionMode | None = None
     preset: Annotated[Read | Exec | Discover, Field(discriminator='name')] | None = None
     summarize: bool = True
 
@@ -44,12 +53,16 @@ def validate_call(name: str, args: dict):
     return schema.model_validate({**args, 'name': name})
 
 
+RUN_COMMAND_DESCRIPTION = ('Run a program locally. No shell: argv only. A command needs the user approval unless the conversation permission mode '
+    'runs it automatically (Auto: read-only git and listings in any workspace; project scripts such as npm test or pytest only in a workspace '
+    'the user trusted). In Plan mode (read-only) every command is refused.')
+
 TOOL_SCHEMAS = [
     {'type': 'function', 'function': {'name': 'read_file', 'description': 'Read a UTF-8 text file inside the workspace.',
         'parameters': {'type': 'object', 'properties': {'path': {'type': 'string'}}, 'required': ['path']}}},
     {'type': 'function', 'function': {'name': 'list_workspace', 'description': 'List skills, commands and npm scripts in the workspace.',
         'parameters': {'type': 'object', 'properties': {}}}},
-    {'type': 'function', 'function': {'name': 'run_command', 'description': 'Run a program locally. No shell: argv only. Every command requires user approval.',
+    {'type': 'function', 'function': {'name': 'run_command', 'description': RUN_COMMAND_DESCRIPTION,
         'parameters': {'type': 'object', 'properties': {'argv': {'type': 'array', 'items': {'type': 'string'}},
             'cwd': {'type': 'string'}, 'timeout_s': {'type': 'integer'}}, 'required': ['argv']}}},
 ]

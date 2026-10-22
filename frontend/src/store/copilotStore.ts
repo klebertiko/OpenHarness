@@ -119,7 +119,7 @@ export const useCopilotStore = create<CopilotState>((set, get) => ({
       const liveGraph = toCopilotGraph(live.nodes, live.edges);
       const ops = Array.isArray(res.ops) ? res.ops : null;
       const checked = ops && validateOps(liveGraph, ops);
-      if (!ops || !checked || !checked.ok) return fail({ text: "The graph changed while Copilot was working", retry: text });
+      if (!ops || !checked || !checked.ok) return fail({ text: "The graph changed while Nilo was working", retry: text });
 
       let proposal: Proposal | undefined;
       let marks: Marks = {};

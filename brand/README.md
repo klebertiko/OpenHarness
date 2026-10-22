@@ -12,7 +12,7 @@ Nilo, the owl, is the OpenHarness identity. Edit the grid, then stamp it into th
 |---|---|
 | `nilo.svg` | Full mascot at 8px per cell, for use outside the app (README, social). |
 | `mark.svg` | Face crop (the top 9 rows). Same shape as the title-bar `Mark`. |
-| `icon.png` | 1024×1024 desktop/installer icon: the **H graph** mark (see below), drawn by `scripts/brand-icons.mjs`. |
+| `icon.png` | 1024×1024 desktop/installer icon: **Nilo** on a transparent canvas, filling the full width at taskbar/Start/desktop sizes (≤64 px) and ~94% above, drawn by `scripts/brand-icons.mjs`. |
 | `app-icon.svg` | The same H-graph drawing as vector. Keep in step with `sample()` in the script. |
 | `src-tauri/icons/*` | Tauri icon set (`icon.ico` with 16–256, `icon.icns`, PNGs). Gitignored. |
 

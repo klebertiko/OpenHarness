@@ -115,11 +115,11 @@ def compile_skills_harness(src_dir: Path) -> dict:
         "schemaVersion": SCHEMA_VERSION,
         "manifest": {
             "id": "openharness.default.agile",
-            "name": "OpenHarness Agile (skills-framework)",
+            "name": "Agile Harness",
             "version": "0.1.0",
             "description": (
-                "Default Agile/Scrum/Kanban agent harness compiled from "
-                "skills-framework engineering/harness."
+                "Default Agile/Scrum/Kanban agent harness, modelled on the "
+                "engineering/harness project in skills-framework."
             ),
             "license": "MIT",
             "tags": ["agile", "scrum", "kanban", "default"],

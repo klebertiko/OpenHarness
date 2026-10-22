@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, Text, Boolean, Float, Integer, func
+from sqlalchemy import String, DateTime, Text, Boolean, Float, Integer, ForeignKey, ForeignKeyConstraint, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 from database import Base
 
@@ -26,6 +26,44 @@ class ExecutionLog(Base):
     result_json: Mapped[str] = mapped_column(Text, default="{}")
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     finished_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+
+class RunRecord(Base):
+    """Versioned capture metadata, absent for legacy ExecutionLogs."""
+    __tablename__ = "run_records"
+    id: Mapped[str] = mapped_column(ForeignKey("execution_logs.id"), primary_key=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    coverage: Mapped[str] = mapped_column(String(24), default="partial")
+    last_sequence: Mapped[int] = mapped_column(Integer, default=0)
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class RunEvent(Base):
+    """Append-only, ordered within a run; schema_version describes the envelope."""
+    __tablename__ = "run_events"
+    run_id: Mapped[str] = mapped_column(ForeignKey("run_records.id"), primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+    data_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class RunArtifact(Base):
+    """Immutable output versions stored in the same transaction as their event."""
+    __tablename__ = "run_artifacts"
+    __table_args__ = (ForeignKeyConstraint(["run_id", "event_sequence"], ["run_events.run_id", "run_events.sequence"]),
+                      UniqueConstraint("run_id", "event_sequence", "kind"),
+                      UniqueConstraint("run_id", "name", "version"))
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("run_records.id"), index=True)
+    event_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    media_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_json: Mapped[str] = mapped_column(Text, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
 class ProviderConnection(Base):
@@ -63,6 +101,31 @@ class CoworkProject(Base):
     harness_bundle_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     harness_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ChatPermission(Base):
+    """Permission mode of one chat conversation (`plan` | `ask` | `auto_workspace`).
+
+    Enforced by the sidecar (`sandbox.permission`); the UI only selects it. A
+    missing row means `ask`. A run request can tighten but never loosen it."""
+    __tablename__ = "chat_permissions"
+
+    thread_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    mode: Mapped[str] = mapped_column(String(32), nullable=False, default="ask")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class WorkspaceTrust(Base):
+    """Per-workspace trust (false unless a person said so through the UI).
+
+    A trusted workspace lets `auto_workspace` run the project's own scripts
+    (npm test, pytest...) without asking. Keyed by the resolved root of a
+    registered Cowork project. Never settable from a run request."""
+    __tablename__ = "workspace_trust"
+
+    root_path: Mapped[str] = mapped_column(String(1024), primary_key=True)
+    trusted: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 

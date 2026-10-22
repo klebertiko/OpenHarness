@@ -5,19 +5,25 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { ArrowRight, FileText, FolderOpen, Plus, Trash2, Workflow } from "lucide-react";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useShellStore } from "@/components/shell/shellStore";
-import { newStudioHarness, openBundledHarness, openStudioPreset } from "@/lib/studio";
+import { newStudioHarness, openBundledHarness, openStudioExample, openStudioPreset } from "@/lib/studio";
+import { fetchStudioExamples, type StudioExample } from "@/lib/studioExamples";
 import { HARNESS_PRESETS } from "@/lib/templates";
-import { flushAutosave, hasStudioDraft, openSavedHarness, removeSavedHarness, useStudioDocsStore } from "@/lib/studioDocuments";
+import { discardStudioChanges, flushAutosave, hasStudioDraft, openSavedHarness, removeSavedHarness, useStudioDocsStore } from "@/lib/studioDocuments";
 import { formatRelativeTime } from "@/lib/time";
 import { COPILOT_ENABLED } from "@/lib/features";
 import { startCopilotFromOverview } from "@/lib/copilotEntry";
+import { ScrollRail } from "./ScrollRail";
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal";
 const control = `inline-flex h-9 flex-none items-center justify-center gap-2 whitespace-nowrap rounded-control px-3 text-[12px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`;
 const primary = `${control} bg-signal text-signal-ink hover:bg-signal-deep`;
 const secondary = `${control} border border-line bg-sub-100 text-ink hover:bg-sub-200`;
 const quiet = `${control} text-ink-dim hover:bg-sub-200 hover:text-ink`;
+// One card for every rail in the overview: fixed width so a row of them reads as a rhythm,
+// equal height from the rail's stretch, long text wrapped or clamped instead of overflowing.
+const railCard = "flex w-[17rem] flex-none flex-col items-start gap-3 rounded-[10px] border border-line bg-sub-100 p-4 [&_h3]:line-clamp-2 [&_h3]:[overflow-wrap:anywhere] [&_p]:[overflow-wrap:anywhere] [&_h3+p]:line-clamp-3";
 const PROMPT_LIMIT = 2000;
+const DRAFT_ROW = "__draft__";
 
 // The engine stores naive UTC timestamps; read them as UTC, not local time.
 function edited(iso: string | null | undefined): string {
@@ -29,13 +35,13 @@ function edited(iso: string | null | undefined): string {
 /** A row in "Your harnesses": a document name with one line of state beneath it. */
 function DocumentLine({ name, status, live }: { name: string; status: string; live?: boolean }) {
   return (
-    <div className="flex min-w-[min(100%,12rem)] flex-1 items-start gap-3">
+    <div className="flex w-full min-w-0 items-start gap-3">
       <FileText size={16} strokeWidth={1.6} aria-hidden className="mt-0.5 flex-none text-ink-faint" />
       <div className="min-w-0 flex-1">
-        <h3 className="t-title text-ink [overflow-wrap:anywhere]">{name}</h3>
-        <div className="mt-1 flex items-center gap-1.5 text-[12px] leading-5 text-ink-mute">
-          {live && <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-signal" />}
-          <p className="min-w-0">{status}</p>
+        <h3 title={name} className="t-title text-ink [overflow-wrap:anywhere]">{name}</h3>
+        <div className="mt-1 flex items-start gap-1.5 text-[12px] leading-5 text-ink-mute">
+          {live && <span aria-hidden className="mt-[7px] h-1.5 w-1.5 flex-none rounded-full bg-signal" />}
+          <p title={status} className="min-w-0 line-clamp-3 [overflow-wrap:anywhere]">{status}</p>
         </div>
       </div>
     </div>
@@ -50,6 +56,16 @@ export function StudioOverview() {
   const [rowError, setRowError] = useState("");
   const unsavedDraft = !harnessMeta.id && hasStudioDraft({ nodes, edges, harnessMeta });
   useEffect(() => { void refresh(); }, [refresh]);
+  // Every example the engine's catalog returns, beyond the two fixed cards below.
+  const [extraExamples, setExtraExamples] = useState<StudioExample[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void fetchStudioExamples().then(
+      (all) => { if (alive) setExtraExamples(all.filter((e) => !e.presetId && !/^openharness\.default\b/.test(e.id))); },
+      () => {},
+    );
+    return () => { alive = false; };
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -67,6 +83,10 @@ export function StudioOverview() {
     try { await removeSavedHarness(id); setConfirmId(null); } catch (e) { setRowError((e as Error).message); }
   };
   // Return focus to the row's delete button so keyboard users don't lose their place.
+  const discardDraft = async () => {
+    setRowError("");
+    try { await discardStudioChanges(); setConfirmId(null); } catch (e) { setRowError((e as Error).message); }
+  };
   const cancelDelete = (id: string) => {
     setConfirmId(null);
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-delete-for="${CSS.escape(id)}"]`)?.focus());
@@ -100,7 +120,7 @@ export function StudioOverview() {
     try {
       await startCopilotFromOverview(description);
     } catch (err) {
-      setCopilotError((err as Error).message || "Copilot could not start.");
+      setCopilotError((err as Error).message || "Nilo could not start.");
     } finally {
       setDrafting(false);
     }
@@ -131,7 +151,7 @@ export function StudioOverview() {
         {COPILOT_ENABLED ? (
           <header className="max-w-[760px]">
             <h1 id="studio-heading" className="t-display text-[24px] text-ink [overflow-wrap:anywhere]">Harness Studio</h1>
-            <p className="mt-2 text-[13px] leading-6 text-ink-mute">Say what the harness should do. Copilot drafts the graph; you review every change.</p>
+            <p className="mt-2 text-[13px] leading-6 text-ink-mute">Say what the harness should do. Nilo drafts the graph; you review every change.</p>
             <form onSubmit={(e) => void draftWithCopilot(e)} className="oh-agent-composer mt-5 has-[textarea:focus-visible]:outline has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-signal">
               <label htmlFor="studio-describe" className="sr-only">Describe the harness you want</label>
               <textarea
@@ -150,7 +170,7 @@ export function StudioOverview() {
                 <div className="ml-auto flex items-center gap-3">
                   <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to draft</span>
                   <button type="submit" disabled={!canDraft} className={primary}>
-                    {drafting ? "Drafting…" : "Draft with Copilot"} <ArrowRight size={14} aria-hidden />
+                    {drafting ? "Drafting…" : "Draft with Nilo"} <ArrowRight size={14} aria-hidden />
                   </button>
                 </div>
               </div>
@@ -169,8 +189,8 @@ export function StudioOverview() {
 
         {isRunning && <p role="status" className="mt-5 text-[13px] leading-6 text-ink-mute">A run is in progress. Continue editing to inspect or stop it before opening another harness.</p>}
 
-        <div className="mt-8 grid grid-cols-1 gap-10 border-t border-line pt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,288px)] lg:gap-12">
-          <section aria-labelledby="your-harnesses" className="min-w-0">
+        <div className="mt-8 grid grid-cols-1 gap-10 border-t border-line pt-8">
+          <section aria-labelledby="your-harnesses" className="relative min-w-0 [&>p]:pr-20">
             <div className="flex items-baseline gap-2">
               <h2 id="your-harnesses" className="text-[14px] font-semibold text-ink">Your harnesses</h2>
               {items.length > 0 && <span className="t-meta text-ink-faint">{items.length}</span>}
@@ -187,25 +207,44 @@ export function StudioOverview() {
               <p className="mt-4 rounded-[10px] border border-dashed border-line px-4 py-5 text-[13px] leading-6 text-ink-mute">Nothing saved yet. A new harness is saved here as soon as you edit it.</p>
             )}
             {hasRows && (
-              <ul aria-labelledby="your-harnesses" className="mt-4 divide-y divide-line overflow-hidden rounded-[10px] border border-line">
+              <ScrollRail as="ul" labelledBy="your-harnesses" className="mt-4">
                 {unsavedDraft && (
-                  <li className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-sub-100 px-4 py-3">
-                    <DocumentLine
-                      name={harnessMeta.name}
-                      live
-                      status={!dirty ? "Open now · it's saved here once you change it." : saveState === "error" ? "Not saved yet — the local engine is unreachable. It saves as soon as it can." : "Saving…"}
-                    />
-                    <button type="button" aria-label={`Continue editing ${harnessMeta.name}`} onClick={() => setStudioView("editor")} className={secondary}>
-                      Continue editing <ArrowRight size={14} aria-hidden />
-                    </button>
+                  <li className={`${railCard} border-ink-faint`}>
+                    {confirmId === DRAFT_ROW ? (
+                      <div role="group" aria-label={`Delete ${harnessMeta.name}`} className="flex w-full flex-col gap-3"
+                        onKeyDown={(e) => { if (e.key === "Escape") cancelDelete(DRAFT_ROW); }}>
+                        <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">Delete the draft “{harnessMeta.name}”? It hasn’t been saved, so it’s gone for good.</p>
+                        <div className="flex gap-2">
+                          <button type="button" autoFocus onClick={() => cancelDelete(DRAFT_ROW)} className={secondary}>Cancel</button>
+                          <button type="button" onClick={() => void discardDraft()} className={secondary + " text-fault"}>Delete</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <DocumentLine
+                          name={harnessMeta.name}
+                          live
+                          status={!dirty ? "Open now · it's saved here once you change it." : saveState === "error" ? "Not saved yet — the local engine is unreachable. It saves as soon as it can." : "Saving…"}
+                        />
+                        <div className="mt-auto flex w-full items-center justify-between gap-2">
+                          <button type="button" aria-label={`Continue editing ${harnessMeta.name}`} onClick={() => setStudioView("editor")} className={secondary}>
+                            Continue editing <ArrowRight size={14} aria-hidden />
+                          </button>
+                          <button type="button" data-delete-for={DRAFT_ROW} aria-label={`Delete ${harnessMeta.name}`} title="Delete draft" disabled={isRunning}
+                            onClick={() => setConfirmId(DRAFT_ROW)} className={`${quiet} w-9 px-0 hover:text-fault`}>
+                            <Trash2 size={14} aria-hidden />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </li>
                 )}
                 {items.map((item) => {
                   const open = item.id === harnessMeta.id;
                   return (
-                    <li key={item.id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors ${open ? "bg-sub-100" : "hover:bg-sub-100"}`}>
+                    <li key={item.id} className={`${railCard} transition-colors ${open ? "border-ink-faint" : "hover:bg-sub-200"}`}>
                       {confirmId === item.id ? (
-                        <div role="group" aria-label={`Delete ${item.name}`} className="flex w-full flex-wrap items-center justify-between gap-3"
+                        <div role="group" aria-label={`Delete ${item.name}`} className="flex w-full flex-col gap-3"
                           onKeyDown={(e) => { if (e.key === "Escape") cancelDelete(item.id); }}>
                           <p className="min-w-0 flex-1 text-[13px] leading-6 text-ink [overflow-wrap:anywhere]">Delete “{item.name}” from this device? This can’t be undone.</p>
                           <div className="flex gap-2">
@@ -220,7 +259,7 @@ export function StudioOverview() {
                             live={open}
                             status={open ? (saveState === "saving" ? "Open · saving…" : saveState === "error" ? "Open · last changes not saved" : "Open now") : edited(item.updated_at)}
                           />
-                          <div className="ml-auto flex flex-none gap-2">
+                          <div className="mt-auto flex w-full items-center justify-between gap-2">
                             <button type="button" aria-label={`${open ? "Continue editing" : "Open"} ${item.name}`} disabled={isRunning && !open} onClick={() => (open ? setStudioView("editor") : void openSaved(item.id))} className={secondary}>
                               {open ? "Continue editing" : "Open"} <ArrowRight size={14} aria-hidden />
                             </button>
@@ -234,42 +273,59 @@ export function StudioOverview() {
                     </li>
                   );
                 })}
-              </ul>
+              </ScrollRail>
             )}
           </section>
 
-          <aside aria-labelledby="starting-points" className="min-w-0">
+          <aside aria-labelledby="starting-points" className="relative min-w-0 [&>p]:pr-20">
             <h2 id="starting-points" className="text-[14px] font-semibold text-ink">Starting points</h2>
-            <p className="mt-1 text-[12px] leading-5 text-ink-mute">A small example, or the bundled framework. Your work stays saved.</p>
-            <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-1">
-              <article className="flex flex-col items-start gap-3 border-t border-line pt-4">
+            <p className="mt-1 text-[12px] leading-5 text-ink-mute">Open a bundled harness, such as the Agile Harness, as an editable copy. Your work stays saved.</p>
+            <ScrollRail labelledBy="starting-points" className="mt-4">
+              <article className={railCard}>
+
                 <div className="flex items-center gap-2">
                   <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
-                  <p className="text-[11px] text-ink-faint">OpenHarness sample</p>
+                  <p className="text-[11px] text-ink-faint">Bundled harness</p>
                 </div>
                 <div className="min-w-0">
                   <h3 className="t-title text-ink">Agent + review</h3>
                   <p className="mt-1 text-[12px] leading-5 text-ink-mute">Agent → review gate → human approval. Three nodes, configured for mock runs.</p>
                 </div>
-                <button type="button" disabled={startDisabled} className={`${secondary} mt-auto`} onClick={() => {
+                <button type="button" disabled={startDisabled} aria-label="Open harness: Agent + review" className={`${secondary} mt-auto`} onClick={() => {
                   const sample = HARNESS_PRESETS.find((p) => p.id === "minimal-gate");
                   if (sample) void startFresh(() => openStudioPreset(sample));
-                }}>Open sample <ArrowRight size={14} aria-hidden /></button>
+                }}>Open harness <ArrowRight size={14} aria-hidden /></button>
               </article>
-              <article className="flex flex-col items-start gap-3 border-t border-line pt-4">
+              <article className={railCard}>
                 <div className="flex items-center gap-2">
                   <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
-                  <p className="text-[11px] text-ink-faint">skills-framework · bundled snapshot</p>
+                  <p className="text-[11px] text-ink-faint">Bundled harness</p>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="t-title text-ink">OpenHarness Agile</h3>
-                  <p className="mt-1 text-[12px] leading-5 text-ink-mute">Includes agent profiles and harness guidance. The graph is an adaptation, not the complete framework workflow.</p>
+                  <h3 className="t-title text-ink">Agile Harness</h3>
+                  <p className="mt-1 text-[12px] leading-5 text-ink-mute">Includes agent profiles and harness guidance. The graph is adapted from the skills-framework workflow, not the complete workflow.</p>
                 </div>
-                <button type="button" disabled={startDisabled} className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
-                  {loading ? "Opening…" : "Open framework"} <ArrowRight size={14} aria-hidden />
+                <button type="button" disabled={startDisabled} aria-label="Open harness: Agile Harness" className={`${secondary} mt-auto`} onClick={() => void startFresh(openFramework)}>
+                  {loading ? "Opening…" : "Open harness"} <ArrowRight size={14} aria-hidden />
                 </button>
               </article>
-            </div>
+              {extraExamples.map((ex) => (
+                <article key={ex.id} className={railCard}>
+                  <div className="flex items-center gap-2">
+                    <Workflow size={14} strokeWidth={1.6} aria-hidden className="flex-none text-ink-faint" />
+                    <p className="text-[11px] text-ink-faint">Bundled harness</p>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 title={ex.name} className="t-title text-ink">{ex.name}</h3>
+                    {ex.description && <p title={ex.description} className="mt-1 line-clamp-3 text-[12px] leading-5 text-ink-mute">{ex.description}</p>}
+                  </div>
+                  <button type="button" disabled={startDisabled} aria-label={`Open harness: ${ex.name}`} className={`${secondary} mt-auto`}
+                    onClick={() => void startFresh(() => openStudioExample(ex))}>
+                    Open harness <ArrowRight size={14} aria-hidden />
+                  </button>
+                </article>
+              ))}
+            </ScrollRail>
             {error && <p role="alert" className="mt-3 text-[13px] leading-6 text-fault">{error}</p>}
           </aside>
         </div>

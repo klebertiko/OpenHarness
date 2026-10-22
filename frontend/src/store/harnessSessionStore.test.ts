@@ -90,4 +90,15 @@ describe("harnessSessionStore", () => {
       "skills-framework-agile"
     );
   });
+
+  it("hydrate keeps a harness the person already put in use (Studio 'Use in chat' then chat mounts)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(defaultBundle), { status: 200 }),
+    );
+    // Studio composed the sample and activated it before the chat ever hydrated.
+    useHarnessSessionStore.getState().replaceBundle(otherBundle);
+    await useHarnessSessionStore.getState().hydrate();
+    expect(useHarnessSessionStore.getState().activeBundle).toEqual(otherBundle);
+    expect(useHarnessSessionStore.getState().hydrated).toBe(true);
+  });
 });

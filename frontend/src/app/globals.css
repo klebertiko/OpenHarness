@@ -411,6 +411,34 @@ body {
   background: transparent;
 }
 
+/* ── Scroll rail — equal-height cards that snap, fade where more waits, and
+   carry no scrollbar (the step buttons, the fade and the clipped next card say
+   "there is more"). The fade is a mask, not a painted gradient. ─────────── */
+@property --rail-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --rail-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
+.oh-rail {
+  --rail-fade: 28px; /* single source: ScrollRail reads it at runtime (lib/scrollRail parseInset) */
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-inline: -4px;
+  padding: 4px; /* room for the 2px focus ring the mask and overflow would otherwise clip */
+  list-style: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--rail-fade);
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-start), #000 calc(100% - var(--rail-end)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--rail-start), #000 calc(100% - var(--rail-end)), transparent 100%);
+  transition: --rail-start 160ms cubic-bezier(0.2, 0, 0, 1), --rail-end 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+.oh-rail::-webkit-scrollbar { display: none; }
+.oh-rail-fade-start { --rail-start: var(--rail-fade); }
+.oh-rail-fade-end { --rail-end: var(--rail-fade); }
+.oh-rail > * { scroll-snap-align: start; }
+
 /* ── Native control resets ──────────────────────────────────────────────── */
 input,
 textarea,

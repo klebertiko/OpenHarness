@@ -108,13 +108,13 @@ export function CopilotPanel() {
 
   return (
     <Panel
-      title="Copilot"
+      title="Nilo"
       className="h-full"
       actions={
         <button
           type="button"
           onClick={close}
-          aria-label="Close Copilot"
+          aria-label="Close Nilo"
           className="grid h-6 w-6 place-items-center rounded-control text-ink-mute hover:bg-sub-300 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
         >
           <X size={13} aria-hidden />
@@ -128,7 +128,7 @@ export function CopilotPanel() {
             <div className="space-y-3">
               <div>
                 <p className="t-body font-medium text-ink">Build the graph in plain language</p>
-                <p className="t-body mt-1 text-ink-mute">Describe the outcome, who should act, and where a person must review. Copilot proposes one reversible graph change at a time.</p>
+                <p className="t-body mt-1 text-ink-mute">Describe the outcome, who should act, and where a person must review. Nilo proposes one reversible graph change at a time.</p>
               </div>
               <div className="flex flex-col items-start gap-1.5">
                 {STARTERS.map((s) => (
@@ -165,7 +165,7 @@ export function CopilotPanel() {
         <div className="flex-none border-t border-line p-2.5">
           {isRunning && (
             <p role="status" className="mb-1.5 text-[12px] text-warn">
-              Stop the run to ask Copilot.
+              Stop the run to ask Nilo.
             </p>
           )}
           <textarea
@@ -173,7 +173,7 @@ export function CopilotPanel() {
             rows={1}
             value={draft}
             disabled={blocked}
-            aria-label="Ask Copilot"
+            aria-label="Ask Nilo"
             placeholder="Describe the change…"
             onChange={(e) => setDraft(e.target.value.slice(0, MAX_PROMPT))}
             onKeyDown={(e) => {

@@ -293,6 +293,12 @@ export function runReducer(state: RunState, action: Action): RunState {
         status: "running",
       };
 
+    case "tool_auto_approved":
+      return patchTool(state, String(d.node_id), String(action.data.call_id ?? ""), (call) => ({
+        ...call,
+        autoApproved: { mode: String(action.data.mode ?? ""), reason: String(action.data.reason ?? "") },
+      }));
+
     case "tool_denied":
       return {
         ...patchTool(state, String(d.node_id), String(action.data.call_id ?? ""), (call) => ({

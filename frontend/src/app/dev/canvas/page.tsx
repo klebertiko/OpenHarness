@@ -11,6 +11,7 @@ import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessActions } from "@/lib/actions";
 import { HARNESS_PRESETS } from "@/lib/templates";
+import { BUNDLED_HARNESS_COMMAND_GROUP } from "@/lib/studioExamples";
 import type { Command } from "@/components/shell/commands";
 import type { HarnessNode, HarnessEdge } from "@/lib/types";
 
@@ -76,7 +77,7 @@ export default function CanvasBench() {
     ...HARNESS_PRESETS.map((p) => ({
       id: `preset:${p.id}`,
       label: p.name,
-      group: "Open preset",
+      group: BUNDLED_HARNESS_COMMAND_GROUP,
       icon: LayoutTemplate,
       meta: p.id,
       run: () => {

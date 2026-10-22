@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "OpenHarness",
-  "version": "0.1.0",
+  "version": "0.0.1-alpha",
   "identifier": "dev.openharness.app",
   "build": {
     "beforeDevCommand": "npm run build --prefix frontend",
@@ -23,7 +23,8 @@
         "decorations": false,
         "resizable": true,
         "fullscreen": false,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -36,7 +37,11 @@
     "active": true,
     "targets": ["nsis"],
     "externalBin": ["binaries/openharness-sidecar"],
-    "resources": ["resources/default-agile.oharness"],
+    "resources": [
+      "resources/default-agile.oharness",
+      "resources/deepseek-harness.oharness",
+      "resources/mattpocock-skills.oharness"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

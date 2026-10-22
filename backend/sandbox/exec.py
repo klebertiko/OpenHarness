@@ -60,7 +60,7 @@ async def _terminate(proc, tree):
     await _kill(proc)
 
 
-async def run(argv: list[str], cwd: Path, timeout_s: float = 60) -> dict:
+async def run(argv: list[str], cwd: Path, timeout_s: float = 60, env: dict[str, str] | None = None) -> dict:
     started = time.monotonic()
     options = {'creationflags': 0x08000000} if os.name == 'nt' else {'start_new_session': True}
     tree = ProcessTree()
@@ -69,7 +69,7 @@ async def run(argv: list[str], cwd: Path, timeout_s: float = 60) -> dict:
         # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-asyncio-create-exec-audit
         # nosemgrep: python.lang.security.audit.dangerous-asyncio-create-exec-audit
         proc = await asyncio.create_subprocess_exec(  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-asyncio-create-exec-audit
-            *_argv(argv), cwd=str(cwd), env=scrub_env(),
+            *_argv(argv), cwd=str(cwd), env=scrub_env(env),
             stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **options)
         tree.attach(proc.pid)
     except BaseException:

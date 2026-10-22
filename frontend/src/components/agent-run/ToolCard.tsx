@@ -65,6 +65,7 @@ export function ToolCard({ call, runId, connection }: { call: ToolCall; runId: s
       <div className="flex items-center gap-2">
         <span className="t-meta text-ink">{title}</span>
         {call.origin && <span className="t-meta text-ink-faint">· {call.origin === "model" ? "pedido pelo modelo" : "pedido por você"}</span>}
+        {call.autoApproved && <span data-auto-approved className="rounded-control bg-sub-300 px-1.5 py-0.5 text-[10px] text-ink-mute">auto-aprovado: modo workspace</span>}
         {high && <span className="rounded-control px-1.5 py-0.5 text-[10px] font-[600] uppercase" style={{ background: "var(--fault)", color: "var(--signal-ink, #fff)" }}>alto risco</span>}
         <span className="flex-1" />
         <span className="t-meta" style={{ color: TONE[state.tone] }}>{state.label}</span>

@@ -27,7 +27,13 @@ function run(args) {
 
 const pipCheck = spawnSync(python, ["-m", "pip", "--version"], { cwd: root, stdio: "ignore" });
 if (pipCheck.status !== 0) run(["-m", "ensurepip", "--upgrade"]);
-run(["-m", "pip", "install", "-q", "-r", join(root, "backend", "requirements-build.txt")]);
+// PyInstaller bundles what the interpreter can import, so the runtime
+// requirements must be installed too (a clean CI runner has none of them).
+run([
+  "-m", "pip", "install", "-q",
+  "-r", join(root, "backend", "requirements.txt"),
+  "-r", join(root, "backend", "requirements-build.txt"),
+]);
 mkdirSync(join(root, "backend", "build", "pyinstaller"), { recursive: true });
 mkdirSync(join(root, "src-tauri", "binaries"), { recursive: true });
 
@@ -42,6 +48,8 @@ run([
   "--workpath", join(root, "backend", "build", "pyinstaller"),
   "--specpath", join(root, "backend", "build"),
   "--add-data", `${join(root, "backend", "oharness", "fixtures", "default-agile.ohm")}${separator}oharness/fixtures`,
+  "--add-data", `${join(root, "backend", "oharness", "fixtures", "deepseek-harness.ohm")}${separator}oharness/fixtures`,
+  "--add-data", `${join(root, "backend", "oharness", "fixtures", "mattpocock-skills.ohm")}${separator}oharness/fixtures`,
   "--add-data", `${join(root, "backend", "oharness", "schema", "oharness.schema.json")}${separator}oharness/schema`,
   "--add-data", `${join(root, "backend", "studio_copilot", "catalog.json")}${separator}studio_copilot`,
   join(root, "backend", "sidecar_entry.py"),

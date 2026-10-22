@@ -15,12 +15,14 @@ import {
   Keyboard,
   Shuffle,
   LayoutTemplate,
-  ArrowLeft,
   Sparkles,
+  Network,
 } from "lucide-react";
 
 import { StudioOverview } from "@/components/studio/StudioOverview";
-import { newStudioHarness, openStudioPreset, useStudioInChat } from "@/lib/studio";
+import { StudioActionsBar } from "@/components/studio/StudioActionsBar";
+import { newStudioHarness, openStudioPreset } from "@/lib/studio";
+import { BUNDLED_HARNESS_COMMAND_GROUP } from "@/lib/studioExamples";
 import { hasStudioDraft, startAutosave } from "@/lib/studioDocuments";
 import { AppShell } from "@/components/shell/AppShell";
 import { Panel } from "@/components/shell/Panel";
@@ -33,6 +35,7 @@ import { NodePalette } from "@/components/sidebar/NodePalette";
 import { StudioSidePanel } from "@/components/copilot/StudioSidePanel";
 import { useCopilotStore } from "@/store/copilotStore";
 import { HarnessCanvas } from "@/components/canvas/HarnessCanvas";
+import { ARRANGE_CHORD } from "@/components/canvas/CanvasDock";
 import { ValidateDock } from "@/components/studio/ValidateDock";
 import { AgentStage } from "@/components/agent/AgentStage";
 import { ThreadsSidebar } from "@/components/agent/ThreadsSidebar";
@@ -67,6 +70,7 @@ export default function Home() {
     deleteSelected,
     undo,
     redo,
+    arrangeGraph,
   } = useCanvasStore();
 
   const setMode = useModeStore((s) => s.setMode);
@@ -144,7 +148,7 @@ export default function Home() {
     const presets: Command[] = HARNESS_PRESETS.map((p) => ({
       id: `preset:${p.id}`,
       label: p.name,
-      group: "Open preset",
+      group: BUNDLED_HARNESS_COMMAND_GROUP,
       disabled: isRunning,
       icon: LayoutTemplate,
       meta: p.id,
@@ -216,13 +220,23 @@ export default function Home() {
           },
           {
             id: "copilot",
-            label: "Ask Copilot",
+            label: "Ask Nilo",
             group: "Studio",
             icon: Sparkles,
             chord: "Mod+I",
             keywords: "assistant ai build graph",
             disabled: studioView !== "editor",
             run: openCopilot,
+          },
+          {
+            id: "arrange",
+            label: "Auto-arrange graph",
+            group: "Edit",
+            icon: Network,
+            chord: ARRANGE_CHORD,
+            keywords: "layout tidy organize organizar layers align clean up",
+            disabled: studioView !== "editor" || isRunning || nodes.length < 2,
+            run: arrangeGraph,
           },
           { id: "undo", label: "Undo", group: "Edit", icon: Undo2, chord: "Mod+Z", run: undo },
           { id: "redo", label: "Redo", group: "Edit", icon: Redo2, chord: "Mod+Shift+Z", run: redo },
@@ -287,14 +301,7 @@ export default function Home() {
 
   const studioStage = studioView === "overview" ? <StudioOverview /> : (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-none items-center gap-3 border-b border-line bg-sub-100 px-3 py-2">
-        <button type="button" onClick={() => setStudioView("overview")} className="inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-control px-2 text-[12px] text-ink-mute hover:bg-sub-200 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
-          <ArrowLeft size={14} aria-hidden /> Back to Studio
-        </button>
-        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink">{harnessMeta.name}</span>
-        <button type="button" onClick={openCopilot} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">Ask Copilot</button>
-        <button type="button" onClick={useStudioInChat} disabled={nodes.length === 0 || isRunning} className="h-8 flex-none whitespace-nowrap rounded-control border border-line px-3 text-[12px] font-medium text-ink hover:bg-sub-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal disabled:opacity-40">Use in chat</button>
-      </div>
+      <StudioActionsBar />
       <div className="relative min-h-0 flex-1">
         <HarnessCanvas onNodeClick={(id) => setSelectedNode(id)} />
         {nodes.length === 0 && <div className="pointer-events-none absolute inset-4 flex items-center justify-center"><p className="max-w-[280px] rounded-control border border-line bg-sub-100 p-4 text-[13px] leading-6 text-ink-mute">Add a node from the palette, or import an OHM file below.</p></div>}
