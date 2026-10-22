@@ -35,25 +35,22 @@ const ratio = (fg, bg, theme) => {
 };
 
 const SUB = ["sub-000", "sub-100", "sub-200", "sub-300"];
-// [label, foreground, grounds, minimum, required]. required=false means an audited known defect or a documented limit.
+// [label, foreground, grounds, minimum, required]. required=false marks a documented limit; every pair the app relies on is required.
 const PAIRS = [
   ["Body and title ink", "ink-primary", SUB, 4.5, true],
   ["Body and title ink", "ink-dim", SUB, 4.5, true],
   ["Secondary ink", "ink-mute", SUB, 4.5, true],
-  ["Quietest ink (decorative only)", "ink-faint", SUB, 4.5, false],
+  ["Quietest ink", "ink-faint", SUB, 4.5, true],
   ["Signal as text", "signal", ["sub-000", "sub-100"], 4.5, true],
-  ["Signal as text on contained grounds", "signal", ["sub-200", "sub-300"], 4.5, false],
   ["Text on signal fill", "signal-ink", ["signal"], 4.5, true],
-  ["Warn as text (use warn-text)", "warn", SUB, 4.5, false],
+  ["Warn as a marker (text uses warn-text)", "warn", ["sub-000", "sub-100"], 3, true],
   ["Warn text", "warn-text", SUB, 4.5, true],
-  ["Fault as text (use fault-text)", "fault", SUB, 4.5, false],
   ["Fault text", "fault-text", SUB, 4.5, true],
   ["Signal text", "signal-text", SUB, 4.5, true],
-  ["Panel hairline as control edge", "line", ["sub-100"], 3, false],
   ["Control edge", "line-strong", ["sub-000", "sub-100", "sub-200"], 3, true],
   ["Focus ring", "signal", SUB, 3, true],
-  ["Fault border", "fault", ["sub-000", "sub-100"], 3, false],
-  ...["agent", "gate", "hitl", "skill", "mcp", "tool", "decision"].map((r) => [`Role marker ${r}`, `role-${r}`, ["sub-000", "sub-100"], 3, false]),
+  ["Fault border and marker", "fault", ["sub-000", "sub-100"], 3, true],
+  ...["agent", "gate", "hitl", "skill", "mcp", "tool", "decision"].map((r) => [`Role marker ${r}`, `role-${r}`, ["sub-000", "sub-100"], 3, true]),
 ].filter(([, fg, grounds]) => byName[fg] && grounds.every((g) => byName[g]));
 
 let fails = 0;

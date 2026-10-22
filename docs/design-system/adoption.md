@@ -16,7 +16,7 @@ First the tokens mirror exactly what the code does today: parity, zero visual ch
 
 | Finding | Where | Decision |
 | --- | --- | --- |
-| Fonts are named but never loaded: no `@font-face` or `next/font` in the frontend | `globals.css` `--font-ui`, `--font-mono` | Self-host Sora and IBM Plex Mono (both SIL OFL 1.1; ship the licence files) with `next/font/local`, `woff2` for latin and latin-ext only, `font-display: swap`, and a fallback with `size-adjust` and `ascent-override`. Visual-change pull request, after #120. |
+| ~~Fonts are named but never loaded~~ | `globals.css` `--font-ui`, `--font-mono` | **Done** in `frontend/src/app/fonts.ts`: Sora 400/500/600 and IBM Plex Mono 400/500 self-hosted with `next/font/local` (woff2, `latin` subset, SIL OFL 1.1 licences beside the files), `font-display: swap`, fallback with generated `size-adjust` and `ascent-override`. `latin-ext` is not shipped: `next/font/local` has no `unicode-range`, so a second file would load on every page. Revisit when a locale needs it. |
 | `design.md` said cards 10px and controls 7px; code ships 4, 6 and 8 | `design.md` vs `--r-*` | Code is v1; `design.md` now states the code's radii. "Radii 10 and 7" stays an open decision for a future visual comparison. Do not change radius on your own. |
 | Hardcoded radii 12, 14 and 18px | composer, prompt card, Studio welcome | Tokens `radius-composer` (14) and `radius-hero` (18) record them; fold or justify later. |
 | 67 uses of `text-[12px]`, 38 of `text-[11px]`, 23 of `text-[13px]`, 4 of `text-[15px]`, 3 of `text-[14px]` | across `src` | 12 is `t-body`, 13 is `t-title`. `t-meta` is 11px in the target (fractional sizes blur and differ by DPI); the code ships 10.5px today, so the change belongs in the typography visual-change pull request. |

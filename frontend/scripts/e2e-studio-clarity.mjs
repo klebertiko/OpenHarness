@@ -55,7 +55,7 @@ async function pin(id, provider) {
 }
 try {
   const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
-  browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
+  browser = await chromium.launch(process.env.OHM_BROWSER_EXECUTABLE ? { executablePath: process.env.OHM_BROWSER_EXECUTABLE, headless: true } : { channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
   context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1000 } });
   page = await context.newPage();
   page.setDefaultTimeout(12000);

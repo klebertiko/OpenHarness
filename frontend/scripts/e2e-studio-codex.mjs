@@ -12,7 +12,7 @@ let step = 'startup', rejectValidation = false;
 const startedAt = new Date().toISOString();
 const report = data => writeFileSync(resolve(output, 'e2e.json'), JSON.stringify({ startedAt, step, checks, errors, unexpected, executions, responsive, ...data }, null, 2));
 report({ result: 'running' });
-const browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || 'msedge', headless: true });
+const browser = await chromium.launch(process.env.OHM_BROWSER_EXECUTABLE ? { executablePath: process.env.OHM_BROWSER_EXECUTABLE, headless: true } : { channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
 const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
 const page = await context.newPage();
 page.setDefaultTimeout(15000);

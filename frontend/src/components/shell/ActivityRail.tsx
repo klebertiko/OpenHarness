@@ -14,6 +14,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { useShellStore, LEFT_MIN, RAIL_COLLAPSED, type RailSection } from "./shellStore";
 import { chordCaps, useIsMac } from "./keys";
+import { appliedTheme, applyTheme, type Theme } from "@/lib/theme";
 
 /* Hallmark · design-system: design.md · designed-as-app */
 /**
@@ -80,18 +81,14 @@ export function ActivityRail({ children, collapsed = false }: { children?: React
   const hydrated = useShellStore((s) => s.hydrated);
   const toggleLeft = useShellStore((s) => s.toggleLeft);
 
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  useEffect(() => {
-    const saved = window.localStorage.getItem("oharness-theme");
-    const initial = saved === "light" ? "light" : "dark";
-    setTheme(initial);
-    document.documentElement.dataset.theme = initial;
-  }, []);
+  // theme-init.js has already applied the saved theme before first paint; this
+  // only mirrors it so the toggle shows the right icon and label.
+  const [theme, setTheme] = useState<Theme>("dark");
+  useEffect(() => setTheme(appliedTheme()), []);
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    document.documentElement.dataset.theme = next;
-    window.localStorage.setItem("oharness-theme", next);
+    applyTheme(next);
   };
 
   return (

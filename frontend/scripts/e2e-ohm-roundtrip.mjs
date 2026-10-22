@@ -13,7 +13,7 @@ mkdirSync(output, { recursive: true });
 const startedAt = new Date().toISOString();
 const resultPath = resolve(output, "result.json");
 writeFileSync(resultPath, JSON.stringify({ result: "running", startedAt }, null, 2));
-const browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
+const browser = await chromium.launch(process.env.OHM_BROWSER_EXECUTABLE ? { executablePath: process.env.OHM_BROWSER_EXECUTABLE, headless: true } : { channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
 const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1000 } });
 const page = await context.newPage();
 const validations = [];
