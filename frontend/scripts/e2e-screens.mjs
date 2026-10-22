@@ -153,7 +153,9 @@ for (const theme of ["dark", "light"]) {
     note(await page.evaluate(() => document.activeElement?.getAttribute("role") === "combobox"), `keyboard · ${theme} · ${vname}: palette focuses its field`);
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "detached" });
-    note(await page.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Search and commands"), `keyboard · ${theme} · ${vname}: focus returns to the opener`);
+    // Radix hands focus back on the next task after unmount, so wait for it.
+    const returned = await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Search and commands", null, { timeout: 2000 }).then(() => true, () => false);
+    note(returned, `keyboard · ${theme} · ${vname}: focus returns to the opener`);
 
     const ring = await page.evaluate(() => {
       const el = document.querySelector('nav[aria-label="Destinations"] button');
