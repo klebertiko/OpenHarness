@@ -3,7 +3,7 @@ manifest:
   id: openharness.example.deepseek-harness
   name: DeepSeek Harness (dsh)
   version: 0.1.0
-  description: 'Example harness modelled on DeepSeek Harness desktop release dsh-v0.2.1-alpha.2: plan mode, AgentLoop turn/step loop, guarded tools, subagents and goal continuation. Source: https://github.com/deepseek-ai/deepseek-harness (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2).'
+  description: 'Bundled harness modelled on DeepSeek Harness desktop release dsh-v0.2.1-alpha.2: plan mode, AgentLoop turn/step loop, guarded tools, subagents and goal continuation. Source: https://github.com/deepseek-ai/deepseek-harness (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2).'
   license: MIT
   tags:
     - example
@@ -268,7 +268,7 @@ graph:
 content:
   prompts:
     OVERVIEW: |
-      # DeepSeek Harness (dsh) — example harness
+      # DeepSeek Harness (dsh) — bundled harness
 
       Source: https://github.com/deepseek-ai/deepseek-harness (MIT). Modelled on release dsh-v0.2.1-alpha.2 (https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.2), the
       desktop release line (v0.2 ships desktop installers for macOS and Windows). Loop structure

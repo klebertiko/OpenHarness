@@ -62,3 +62,25 @@ def test_default_agile_product_name():
     for label, manifest in MANIFESTS:
         if manifest["id"] == "openharness.default.agile":
             assert manifest["name"] == "Agile Harness", label
+
+
+# The retired card label "Example harness" (#113): a bundled harness is called a
+# "bundled harness" everywhere a person reads it. Ids, tags and the
+# /bundles/examples route keep the word `example`; only the phrase is retired.
+RETIRED_LABEL = re.compile(r"example harness", re.IGNORECASE)
+
+
+def test_examples_catalog_served_to_the_ui_never_labels_a_harness_example():
+    from fastapi.testclient import TestClient
+
+    from main import app
+
+    items = TestClient(app).get("/bundles/examples").json()["examples"]
+    assert len(items) == 3
+    for item in items:
+        assert not RETIRED_LABEL.search(json.dumps(item, ensure_ascii=False)), item["id"]
+
+
+@pytest.mark.parametrize("path", sorted(RESOURCES.glob("*.oharness")), ids=lambda p: p.name)
+def test_packaged_resources_never_label_a_harness_example(path):
+    assert not RETIRED_LABEL.search(path.read_text(encoding="utf-8")), path.name
