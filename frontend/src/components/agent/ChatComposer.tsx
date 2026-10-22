@@ -101,7 +101,7 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
     </div>}
     {slashPreset && "warning" in slashPreset && <p role="alert" className="px-4 pt-2 text-[12px] text-warn">{slashPreset.warning}</p>}
     {loading && <p role="status" className="px-4 pt-2 text-[12px] text-ink-mute">Lendo a skill do workspace…</p>}
-    <textarea ref={inputRef} value={value} rows={2} aria-label="Message OpenHarness" disabled={live}
+    <textarea ref={inputRef} value={value} rows={2} aria-label="Message OHarness" disabled={live}
       aria-autocomplete="list" aria-haspopup="listbox" aria-controls={open ? id + "-commands" : undefined}
       aria-activedescendant={open && options.length ? optionId(selected) : undefined}
       onChange={event => { onChange(event.target.value); setCursor(0); setDismissed(null); }}
@@ -128,7 +128,7 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
         }
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !live) { event.preventDefault(); submit(); }
       }}
-      placeholder={live ? "Waiting on this run — click Stop to send something new" : tools?.workspace ? `Ask OpenHarness… Type / for commands, skills and tools in ${tools.workspace.name}` : "Ask OpenHarness… Type / for commands and skills"}
+      placeholder={live ? "Waiting on this run — click Stop to send something new" : tools?.workspace ? `Ask OHarness… Type / for commands, skills and tools in ${tools.workspace.name}` : "Ask OHarness… Type / for commands and skills"}
       className="block min-h-[64px] w-full resize-none bg-transparent px-4 pt-3.5 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-60" />
     {permissionMode && onPermissionModeChange && <div className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-1">
       <div role="radiogroup" aria-label="Permission mode" title="Shift+Tab alterna o modo" className="inline-flex overflow-hidden rounded-control border border-line-soft">

@@ -1,4 +1,4 @@
-# OpenHarness 05 — Repo Providers (GitHub / GitLab / Origin) Implementation Plan
+# OHarness 05 — Repo Providers (GitHub / GitLab / Origin) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 

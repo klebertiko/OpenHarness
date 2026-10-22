@@ -2,7 +2,7 @@
 
 ## Done
 
-Replaced HarnessSimulator → OpenHarness in project index + related command /
+Replaced HarnessSimulator → OHarness in project index + related command /
 architecture / env notes:
 
 - `D:\Development\CLAUDE.md`
@@ -11,7 +11,7 @@ architecture / env notes:
 - `D:\Development\GEMINI.md` (kept in sync with the three required files)
 
 `D:\Development` is **not** a git repository — those edits cannot be committed
-there. OpenHarness README notes the sync; that note is what landed in this
+there. OHarness README notes the sync; that note is what landed in this
 repo's Task 6 commit.
 
 ## Verify

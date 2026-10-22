@@ -313,8 +313,8 @@ export function AgentStage() {
                   {m.role === "user"
                     ? "You"
                     : m.providerLabel
-                      ? `OpenHarness · ${m.providerLabel}`
-                      : "OpenHarness"}
+                      ? `OHarness · ${m.providerLabel}`
+                      : "OHarness"}
                 </span>
                 <div
                   className={[

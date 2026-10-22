@@ -1,4 +1,4 @@
-# OpenHarness 02 — Agent + Studio Toggle Implementation Plan
+# OHarness 02 — Agent + Studio Toggle Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 

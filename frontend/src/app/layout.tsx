@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "OpenHarness",
+  title: "OHarness",
   description: "Agent desktop with a portable harness — design, validate, run.",
 };
 
