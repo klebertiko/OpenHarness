@@ -37,6 +37,9 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
   const [cursor, setCursor] = useState(0);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadGeneration = useRef(0);
+  useEffect(() => () => { loadGeneration.current++; }, []);
   const [confirmingTrust, setConfirmingTrust] = useState(false);
   const query = /^\/([^\s/]*)$/.exec(value)?.[1] ?? null;
   const commands = useMemo(() => chatCommands(skills, tools), [skills, tools]);
@@ -53,6 +56,9 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
   }, [open, selected, query]);
   const choose = (command: ChatCommand) => {
     if (live) return;
+    loadGeneration.current++;
+    setLoading(null);
+    setLoadError(null);
     setDismissed(null);
     setCursor(0);
     if (command.kind === "Tool") {
@@ -63,9 +69,16 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
       return;
     }
     if (command.loadDraft) {
-      onChange("");
+      const generation = ++loadGeneration.current;
+      setLoadError(null);
       setLoading(command.id);
-      void command.loadDraft().then(text => onChange(text)).finally(() => setLoading(null));
+      void command.loadDraft().then(text => {
+        if (generation === loadGeneration.current) onChange(text);
+      }).catch(() => {
+        if (generation === loadGeneration.current) setLoadError("Could not read this skill. Check the workspace and choose it again.");
+      }).finally(() => {
+        if (generation === loadGeneration.current) setLoading(null);
+      });
       inputRef.current?.focus();
       return;
     }
@@ -101,10 +114,11 @@ export function ChatComposer({ value, onChange, onSend, inputRef, skills, live, 
     </div>}
     {slashPreset && "warning" in slashPreset && <p role="alert" className="px-4 pt-2 text-[12px] text-warn">{slashPreset.warning}</p>}
     {loading && <p role="status" className="px-4 pt-2 text-[12px] text-ink-mute">Lendo a skill do workspace…</p>}
+    {loadError && <p role="alert" className="px-4 pt-2 text-[12px] text-warn">{loadError}</p>}
     <textarea ref={inputRef} value={value} rows={2} aria-label="Message OpenHarness" disabled={live}
       aria-autocomplete="list" aria-haspopup="listbox" aria-controls={open ? id + "-commands" : undefined}
       aria-activedescendant={open && options.length ? optionId(selected) : undefined}
-      onChange={event => { onChange(event.target.value); setCursor(0); setDismissed(null); }}
+      onChange={event => { loadGeneration.current++; setLoading(null); setLoadError(null); onChange(event.target.value); setCursor(0); setDismissed(null); }}
       onBlur={() => setDismissed(value)}
       onKeyDown={event => {
         if (event.nativeEvent.isComposing || event.keyCode === 229) return;
