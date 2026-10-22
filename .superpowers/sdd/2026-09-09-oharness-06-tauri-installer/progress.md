@@ -1,5 +1,5 @@
 ﻿# SDD ledger plan 06
-Branch: feature/openharness-06-tauri-installer
+Branch: feature/oharness-06-tauri-installer
 BASE: 790b6028c317dbb359ba9a86290751bf7ab1533b
 
 | Task | Status | Notes |
@@ -20,6 +20,6 @@ BASE: 790b6028c317dbb359ba9a86290751bf7ab1533b
 | 6855093 | feat(desktop): scaffold Tauri v2 shell with FastAPI sidecar |
 | 1fc23d6 | feat(secrets): KeychainSecrets behind OH_SECRETS |
 | 73ec8f3 | docs(desktop): NSIS install path and harness-spec |
-| 7272195 | docs(workspace): index OpenHarness in place of HarnessSimulator |
+| 7272195 | docs(workspace): index OHarness in place of HarnessSimulator |
 
 Branch HEAD: `6f2afaf81c99872aa4732a376775f20673700237` (includes SDD ledger commit)

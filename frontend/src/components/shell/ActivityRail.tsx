@@ -82,7 +82,7 @@ export function ActivityRail({ children, collapsed = false }: { children?: React
 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   useEffect(() => {
-    const saved = window.localStorage.getItem("openharness-theme");
+    const saved = window.localStorage.getItem("oharness-theme");
     const initial = saved === "light" ? "light" : "dark";
     setTheme(initial);
     document.documentElement.dataset.theme = initial;
@@ -91,7 +91,7 @@ export function ActivityRail({ children, collapsed = false }: { children?: React
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     document.documentElement.dataset.theme = next;
-    window.localStorage.setItem("openharness-theme", next);
+    window.localStorage.setItem("oharness-theme", next);
   };
 
   return (

@@ -14,7 +14,7 @@ function Composer({ initial = "ask", live = false, notice }: { initial?: Permiss
   return <ChatComposer value={value} onChange={setValue} onSend={send} inputRef={ref} live={live}
     permissionMode={mode} onPermissionModeChange={(next) => { changed(next); setMode(next); }} permissionNotice={notice} />;
 }
-const textbox = () => screen.getByRole("textbox", { name: "Message OpenHarness" }) as HTMLTextAreaElement;
+const textbox = () => screen.getByRole("textbox", { name: "Message OHarness" }) as HTMLTextAreaElement;
 const checked = () => screen.getAllByRole("radio").find((r) => r.getAttribute("aria-checked") === "true")?.textContent;
 
 beforeEach(() => { vi.clearAllMocks(); HTMLElement.prototype.scrollIntoView = vi.fn(); });
