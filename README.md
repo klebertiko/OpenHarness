@@ -261,16 +261,19 @@ Quality and security are **independent** required checks. Probabilistic classifi
 | `Security scan / required` | Dependency review, CodeQL, OpenGrep, Trivy, Gitleaks, Zizmor |
 | Merge queue | Both required workflows also trigger on `merge_group` |
 | Scheduled | SBOM CycloneDX, OWASP Dependency-Check, Scorecards supply-chain security, Dependency audit |
-| Tag `vX.Y.Z` | Version gate → Windows NSIS → smoke → checksums → SBOM + attestations |
+| Tag `vX.Y.Z` | Version gate → build matrix (Windows, Linux, macOS arm64 + x64) → smoke → `SHA256SUMS` → SBOM + attestations → **draft** release |
 
 Package installs in CI go through **Aikido Safe Chain** (checksum-pinned installer). External Actions are pinned to full commit SHAs.
 
 Full policy and admin checklist: [`docs/ci-security.md`](docs/ci-security.md).
 
-Release verification (after a published tag):
+A tag builds on three operating systems and ends in a **draft** GitHub Release that a maintainer reviews and publishes. A tag with a pre-release suffix (e.g. `v0.0.1-alpha`) is marked pre-release, and GitHub never serves it from `releases/latest`, so link it by tag: `https://github.com/klebertiko/OpenHarness/releases/tag/v0.0.1-alpha`. Asset names are stable and carry no version: `OpenHarness-windows-x64-setup.exe`, `OpenHarness-linux-x86_64.AppImage`, `OpenHarness-linux-amd64.deb`, `OpenHarness-macos-arm64.dmg`, `OpenHarness-macos-x64.dmg`, plus `SHA256SUMS` and the SBOM `OpenHarness-sbom.cdx.json`.
+
+Release verification (after a published tag, in the folder with the downloaded files):
 
 ```bash
-gh attestation verify OpenHarness_*_x64-setup.exe --repo klebertiko/OpenHarness
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify OpenHarness-windows-x64-setup.exe --repo klebertiko/OpenHarness
 ```
 
 GitHub attestations prove provenance; they do not replace Authenticode. EV / Azure Artifact Signing remains a hard requirement before treating builds as production distribution.

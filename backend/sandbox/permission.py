@@ -23,12 +23,13 @@ There is deliberately no "bypass" mode, and an unknown mode is ``"ask"``. The mo
 is stored per conversation by the sidecar; a run request can only tighten it
 (`effective_mode`), never loosen it.
 """
+import functools
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path, PureWindowsPath
-from typing import Literal
+from typing import Literal, NamedTuple
 
 from .paths import PathViolation, resolve_in_root
 
@@ -59,22 +60,70 @@ _GIT_FLAGS = frozenset({
 _GIT_COUNT_FLAG = re.compile(r'^(-\d{1,4}|-n\d{1,4}|--max-count=\d{1,4})$')
 _GIT_OPERAND = re.compile(r'^[A-Za-z0-9_@{}^~:./+\\-]+$')
 _DIFFY_SUBCOMMANDS = frozenset({'diff', 'log', 'show'})
+_SUBMODULE_SCANNERS = frozenset({'status', 'diff'})
 
-# `section.key` names (lowercased by git; the subsection, if any, is the middle part) the repo's own
-# .git/config may set. Anything else - filters, drivers, textconv, hooks, includes, aliases, unknown keys - is refused.
-_GIT_CONFIG_ALLOWED = re.compile(
-    r'^(?:'
-    r'core\.(?:repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|symlinks|precomposeunicode|autocrlf|eol|safecrlf|longpaths|protectntfs|trustctime)'
-    r'|user\.(?:name|email)'
-    r'|init\.defaultbranch'
-    r'|pull\.(?:rebase|ff)'
-    r'|push\.default'
-    r'|fetch\.prune'
-    r'|color\.ui'
-    r'|remote\..+\.(?:url|pushurl|fetch|push)'
-    r'|branch\..+\.(?:remote|merge|rebase|description)'
-    r'|submodule\..+\.(?:url|active|branch)'
-    r')$')
+# What the repo's own .git/config may set, as ONE table: `section.variable` as git lists it (section and variable
+# lowercased, the subsection - if any - is the middle part and keeps its case), the grammar of its value, and the
+# git version it needs. `_GIT_CONFIG_ALLOWED` is built from the keys of this table, so a key cannot be admitted
+# without a rule, and a key with no rule fails closed in `_git_config_value_ok`. Anything not here - filters, drivers,
+# textconv, hooks, includes, aliases, unknown keys - is refused.
+class _ConfigRule(NamedTuple):
+    key: re.Pattern
+    value: re.Pattern | None  # fullmatch on the value; None = any value (keys admitted before value grammars existed)
+    bare: bool                # `[core] fscache` with no `=` is boolean true: accepted only where a boolean is
+    min_git: tuple            # promisor keys need a git that has GIT_NO_LAZY_FETCH (2.45.0)
+
+
+def _rule(key: str, value: str | None = None, bare: bool = False, min_git: tuple = ()) -> _ConfigRule:
+    # ASCII only: `\d` and IGNORECASE are Unicode-aware otherwise (Arabic-Indic digits, the Kelvin sign for `k`).
+    return _ConfigRule(re.compile(key, re.ASCII), None if value is None else re.compile(value, re.IGNORECASE | re.ASCII), bare, min_git)
+
+
+_CFG_BOOL = r'(?:true|false|yes|no|on|off|0|1)'
+_CFG_NUMBER = r'-?[0-9]{1,12}[kKmMgG]?'
+_CFG_DATE = r'(?:now|never|[0-9]{1,10}|[0-9]{1,6}\.(?:second|minute|hour|day|week|month|year)s?\.ago)'
+# The name of a remote that may be a promisor is an operand of the `git fetch` a lazy fetch starts: no leading `-` or `.`.
+_PROMISOR_REMOTE = r'remote\.[A-Za-z0-9_][A-Za-z0-9._-]*'
+# A ref name git would accept as a branch: components of `[A-Za-z0-9_@+][A-Za-z0-9._@+-]*` joined by single `/`, with no
+# `..`, no component ending in `.lock`, no trailing `.` and not `@` alone (`@{` and the other ref-name specials are outside the set).
+_CFG_REF = (r'(?=[\x21-\x7e]{1,200}\Z)(?!.*\.\.)(?!.*\.lock(?:/|\Z))(?!.*\.\Z)(?!@\Z)'
+            r'[A-Za-z0-9_@+][A-Za-z0-9._@+-]*(?:/[A-Za-z0-9_@+][A-Za-z0-9._@+-]*)*')
+_LAZY_FETCH_SWITCH = (2, 45, 0)
+_GIT_CONFIG_RULES = (
+    # as #114 shipped them: any value (nothing the allowed read-only subcommands do with them names a program)
+    _rule(r'core\.(?:repositoryformatversion|filemode|bare|logallrefupdates|ignorecase|symlinks|precomposeunicode|autocrlf|eol|safecrlf|longpaths|protectntfs|trustctime)'),
+    _rule(r'user\.(?:name|email)'),
+    _rule(r'init\.defaultbranch'),
+    _rule(r'pull\.(?:rebase|ff)'),
+    _rule(r'push\.default'),
+    _rule(r'fetch\.prune'),
+    _rule(r'color\.ui'),
+    _rule(r'remote\..+\.(?:url|pushurl|fetch|push)'),
+    _rule(r'branch\..+\.(?:remote|merge|rebase|description)'),
+    _rule(r'submodule\..+\.(?:url|active|branch)'),
+    # #117
+    _rule(r'core\.(?:fscache|sparsecheckout)', _CFG_BOOL, bare=True),
+    _rule(r'core\.untrackedcache', rf'(?:{_CFG_BOOL}|keep)', bare=True),
+    _rule(r'branch\..+\.vscode-merge-base', _CFG_REF),
+    _rule(_PROMISOR_REMOTE + r'\.promisor', _CFG_BOOL, bare=True, min_git=_LAZY_FETCH_SWITCH),
+    # Only the filter specs git documents without a path, an object name or a nested spec (`sparse:`, `combine:`, `object:` stay out).
+    _rule(_PROMISOR_REMOTE + r'\.partialclonefilter', r'(?:blob:none|blob:limit=[0-9]{1,12}[kKmMgG]?|tree:[0-9]{1,6})', min_git=_LAZY_FETCH_SWITCH),
+    _rule(r'gc\.(?:auto|autopacklimit|aggressivedepth|aggressivewindow|bigpackthreshold)', _CFG_NUMBER),
+    _rule(r'gc\.(?:autodetach|writecommitgraph)', _CFG_BOOL, bare=True),
+    _rule(r'gc\.packrefs', rf'(?:{_CFG_BOOL}|notbare)', bare=True),
+    _rule(r'gc\.(?:pruneexpire|reflogexpire|reflogexpireunreachable|worktreepruneexpire)', _CFG_DATE),
+    _rule(r'lfs\.repositoryformatversion', r'0'),
+)
+_GIT_CONFIG_ALLOWED = re.compile(r'^(?:' + '|'.join(f'(?:{rule.key.pattern})' for rule in _GIT_CONFIG_RULES) + r')\Z', re.ASCII)
+_PROMISOR_KEY = re.compile(r'remote\..+\.(?:promisor|partialclonefilter)', re.ASCII)
+_REMOTE_URL_KEY = re.compile(r'remote\..+\.(?:url|pushurl)', re.ASCII)
+# Where a lazy fetch may reach: no leading `-`, no `\`, no `::` (remote helpers: `ext::`, `fd::`), no `ext:`, no whitespace or
+# control characters, and one of: a URL with a known scheme, `user@host:path`, a drive path, or a path with no scheme at all.
+_REMOTE_URL = re.compile(
+    r'(?:(?:https?|ssh|git|file)://[^\x00-\x20\x7f\\]+'
+    r'|[A-Za-z0-9._~+-]+@[A-Za-z0-9][A-Za-z0-9.-]*:[^\x00-\x20\x7f\\:][^\x00-\x20\x7f\\]*'
+    r'|[A-Za-z]:/[^\x00-\x20\x7f\\]*'
+    r'|[^\x00-\x20\x7f\\:]+)', re.ASCII | re.IGNORECASE)
 # Files inside .git that make git read configuration or objects from somewhere else (worktrees, linked repos).
 _GIT_EXE = shutil.which('git')  # resolved once, at import: the policy never searches PATH while deciding
 _EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
@@ -222,9 +271,9 @@ def _git_objects_are_local(git_dir: str) -> bool:
     return not os.path.lexists(os.path.join(objects, 'info', 'alternates'))
 
 
-def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
-    """Every key git itself parses out of `config`, or None when git cannot parse it. `git config -f --list`
-    only reads; with --no-includes it follows nothing and a hostile file cannot make it start a program."""
+def _git_run(args: list[str], cwd: str) -> bytes | None:
+    """stdout of a read-only `git <args>` with the user's configuration scrubbed away, or None when it cannot run or fails.
+    The one place the policy starts a program: the executable is the one resolved at import, never searched on PATH."""
     git = _GIT_EXE
     if git is None:
         return None
@@ -232,18 +281,76 @@ def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
     env.update({'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_TERMINAL_PROMPT': '0'})
     try:
         # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit
-        # argv is a list (no shell); git is the executable resolved once at import; the call only parses the file.
-        done = subprocess.run([git, 'config', '--file', config, '--no-includes', '--null', '--list'], cwd=git_dir, env=env,  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
+        # argv is a list (no shell); git is the executable resolved once at import; the callers only parse a file or the version.
+        done = subprocess.run([git, *args], cwd=cwd, env=env,  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
                               capture_output=True, timeout=10, check=False)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
-    if done.returncode != 0:
+    return done.stdout if done.returncode == 0 else None
+
+
+_GIT_VERSION = re.compile(r'git version ([0-9]+)\.([0-9]+)(?:\.([0-9]+))?', re.ASCII)
+
+
+def _parse_git_version(text: str) -> tuple[int, ...]:
+    """`git version 2.53.0.windows.1` -> (2, 53, 0); anything else -> () (unknown: callers treat it as too old)."""
+    found = _GIT_VERSION.match(text.strip())
+    return tuple(int(part) for part in found.groups(default='0')) if found else ()
+
+
+@functools.lru_cache(maxsize=1)
+def _git_version() -> tuple[int, ...]:
+    """The installed git's version as a tuple of ints, cached for the process; () when it cannot be read."""
+    out = _git_run(['--version'], os.path.dirname(_GIT_EXE) if _GIT_EXE else '.')
+    return _parse_git_version(out.decode('utf-8', 'replace')) if out is not None else ()
+
+
+def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
+    """Every key git itself parses out of `config`, or None when git cannot parse it or a value breaks the
+    grammar its key is bound to (`_GIT_CONFIG_RULES`). `git config -f --list`
+    only reads; with --no-includes it follows nothing and a hostile file cannot make it start a program."""
+    out = _git_run(['config', '--file', config, '--no-includes', '--null', '--list'], git_dir)
+    if out is None:
         return None
     try:
-        text = done.stdout.decode('utf-8')
+        text = out.decode('utf-8')
     except UnicodeDecodeError:
         return None
-    return [entry.split('\n', 1)[0] for entry in text.split('\0') if entry]
+    entries = []
+    for entry in text.split('\0'):
+        if not entry:
+            continue
+        key, separator, value = entry.partition('\n')
+        value = value if separator else None
+        if not _git_config_value_ok(key, value):
+            return None
+        entries.append((key, value))
+    # A promisor remote makes a read-only command able to reach `remote.*.url` (lazy fetch): then every URL needs a grammar.
+    if any(_PROMISOR_KEY.fullmatch(key) for key, _ in entries):
+        if not all(value is not None and _git_remote_url_ok(value) for key, value in entries if _REMOTE_URL_KEY.fullmatch(key)):
+            return None
+    return [key for key, _ in entries]
+
+
+def _git_remote_url_ok(url: str) -> bool:
+    return not (url.startswith('-') or '::' in url or url.lower().startswith('ext:')) and _REMOTE_URL.fullmatch(url) is not None
+
+
+def _git_config_rule(key: str) -> _ConfigRule | None:
+    return next((rule for rule in _GIT_CONFIG_RULES if rule.key.fullmatch(key)), None)
+
+
+def _git_config_value_ok(key: str, value: str | None) -> bool:
+    """The key must have a rule, the value must fully match its grammar (`None` is a key written with no `=`), and a rule
+    that needs a newer git is not satisfied by an older or unknown one. A key with no rule fails closed."""
+    rule = _git_config_rule(key)
+    if rule is None:
+        return False
+    if rule.min_git and _git_version() < rule.min_git:
+        return False
+    if rule.value is None:
+        return True
+    return rule.bare if value is None else rule.value.fullmatch(value) is not None
 
 
 def _git_config_is_inert(root: str) -> bool:
@@ -360,19 +467,31 @@ def hardened_git(argv: list[str], root) -> tuple[list[str], dict[str, str]]:
     if not argv or _normalize_program(argv[0]) != 'git':
         return list(argv), {}
     head = ['git', '-c', 'core.fsmonitor=', '-c', 'core.pager=cat', '-c', 'diff.external=',
-            '-c', f'core.hooksPath={os.devnull}', '--no-pager', '--no-optional-locks']
+            '-c', f'core.hooksPath={os.devnull}',
+            # Defense in depth for the GIT_DIR pin below: git only enters a bare repository it is told about explicitly.
+            '-c', 'safe.bareRepository=explicit',
+            # A promisor remote (`remote.*.promisor`, admitted above) lets a read-only command fetch a missing object from `remote.*.url`.
+            # No transport is allowed, so no command started here contacts a server or reads another repository (git >= 2.45.0 also
+            # honours GIT_NO_LAZY_FETCH below, which skips the attempt altogether).
+            '-c', 'protocol.allow=never',
+            '--no-pager', '--no-optional-locks']
     rest = list(argv[1:])
     if rest and rest[0] in _DIFFY_SUBCOMMANDS:
         rest[1:1] = ['--no-ext-diff', '--no-textconv']
+    if rest and rest[0] in _SUBMODULE_SCANNERS:
+        # A gitlink in the index makes `status`/`diff` start `git status` INSIDE that directory, which reads the nested
+        # repo's own config and info/attributes (filter.*.process runs). `dirty` compares only the recorded commit.
+        rest[1:1] = ['--ignore-submodules=dirty']
     real_root = os.path.realpath(str(root))
     git_dir = os.path.join(real_root, '.git')
     env = {
         # Pinned so git never follows `.git/commondir`, a `.git` file or a parent repo to a config we did not verify.
         'GIT_DIR': git_dir, 'GIT_COMMON_DIR': git_dir, 'GIT_WORK_TREE': real_root,
-        # Attributes (filter=/diff=) come from the empty tree, not from the working tree's .gitattributes (git >= 2.42; older git ignores it).
+        # Attributes (filter=/diff=) come from the empty tree, not from the working tree's .gitattributes (git >= 2.42; older git ignores it,
+        # and stays inert: the verified config and the neutral global/system config define no driver - see test_sandbox_nested_git.py).
         'GIT_ATTR_SOURCE': _EMPTY_TREE,
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0',
-        'GIT_OPTIONAL_LOCKS': '0', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
+        'GIT_OPTIONAL_LOCKS': '0', 'GIT_NO_LAZY_FETCH': '1', 'GIT_CEILING_DIRECTORIES': os.path.dirname(real_root),
     }
     return head + rest, env
 
