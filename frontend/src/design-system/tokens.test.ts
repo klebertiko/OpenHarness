@@ -12,6 +12,16 @@ describe("design tokens", () => {
     expect(script("design-tokens.mjs", "--check")).toContain("Tokens match globals.css");
   });
 
+  it("also guards the type roles against .t-* and tailwind.config.ts", () => {
+    expect(script("design-tokens.mjs", "--check")).toContain("type roles match");
+  });
+
+  it("emits the font families under the names the previews use", () => {
+    const css = script("design-tokens.mjs", "--css");
+    expect(css).toContain("--font-ui:");
+    expect(css).toContain("--font-mono:");
+  });
+
   it("emit CSS for every token", () => {
     const css = script("design-tokens.mjs", "--css");
     expect(css).toContain(":root {");

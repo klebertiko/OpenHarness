@@ -136,5 +136,5 @@ it("Selecting a Tool starts a run with a preset", () => {
 it("No workspace hides tools and says why", () => {
   render(<ToolsComposer tools={{ workspace: null, capabilities: null, items: [], readSkill: async () => "" }} />); type("/");
   expect(screen.queryByRole("option", { name: /\/exec/ })).toBeNull();
-  expect(screen.getByText("Selecione uma pasta para usar ferramentas")).toBeTruthy();
+  expect(screen.getByText("Choose a folder to use tools.")).toBeTruthy();
 });

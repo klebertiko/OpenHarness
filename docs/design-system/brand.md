@@ -6,7 +6,7 @@ Nilo, the scholar owl, is the OHarness identity: the title-bar mark, the app ico
 
 - The 16 by 13 `NILO_GRID` in the app (`frontend/src/components/brand/niloGrid.ts`) is the only drawing. Letters are roles: `B` body, `W` eye-white, `P` pupil, `K` beak, `R` rim. The mark, the sprite and the generated icons all come from it. Edit the grid, never a file derived from it.
 - The exported files are in `brand/`: `nilo.svg` (full mascot, 8px per cell, for use outside the app), `mark.svg` (face crop, same shape as the title-bar mark) and `icon.png` (1024 app icon on a rounded graphite plate). `brand/legacy/` keeps superseded marks with a `-legacy` suffix; never delete one.
-- Exported files use fixed stand-ins for the live colours: `#3AB3AD` body, `#F4EFE6` eyes, `#161412` pupils, `#D9A441` beak.
+- Exported files use fixed stand-ins for the live colours: `#3AB3AD` body, `#F4EFE6` eyes, `#93E4DE` spectacle rims and chest chevron, `#161412` pupils, `#D9A441` beak.
 
 ## Style lock
 
