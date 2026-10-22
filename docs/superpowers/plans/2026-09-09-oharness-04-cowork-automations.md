@@ -1,4 +1,4 @@
-# OpenHarness 04 — Cowork + Automations Implementation Plan
+# OHarness 04 — Cowork + Automations Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
 

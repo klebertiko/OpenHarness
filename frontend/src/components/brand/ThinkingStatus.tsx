@@ -53,7 +53,7 @@ export function ThinkingStatus({
       <div className="min-w-0">
         <p className="text-[13px] leading-5 text-ink">
           <span aria-hidden>{verb}…</span>
-          <span className="sr-only">OpenHarness is working</span>{" "}
+          <span className="sr-only">OHarness is working</span>{" "}
           <span aria-hidden className="font-mono text-[12px] tabular-nums text-ink-faint">
             {formatElapsed(elapsedSec)}
             {tokens !== undefined ? ` · ${fmtTokens(tokens)} tok` : ""}

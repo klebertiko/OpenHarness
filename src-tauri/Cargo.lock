@@ -2172,7 +2172,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "openharness"
+name = "oharness"
 version = "0.0.1-alpha"
 dependencies = [
  "getrandom 0.4.3",

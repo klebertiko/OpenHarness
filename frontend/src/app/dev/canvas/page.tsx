@@ -55,7 +55,7 @@ export default function CanvasBench() {
           latencyMs: 2140,
           tokens: 612,
           output:
-            "OpenHarness v0.4 adds named ports on every node, so a branch now says what it means on the wire itself.",
+            "OHarness v0.4 adds named ports on every node, so a branch now says what it means on the wire itself.",
         },
         "cg-critic": { status: "running" },
         "cg-review": { status: "paused" },

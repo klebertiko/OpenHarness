@@ -118,14 +118,14 @@ export function CredentialSeal({
         }
       >
         <p className="t-body max-w-[62ch] text-ink-dim">
-          OpenHarness stores no credential for this connection. It runs the local{" "}
+          OHarness stores no credential for this connection. It runs the local{" "}
           <span className="t-meta text-ink">{spec.vendor === "Cursor" ? "cursor-agent" : "claude"}</span>{" "}
           CLI in your own login session — there is nothing to paste here, and nothing this app could
           leak even if it tried.
         </p>
         {failure === "store" && (
         <p role="alert" className="t-body mt-1.5 text-fault">
-          The key was not stored: the OpenHarness sidecar did not accept it. Check the app is running and try again.
+          The key was not stored: the OHarness sidecar did not accept it. Check the app is running and try again.
         </p>
       )}
       <p className="t-body mt-2.5 max-w-[62ch] text-ink-mute">
@@ -166,7 +166,7 @@ export function CredentialSeal({
         </dl>
 
         <p className="t-body mt-3 max-w-[62ch] text-ink-mute">
-          OpenHarness cannot read this value back — not into this window, not into a node, not into
+          OHarness cannot read this value back — not into this window, not into a node, not into
           a run log. The runtime asks the vault for it at request time and never hands it across.
         </p>
 
@@ -262,7 +262,7 @@ export function CredentialSeal({
 
       <p className="t-body mt-2.5 max-w-[62ch] text-ink-mute">
         Stored in the {VAULT_LABEL[vault]} under{" "}
-        <span className="t-meta text-ink-dim">openharness/{connection.id}</span>, then{" "}
+        <span className="t-meta text-ink-dim">oharness/{connection.id}</span>, then{" "}
         <span className="text-ink-dim">never shown again</span> — including to you. Keep the vendor
         copy if you need it elsewhere.
       </p>

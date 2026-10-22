@@ -32,7 +32,7 @@ vi.mock("@/components/agent/ChatProviderPicker", () => ({ ChatProviderPicker: ()
 vi.mock("@/components/agent/WorkspacePicker", () => ({ WorkspacePicker: () => <div /> }));
 
 const api = vi.mocked(chatToolsApi);
-const input = () => screen.getByRole("textbox", { name: "Message OpenHarness" }) as HTMLTextAreaElement;
+const input = () => screen.getByRole("textbox", { name: "Message OHarness" }) as HTMLTextAreaElement;
 const checked = () => screen.getAllByRole("radio").find((r) => r.getAttribute("aria-checked") === "true")?.textContent;
 
 describe("AgentStage permission mode", () => {

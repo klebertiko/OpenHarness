@@ -11,7 +11,7 @@ function Composer({ skills = {}, live = false }: { skills?: unknown; live?: bool
   return <ChatComposer value={value} onChange={setValue} onSend={send} inputRef={ref} skills={skills} live={live} />;
 }
 function type(value: string) {
-  const input = screen.getByRole("textbox", { name: "Message OpenHarness" }) as HTMLTextAreaElement;
+  const input = screen.getByRole("textbox", { name: "Message OHarness" }) as HTMLTextAreaElement;
   input.focus(); fireEvent.change(input, { target: { value } }); return input;
 }
 beforeEach(() => {
@@ -76,7 +76,7 @@ it("disables the composer while a run is live — Ctrl+Enter must not silently n
   // to a canStart-gated handler upstream) already refused to start a second
   // run, but gave no feedback. The composer itself must make this obvious.
   render(<Composer live />);
-  const input = screen.getByRole("textbox", { name: "Message OpenHarness" }) as HTMLTextAreaElement;
+  const input = screen.getByRole("textbox", { name: "Message OHarness" }) as HTMLTextAreaElement;
   expect(input.disabled).toBe(true);
   expect(input.placeholder).toMatch(/waiting|stop/i);
   fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });

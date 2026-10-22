@@ -55,7 +55,7 @@ const page = await context.newPage();
 page.setDefaultTimeout(15000);
 page.on('pageerror', error => errors.push(error.message));
 const button = name => page.getByRole('button', { name, exact: true });
-const composer = () => page.getByRole('textbox', { name: 'Message OpenHarness' });
+const composer = () => page.getByRole('textbox', { name: 'Message OHarness' });
 try {
   await page.goto(base, { waitUntil: 'networkidle' });
   step = 'explicit model and completion';

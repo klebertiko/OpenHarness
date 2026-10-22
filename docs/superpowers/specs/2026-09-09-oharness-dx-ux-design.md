@@ -1,13 +1,13 @@
-# OpenHarness — DX / UX Design
+# OHarness — DX / UX Design
 
 Date: 2026-09-09  
 Status: approved (brainstorming sections 1–3)  
 Supersedes UI naming: **Wallet → Providers** (user-facing).  
-Companion: [`2026-09-09-openharness-design.md`](./2026-09-09-openharness-design.md), [`../../design.md`](../../design.md), [`../../brand/README.md`](../../brand/README.md).
+Companion: [`2026-09-09-oharness-design.md`](./2026-09-09-oharness-design.md), [`../../design.md`](../../design.md), [`../../brand/README.md`](../../brand/README.md).
 
 ## Product stance
 
-OpenHarness is a **desktop instrument** (Tauri), not a browser product. Chat is the **home** because that is where the user *sees the harness work for real*. Studio is where they *see and validate the graph* without spending provider tokens. The product is not “another chat app”; chat is the proof surface.
+OHarness is a **desktop instrument** (Tauri), not a browser product. Chat is the **home** because that is where the user *sees the harness work for real*. Studio is where they *see and validate the graph* without spending provider tokens. The product is not “another chat app”; chat is the proof surface.
 
 Inspiration: Cursor / Claude / Codex desktop shells + NightwolfRGB brand recipe + desktop-app-design (density, keyboard-first, progressive complexity).
 
@@ -29,7 +29,7 @@ Inspiration: Cursor / Claude / Codex desktop shells + NightwolfRGB brand recipe 
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ Titlebar · mark · OpenHarness · Agent | Studio · win ctl │
+│ Titlebar · mark · OHarness · Agent | Studio · win ctl │
 ├────────────┬─────────────────────────────────────────────┤
 │ Threads    │ Transcript                                  │
 │ (+ New)    │                                             │
