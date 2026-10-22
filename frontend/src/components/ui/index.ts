@@ -7,4 +7,5 @@ export { ListRow } from "./ListRow";
 export { Notice, type NoticeTone } from "./Notice";
 export { Panel, type PanelVariant } from "./Panel";
 export { Segmented, type SegmentedOption } from "./Segmented";
+export { Sheet } from "./Sheet";
 export { Skeleton, SkeletonRows } from "./Skeleton";
