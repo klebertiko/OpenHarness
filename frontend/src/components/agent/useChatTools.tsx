@@ -25,6 +25,7 @@ export function useChatTools(
     setCapabilities(null);
     setItems([]);
     setError(null);
+    setLoading(false);
     if (!root) return;
     setLoading(true);
     (async () => {
