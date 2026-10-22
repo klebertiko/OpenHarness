@@ -385,3 +385,36 @@ def test_two_simultaneous_removals_of_the_same_workspace_remove_it_once(svc, rep
         outcomes = list(pool.map(attempt, range(2)))
     assert sum(isinstance(o, dict) for o in outcomes) == 1
     assert listed_ids(svc, repo) == ["main"]
+
+
+# ----------------------------------------------------------------------- content git cannot carry into a rescue
+
+
+def test_an_untracked_nested_repository_blocks_removal_because_a_rescue_cannot_hold_its_history(svc, repo, wt):
+    info, w = wt
+    nested = Path(info["path"]) / "vendor-clone"
+    nested.mkdir()
+    inner = Repo(nested, w.runner)
+    inner.git("init", "-q", "-b", "main")
+    inner.commit("inner.txt", "their work\n")
+    report = svc.removal_check(str(repo.path), info["id"])
+    assert not report["removable"] and "nested_repository" in report["blockers"] and report["confirmation_token"] is None
+    with pytest.raises(WorkspaceError) as caught:
+        svc.remove(str(repo.path), info["id"], "anything")
+    assert caught.value.status == 403 and (nested / "inner.txt").is_file()
+
+
+def test_an_initialized_submodule_blocks_removal(svc, repo, runner):
+    repo.git("update-index", "--add", "--cacheinfo", f"160000,{repo.out('rev-parse', 'HEAD')},sub")
+    repo.git("commit", "-q", "-m", "gitlink")
+    info = svc.create(str(repo.path), "main")
+    sub = Path(info["path"]) / "sub"
+    sub.mkdir(exist_ok=True)
+    inner = Repo(sub, runner)
+    inner.git("init", "-q", "-b", "main")
+    inner.commit("work.txt", "uncommitted elsewhere\n")
+    report = svc.removal_check(str(repo.path), info["id"])
+    assert not report["removable"] and "submodules" in report["blockers"]
+    with pytest.raises(WorkspaceError) as caught:
+        svc.remove(str(repo.path), info["id"], "anything")
+    assert caught.value.status == 403 and (sub / "work.txt").is_file()

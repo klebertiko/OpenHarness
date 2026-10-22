@@ -48,6 +48,8 @@ class InspectionState:
     ignored: int
     unpushed: dict[str, Any]
     missing: bool
+    nested: list[str] = field(default_factory=list)
+    submodules: list[str] = field(default_factory=list)
     fingerprint: str = field(default="")
 
     @property
@@ -102,7 +104,7 @@ class RemovalMixin:
 
     def _inspect(self, ctx, entry: WorktreeEntry, ident: str | None = None) -> dict[str, Any]:
         missing = not os.path.isdir(entry.path)
-        report, raw, stat, ignored = StatusReport(), b"", {}, 0
+        report, raw, stat, ignored, nested, submodules = StatusReport(), b"", {}, 0, [], []
         if not missing:
             try:
                 raw = self.runner.run(entry.path, ["status", "--porcelain=v2", "-z", "--untracked-files=all", "--ignore-submodules=dirty"],
@@ -110,16 +112,25 @@ class RemovalMixin:
                 report = parse_status_v2(raw)
                 ignored_raw = self.runner.run(entry.path, ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"]).stdout
                 ignored = len([name for name in ignored_raw.split(b"\0") if name])
+                for record in self.runner.run(entry.path, ["ls-files", "--stage", "-z"]).stdout.split(b"\0"):
+                    mode, _, rest = record.partition(b" ")
+                    rel = rest.partition(b"\t")[2].decode("utf-8", "surrogateescape")
+                    if mode == b"160000" and rel and os.path.lexists(os.path.join(entry.path, rel, ".git")):
+                        submodules.append(rel)
             except GitFailure as exc:
                 raise WorkspaceError("inspection_failed", "git could not read the state of this worktree", 409) from exc
-            for rel in report.paths:
+            for rel, code in report.paths.items():
+                full = os.path.join(entry.path, rel)
                 try:
-                    st = os.lstat(os.path.join(entry.path, rel))
+                    st = os.lstat(full)
                     stat[rel] = [st.st_size, st.st_mtime_ns]
                 except OSError:
                     stat[rel] = None
+                if code == "?" and os.path.isdir(full) and not is_link(full):
+                    nested.append(rel)  # an untracked directory git lists as one entry is a repository of its own
         state = InspectionState(entry=entry, report=report, status_raw=raw, stat=stat, ignored=ignored,
-                                unpushed=self._unpushed(ctx, entry), missing=missing)
+                                unpushed=self._unpushed(ctx, entry), missing=missing,
+                                nested=nested, submodules=submodules)
         state.fingerprint = hashlib.sha256(json.dumps({
             "head": entry.head, "branch": entry.branch, "locked": entry.locked, "reason": entry.lock_reason,
             "status": hashlib.sha256(raw).hexdigest(), "stat": sorted(stat.items()), "ignored": ignored,
@@ -155,20 +166,26 @@ class RemovalMixin:
                 return ref
         raise WorkspaceError("preservation_failed", "too many rescue refs exist for this workspace", 409)
 
-    def _blockers(self, info: dict[str, Any]) -> list[str]:
+    def _blockers(self, info: dict[str, Any], state: InspectionState | None = None) -> list[str]:
         blockers = []
         if info["kind"] == "main":
             blockers.append("principal")
         elif not info["managed"]:
             blockers.append("not_managed")
+        if state is not None and info["kind"] != "main":
+            # Neither can be carried by a rescue commit (a gitlink/embedded repo keeps only a pointer, not its history or edits).
+            if state.submodules:
+                blockers.append("submodules")
+            if state.nested:
+                blockers.append("nested_repository")
         return blockers
 
     def removal_check(self, repo: str, workspace_id: str) -> dict[str, Any]:
         ctx = self._open(repo)
         with self._locked(ctx):
             entry, info = self._resolve_entry(ctx, workspace_id)
-            blockers = self._blockers(info)
             state = self._inspect(ctx, entry)["state"]
+            blockers = self._blockers(info, state)
             report = state.report
             paths = [{"path": p, "code": c} for p, c in list(report.paths.items())[:MAX_REPORTED_PATHS]]
             removable = not blockers
@@ -205,6 +222,9 @@ class RemovalMixin:
                                      blockers=self._blockers(info))
             self._assert_unlinked(entry.path)
             state = self._inspect(ctx, entry)["state"]
+            if self._blockers(info, state):
+                raise WorkspaceError("protected_workspace", "this workspace holds content a rescue cannot preserve; remove it by hand", 403,
+                                     blockers=self._blockers(info, state))
             self._verify_token(token, ctx, workspace_id, state)
             if entry.locked and not release_lock:
                 raise WorkspaceError("workspace_locked", "the workspace is locked; release the lock explicitly to remove it", 409,
