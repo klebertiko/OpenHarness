@@ -132,7 +132,7 @@ export function Block({
   return (
     <section className="border-t border-line-soft py-4">
       <header className="mb-2.5 flex flex-wrap items-center gap-2">
-        <h3 className="t-title text-ink">{title}</h3>
+        <h2 className="t-title text-ink">{title}</h2>
         {chip}
       </header>
       {lede && <p className="t-body mb-2.5 max-w-[70ch] text-ink-mute">{lede}</p>}

@@ -61,7 +61,7 @@ function ProviderSwitcher() {
           value={current ? current.id : null}
           options={connections.map((c) => ({ id: c.id, label: c.label, detail: providerReadiness(c).label }))}
           onChange={select}
-          triggerClassName="t-body h-8 w-full justify-between border border-line bg-sub-200 px-2 text-ink"
+          triggerClassName="t-body h-control-lg w-full justify-between border border-line-strong bg-sub-200 px-2 text-ink"
           trigger={
             <>
               <span className="min-w-0 truncate">{current ? `${current.label} — ${providerReadiness(current).label}` : "Choose a provider"}</span>
@@ -173,13 +173,13 @@ export function Dossier() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* ── Identity, status, the one action ─────────────────────────────── */}
-      <header className="flex-none border-b border-line bg-sub-100 px-4 pb-4 pt-4 sm:px-6">
+      <header className="flex-none border-b border-line-soft bg-sub-100 px-4 pb-4 pt-4 sm:px-6">
         <ProviderSwitcher />
         <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
           <div className="flex min-w-0 flex-[1_1_16rem] items-start gap-3">
             <Monogram text={spec.monogram} live={readiness.verified} size="lg" />
             <div className="min-w-0">
-              <h1 className="t-display text-[20px] text-ink [overflow-wrap:anywhere]">{c.label}</h1>
+              <h1 className="t-display text-display text-ink [overflow-wrap:anywhere]">{c.label}</h1>
               <p className="t-body mt-1 flex items-center gap-1.5" aria-live="polite">
                 <ToneDot tone={readiness.tone} />
                 <span className={`font-medium ${TONE_TEXT[readiness.tone]}`}>{readiness.label}</span>
@@ -286,15 +286,15 @@ export function Dossier() {
                 }}
                 spellCheck={false}
                 className={[
-                  "oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_12rem] rounded-control border border-line-soft bg-sub-200 px-2 outline-none",
-                  spec.endpoint.editable ? "text-ink focus:border-signal-deep" : "cursor-default text-ink-mute",
+                  "oh-focus-inner t-meta h-control-md min-w-0 flex-[1_1_12rem] rounded-control border border-line-strong bg-sub-200 px-2 max-sm:h-control-lg",
+                  spec.endpoint.editable ? "text-ink focus-visible:border-signal" : "cursor-default text-ink-mute",
                 ].join(" ")}
               />
               <a
                 href={spec.docs}
                 target="_blank"
                 rel="noreferrer"
-                className="t-body inline-flex h-8 flex-none items-center gap-1.5 rounded-control border border-line bg-sub-200 px-2.5 text-ink-mute transition-colors hover:bg-sub-300 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+                className="t-body inline-flex h-control-md flex-none items-center gap-1.5 rounded-control border border-line-strong bg-sub-200 px-2.5 text-ink-dim transition-colors hover:bg-sub-300 hover:text-ink max-sm:h-control-lg"
               >
                 {spec.vendor} docs
                 <ExternalLink size={11} strokeWidth={1.7} aria-hidden />

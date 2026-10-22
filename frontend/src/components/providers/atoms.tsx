@@ -47,7 +47,7 @@ export function ToneDot({ tone }: { tone: ChatProviderTone }) {
    collide head-on with this app's rule that chroma means *state*. `live`
    (verified, per `providerReadiness`) only deepens the hairline. */
 const MONO_SIZE = {
-  sm: "h-[18px] w-[18px] text-[8px]",
+  sm: "h-5 w-5 text-meta",
   lg: "h-8 w-8 text-title",
 } as const;
 

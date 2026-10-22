@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { isChatCapable, providerReadiness } from "@/components/agent/chatProvider";
 import { ListGroup, ListRow, StatusDot, type Tone } from "@/components/shell/ListRow";
 import { type ConnectionUsage } from "@/lib/usageApi";
+import { Button, Notice } from "@/components/ui";
 import { RESIDENCE_SR, ResidenceMark, ToneDot } from "./atoms";
 import { nextStep } from "./nextStep";
 import { useProviderStore, type Connection } from "./providerStore";
@@ -130,7 +131,7 @@ function BudgetStrip() {
   };
 
   return (
-    <div className="mx-1.5 mt-2 rounded-float border border-line-soft bg-sub-100 px-2.5 py-2">
+    <section aria-label="Spend and budget" className="mx-1.5 mt-2 rounded-float border border-line-soft bg-sub-100 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
         <span className="t-body text-ink-mute">Spend</span>
         <span className={`t-meta flex items-center gap-1.5 ${BUDGET_TONE_CLASS[tone]}`}>
@@ -138,8 +139,12 @@ function BudgetStrip() {
           {summary ? usageCostLabel(summary) : "—"}
         </span>
       </div>
-      {loading && <p role="status" className="t-body text-ink-dim">Loading usage...</p>}
-      {error && <p role="alert" className="t-body mt-1 text-warn-text [overflow-wrap:anywhere]">Usage may be stale: {error}</p>}
+      {loading && !summary && <p role="status" className="t-body text-ink-mute">Loading usage…</p>}
+      {error && (
+        <Notice tone="warn" className="mt-2" title="Usage may be out of date">
+          Spend and budget could be stale. <span className="t-meta [overflow-wrap:anywhere]">{error}</span>
+        </Notice>
+      )}
       {editing ? (
         <div className="mt-1.5 flex items-center gap-1.5">
           <input
@@ -152,31 +157,19 @@ function BudgetStrip() {
               if (e.key === "Escape") setEditing(false);
             }}
             placeholder="no limit"
-            className="t-meta h-7 w-full min-w-0 rounded-control border border-line-soft bg-sub-200 px-1.5 text-ink outline-none focus:border-signal-deep"
+            className="t-meta h-control-md w-full min-w-0 rounded-control border border-line-strong bg-sub-200 px-1.5 text-ink focus-visible:border-signal max-sm:h-control-lg"
           />
-          <button type="button" onClick={() => void save()} className="t-body flex-none rounded-control px-1 text-ink-dim hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal">
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="t-body flex-none rounded-control px-1 text-ink-mute hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
-          >
-            Cancel
-          </button>
+          <Button size="sm" variant="primary" onClick={() => void save()}>Save</Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={startEdit}
-          className="t-body mt-0.5 block rounded-control text-left text-ink-mute hover:text-ink-dim focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
-        >
+        <Button size="sm" variant="ghost" onClick={startEdit} className="-ml-2 mt-0.5 text-ink-mute">
           {budget?.limitUsd != null
             ? `of $${budget.limitUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} budget`
             : "No budget — set one"}
-        </button>
+        </Button>
       )}
-    </div>
+    </section>
   );
 }
 

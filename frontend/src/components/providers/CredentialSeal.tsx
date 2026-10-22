@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/Button";
 import { useRef, useState } from "react";
 import { KeyRound, ShieldCheck, Terminal, Trash2, TriangleAlert } from "lucide-react";
 import { VAULT_LABEL, activeVault, prefixMatches } from "./secrets";
@@ -244,7 +245,7 @@ export function CredentialSeal({
             setPrefixOk(prefixMatches(v, expected));
           }}
           onKeyDown={(e) => e.key === "Enter" && void submit()}
-          className="oh-focus-inner t-meta h-8 min-w-0 flex-[1_1_10rem] rounded-control border border-line-soft bg-sub-200 px-2 tracking-[0.16em] text-ink outline-none focus:border-signal-deep"
+          className="oh-focus-inner t-meta h-control-md min-w-0 flex-[1_1_10rem] rounded-control border border-line-strong bg-sub-200 px-2 tracking-[0.16em] text-ink max-sm:h-control-lg focus-visible:border-signal-deep"
         />
         <Btn onClick={() => void submit()} primary disabled={!len || !prefixOk || busy}>
           {busy ? "Storing…" : "Store"}
@@ -293,7 +294,7 @@ function Section({
   return (
     <section className="border-t border-line-soft py-4">
       <header className="mb-2.5 flex flex-wrap items-center gap-2">
-        <h3 className="t-title text-ink">{title}</h3>
+        <h2 className="t-title text-ink">{title}</h2>
         {chip}
       </header>
       {children}
@@ -324,20 +325,8 @@ export function Btn({
   disabled?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        "t-body inline-flex h-8 flex-none items-center gap-1.5 whitespace-nowrap rounded-control border px-3 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal disabled:cursor-not-allowed disabled:opacity-40",
-        primary
-          ? "border-signal bg-signal font-medium text-signal-ink hover:bg-signal-deep disabled:hover:bg-signal"
-          : tone === "fault"
-            ? "border-line bg-sub-200 text-ink-mute hover:border-fault hover:text-fault"
-            : "border-line bg-sub-200 text-ink-dim hover:bg-sub-300 hover:text-ink",
-      ].join(" ")}
-    >
+    <Button variant={primary ? "primary" : tone === "fault" ? "danger" : "secondary"} onClick={onClick} disabled={disabled}>
       {children}
-    </button>
+    </Button>
   );
 }
