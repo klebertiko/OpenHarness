@@ -6,15 +6,12 @@ r"""Hardening of the auto-approved git policy found by the review of #122/#125.
 * `info/attributes` is read like git does: only a leading space or tab is blank, so a line that starts with a
   non-breaking space is a pattern with attributes, not a comment.
 """
-import os
 import shutil
 import sys
 
 import pytest
 
 from sandbox import permission
-from sandbox.permission import decide
-from sandbox.schemas import Exec
 from test_sandbox_git_config_allowlist import make_repo, verdict
 
 pytestmark = pytest.mark.skipif(shutil.which('git') is None, reason='git is not installed')
