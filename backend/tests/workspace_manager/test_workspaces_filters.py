@@ -1,7 +1,8 @@
 """A repository's own filter drivers must not run on any path that reads a worktree, removal included.
 
-``git worktree remove`` starts a child ``git status`` that runs ``filter.<name>.clean/process`` of the repository; the child inherits
-the ``-c`` overrides of its parent, so the neutralisation has to be on the ``worktree remove`` call itself.
+Removal no longer calls ``git worktree remove`` (the manager deletes the worktree and its administrative directory itself), so no
+``git status`` child runs there; the commands that still read a tree (status, add, ls-files, worktree add, the create rollback) are
+neutralised on the call itself, and the tests below prove each one with a sentinel that a filter would write.
 """
 from __future__ import annotations
 
