@@ -57,8 +57,8 @@ _GIT_FLAGS = frozenset({
     '--cached', '--staged', '--no-color', '--graph', '--decorate', '--abbrev-commit', '-p', '--patch', '--show-toplevel', '--abbrev-ref',
     '--is-inside-work-tree', '--git-dir', '--tags', '--always',
 })
-_GIT_COUNT_FLAG = re.compile(r'^(-\d{1,4}|-n\d{1,4}|--max-count=\d{1,4})$')
-_GIT_OPERAND = re.compile(r'^[A-Za-z0-9_@{}^~:./+\\-]+$')
+_GIT_COUNT_FLAG = re.compile(r'^(-\d{1,4}|-n\d{1,4}|--max-count=\d{1,4})\Z')
+_GIT_OPERAND = re.compile(r'^[A-Za-z0-9_@{}^~:./+\\-]+\Z')
 _DIFFY_SUBCOMMANDS = frozenset({'diff', 'log', 'show'})
 _SUBMODULE_SCANNERS = frozenset({'status', 'diff'})
 
@@ -250,17 +250,22 @@ def _git_attributes_are_inert(git_dir: str) -> bool:
     try:
         if not os.path.lexists(path):
             return True
-        if os.path.islink(path) or not os.path.isfile(path) or os.stat(path).st_size > 65536:
+        if _is_link(path) or not os.path.isfile(path) or os.stat(path).st_size > 65536:
             return False
         with open(path, encoding='utf-8', errors='replace') as handle:
-            return not any(_GIT_DRIVER_ATTR.search(line) for line in handle if not line.lstrip().startswith('#'))
+            return not any(_GIT_DRIVER_ATTR.search(line) for line in handle if not line.lstrip(' 	').startswith('#'))
     except OSError:
         return False
 
 
 def _is_link(path: str) -> bool:
+    """A symlink or a Windows junction. `islink` is False for a junction and `isjunction` needs Python 3.12, so a path
+    that does not resolve to itself under its own (resolved) parent is a redirect too."""
     isjunction = getattr(os.path, 'isjunction', None)
-    return os.path.islink(path) or bool(isjunction and isjunction(path))
+    if os.path.islink(path) or bool(isjunction and isjunction(path)):
+        return True
+    parent, name = os.path.split(os.path.abspath(path))
+    return os.path.normcase(os.path.realpath(path)) != os.path.normcase(os.path.join(os.path.realpath(parent), name))
 
 
 def _git_objects_are_local(git_dir: str) -> bool:
@@ -289,6 +294,8 @@ def _git_run(args: list[str], cwd: str) -> bytes | None:
     return done.stdout if done.returncode == 0 else None
 
 
+_GIT_MIN_VERSION = (2, 32)
+_GIT_LINKABLE = ('info', 'refs', 'HEAD')
 _GIT_VERSION = re.compile(r'git version ([0-9]+)\.([0-9]+)(?:\.([0-9]+))?', re.ASCII)
 
 
@@ -365,8 +372,13 @@ def _git_config_is_inert(root: str) -> bool:
     config = _join_inside(root, os.path.join('.git', 'config'))
     if git_dir is None or config is None:
         return False
+    # GIT_CONFIG_GLOBAL (what keeps ~/.gitconfig out of every run) exists since git 2.32; an older or unknown git reads it again.
+    if _git_version() < _GIT_MIN_VERSION:
+        return False
     try:
-        if os.path.islink(git_dir) or not os.path.isdir(git_dir) or os.path.islink(config) or not os.path.isfile(config) or os.stat(config).st_size > 65536:
+        if _is_link(git_dir) or not os.path.isdir(git_dir) or _is_link(config) or not os.path.isfile(config) or os.stat(config).st_size > 65536:
+            return False
+        if any(_is_link(os.path.join(git_dir, name)) for name in _GIT_LINKABLE if os.path.lexists(os.path.join(git_dir, name))):
             return False
         if any(os.path.lexists(os.path.join(git_dir, name)) for name in _GIT_REDIRECTS):
             return False
