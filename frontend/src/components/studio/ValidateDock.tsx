@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { CheckCircle2, Download, FlaskConical, Upload } from "lucide-react";
 import { composeBundleFromCanvas, isOHarnessBundle, mockBundle, validateBundle, type MockStep } from "@/lib/bundlesApi";
 import { saveOhmFile } from "@/lib/ohmFile";
@@ -81,28 +82,27 @@ export function ValidateDock() {
       setResultFor(draftKey()); setStatus("ok"); setMessage("Imported · " + parsed.manifest.id);
     } catch (error) { if (current()) fail(error); }
   }
-  return <div className="flex flex-none flex-col border-t border-line bg-sub-100">
-    <div className="flex min-h-[36px] flex-wrap items-center gap-1 border-b border-line-soft px-2 py-1">
-      <span className="t-label mr-1 text-ink-faint">BUNDLE</span>
+  return <section aria-label="Bundle" className="flex flex-none flex-col border-t border-line bg-sub-100">
+    <div className="flex min-h-control-lg flex-wrap items-center gap-1 border-b border-line-soft px-2 py-1">
+      <span className="t-label mr-1 text-ink-mute" aria-hidden>Bundle</span>
       <DockAction icon={CheckCircle2} label="Validate" onClick={() => void inspect("validate")} disabled={busy || running} />
       <DockAction icon={FlaskConical} label="Plan simulation" onClick={() => void inspect("mock")} disabled={busy || running} />
-      <span className="mx-1 h-[14px] w-px bg-line-soft" aria-hidden />
+      <span className="mx-1 h-4 w-px bg-line-soft max-sm:hidden" aria-hidden />
       <DockAction icon={Download} label="Export .ohm" onClick={() => void onExport()} disabled={busy} />
       <DockAction icon={Upload} label="Import .ohm" onClick={() => fileRef.current?.click()} disabled={busy || running} />
-      <input ref={fileRef} type="file" accept=".ohm,.oharness,application/json" className="hidden" disabled={running}
+      <input ref={fileRef} type="file" accept=".ohm,.oharness,application/json" className="hidden" disabled={running} aria-label="Import .ohm file" tabIndex={-1}
         onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void onImportFile(file); }} />
       <span className="flex-1" />
-      {fresh && message && <span role="status" className={"t-meta min-w-0 truncate " + (status === "error" ? "text-fault" : status === "ok" ? "text-signal" : "text-ink-mute")} title={message}>{message}</span>}
+      {fresh && message && <span role="status" className={"text-body min-w-0 truncate " + (status === "error" ? "text-fault-text" : status === "ok" ? "text-signal-text" : "text-ink-mute")} title={message}>{message}</span>}
     </div>
     {fresh && (errors.length > 0 || steps.length > 0) && <div className="max-h-[120px] overflow-y-auto px-2.5 py-1.5">
-      {errors.length > 0 && <ul className="space-y-0.5">{errors.map((error, i) => <li key={i} className="t-meta text-fault">{error}</li>)}</ul>}
+      {errors.length > 0 && <ul className="space-y-0.5">{errors.map((error, i) => <li key={i} className="t-body text-fault-text">{error}</li>)}</ul>}
       {steps.length > 0 && <ol className="space-y-0.5">{steps.map((step, i) => <li key={step.nodeId + i} className="t-meta text-ink-dim">{i + 1}. {step.role} ({step.nodeId}) — {step.status}{step.note ? " · " + step.note : ""}</li>)}</ol>}
     </div>}
-  </div>;
+  </section>;
 }
 function DockAction({ icon: Icon, label, onClick, disabled }: { icon: typeof CheckCircle2; label: string; onClick: () => void; disabled?: boolean }) {
-  return <button type="button" title={label} aria-label={label} disabled={disabled} onClick={onClick}
-    className="flex h-[24px] items-center gap-1 whitespace-nowrap rounded-control px-1.5 text-ink-mute transition-colors hover:bg-sub-300 hover:text-ink disabled:opacity-40">
-    <Icon size={12} strokeWidth={1.6} absoluteStrokeWidth /><span className="t-meta">{label}</span>
-  </button>;
+  return <Button variant="ghost" size="sm" disabled={disabled} onClick={onClick} aria-label={label} title={label} icon={<Icon size={12} strokeWidth={1.6} absoluteStrokeWidth aria-hidden />}>
+    <span className="max-sm:sr-only">{label}</span>
+  </Button>;
 }

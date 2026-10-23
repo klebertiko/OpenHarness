@@ -1,14 +1,15 @@
-# OpenHarness design system
+# OHarness design system
 
 The design reference for every surface of the app. Tokens are the single vocabulary; the documents below say how to use them.
 
 | File | What it is |
 | --- | --- |
-| `tokens.json` | Every token, in DTCG format, two themes. `npm test` proves it matches `frontend/src/app/globals.css`. |
+| `tokens.json` | Every token, in DTCG format, two themes. `npm test` proves the 58 colour, shape, layout and motion variables match `frontend/src/app/globals.css` and the 7 type roles match the `.t-*` rules and `tailwind.config.ts`. |
 | `README.md` | This brand book: content, visual foundations, iconography, layout, contrast audit. |
 | `experience.md` | The experience contract: no flicker, shift or lag; findable and legible; honest and reversible. |
 | `brand.md` | Nilo: identity, style lock, animation language, where she may appear. |
 | `adoption.md` | Wiring, drift found in the app, decisions, guardrails and order of work. |
+| `audit/screens.md` | The screen-by-screen audit before the redesign and the same measurements after it, with captures in both themes. |
 
 Commands, from the repository root:
 
@@ -18,7 +19,7 @@ node scripts/design-tokens.mjs --css     # emit CSS custom properties from token
 node scripts/check-contrast.mjs --md     # regenerate the contrast table below
 ```
 
-OpenHarness is an everyday agent workspace with a visual Graph Engineering Studio inside it. The interface behaves like a well-made instrument: quiet, warm, precise. Modern-minimal editorial, never the density of an IDE. Read `experience.md` for how it must feel and `adoption.md` for how to wire it into the app.
+OHarness is an everyday agent workspace with a visual Graph Engineering Studio inside it. The interface behaves like a well-made instrument: quiet, warm, precise. Modern-minimal editorial, never the density of an IDE. Read `experience.md` for how it must feel and `adoption.md` for how to wire it into the app.
 
 ## Content fundamentals
 
@@ -59,7 +60,7 @@ OpenHarness is an everyday agent workspace with a visual Graph Engineering Studi
 
 ## Contrast audit
 
-Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCAG 2 relative luminance from the oklch values in both themes and exits non-zero if a required pair fails; `npm test` fails if this table is stale. Ratios are listed per ground in order (`sub-000` first); text needs 4.5:1, control edges, focus rings and meaningful marks need 3:1. "Known defect" rows are values the app ships today that miss the bar; they are corrected in a separate visual-change pull request.
+Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCAG 2 relative luminance from the oklch values in both themes and exits non-zero if a required pair fails; `npm test` fails if this table is stale. Ratios are listed per ground in order (`sub-000` first); text needs 4.5:1, control edges, focus rings and meaningful marks need 3:1. Every row is required except those marked "Limit", which record a ground a token is not meant for: the app ships no value that misses the bar. `warn` and `fault` are fills, markers and borders; their text forms are `warn-text` and `fault-text`, and `signal` as text is `signal-text`. A panel edge (`line`) is decoration and exempt; a control edge is `line-strong`.
 
 <!-- contrast:start -->
 | Pair (`foreground` on grounds) | Min | Graphite | Ivory | Verdict |
@@ -67,17 +68,15 @@ Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCA
 | `ink-primary` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 16.3 / 15.3 / 13.8 / 11.8 | 15.1 / 16.0 / 14.0 / 12.6 | Pass |
 | `ink-dim` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 11.0 / 10.3 / 9.3 / 8.0 | 9.1 / 9.6 / 8.4 / 7.6 | Pass |
 | `ink-mute` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 7.2 / 6.7 / 6.1 / 5.2 | 6.2 / 6.5 / 5.7 / 5.1 | Pass |
-| `ink-faint` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 4.8 / 4.5 / 4.1 / 3.5 | 4.2 / 4.5 / 3.9 / 3.5 | Known defect |
+| `ink-faint` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 6.3 / 5.9 / 5.3 / 4.6 | 5.4 / 5.8 / 5.0 / 4.5 | Pass |
 | `signal` on `sub-000`, `sub-100` | 4.5:1 | 7.5 / 7.0 | 4.6 / 4.9 | Pass |
-| `signal` on `sub-200`, `sub-300` | 4.5:1 | 6.4 / 5.4 | 4.3 / 3.8 | Known defect |
 | `signal-ink` on `signal` | 4.5:1 | 7.6 | 4.9 | Pass |
-| `warn` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 5.2 / 4.9 / 4.4 / 3.8 | 3.3 / 3.5 / 3.1 / 2.8 | Known defect |
+| `warn` on `sub-000`, `sub-100` | 3:1 | 5.2 / 4.9 | 3.3 / 3.5 | Pass |
 | `warn-text` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 6.3 / 5.9 / 5.4 / 4.6 | 5.5 / 5.8 / 5.1 / 4.6 | Pass |
-| `fault` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 3.6 / 3.4 / 3.1 / 2.6 | 4.7 / 5.0 / 4.4 / 4.0 | Known defect |
 | `fault-text` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 6.3 / 5.9 / 5.4 / 4.6 | 5.5 / 5.8 / 5.1 / 4.6 | Pass |
 | `signal-text` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 4.5:1 | 7.5 / 7.0 / 6.4 / 5.4 | 5.5 / 5.8 / 5.1 / 4.6 | Pass |
-| `line` on `sub-100` | 3:1 | 1.6 | 1.7 | Known defect |
 | `line-strong` on `sub-000`, `sub-100`, `sub-200` | 3:1 | 3.8 / 3.5 / 3.2 | 3.6 / 3.8 / 3.3 | Pass |
+| `line-strong` on `sub-300` | 3:1 | 2.7 | 3.0 | Limit |
 | `signal` on `sub-000`, `sub-100`, `sub-200`, `sub-300` | 3:1 | 7.5 / 7.0 / 6.4 / 5.4 | 4.6 / 4.9 / 4.3 / 3.8 | Pass |
 | `fault` on `sub-000`, `sub-100` | 3:1 | 3.6 / 3.4 | 4.7 / 5.0 | Pass |
 | `role-agent` on `sub-000`, `sub-100` | 3:1 | 3.7 / 3.4 | 4.7 / 5.0 | Pass |
@@ -85,8 +84,8 @@ Generated, not hand-written: `node scripts/check-contrast.mjs --md` computes WCA
 | `role-hitl` on `sub-000`, `sub-100` | 3:1 | 3.9 / 3.7 | 4.4 / 4.7 | Pass |
 | `role-skill` on `sub-000`, `sub-100` | 3:1 | 3.5 / 3.3 | 5.0 / 5.3 | Pass |
 | `role-mcp` on `sub-000`, `sub-100` | 3:1 | 3.6 / 3.4 | 4.8 / 5.1 | Pass |
-| `role-tool` on `sub-000`, `sub-100` | 3:1 | 2.8 / 2.6 | 6.1 / 6.5 | Known defect |
+| `role-tool` on `sub-000`, `sub-100` | 3:1 | 3.2 / 3.0 | 5.4 / 5.7 | Pass |
 | `role-decision` on `sub-000`, `sub-100` | 3:1 | 3.9 / 3.6 | 4.5 / 4.7 | Pass |
 <!-- contrast:end -->
 
-Proposed corrections for the known defects (measured by the same script): `ink-faint` to L 0.665 in Graphite and 0.500 in Ivory (4.5:1 on all four substrates), `role-tool` to L 0.50 in Graphite (3.0:1 or better on `sub-000` and `sub-100`), and control edges and state text routed through `line-strong`, `warn-text`, `fault-text` and `signal-text`.
+Corrections applied from the first audit (`audit/screens.md`): `ink-faint` to L 0.665 in Graphite and 0.500 in Ivory (4.5:1 on all four substrates), `role-tool` to L 0.50 (3:1 or better on `sub-000` and `sub-100`), and control edges and state text routed through `line-strong`, `warn-text`, `fault-text` and `signal-text`.

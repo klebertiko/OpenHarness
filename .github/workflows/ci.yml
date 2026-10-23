@@ -24,7 +24,7 @@ env:
 
 jobs:
   frontend:
-    name: eslint typecheck test build
+    name: lint typecheck test build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -40,7 +40,7 @@ jobs:
       - uses: ./.github/actions/setup-safe-chain
       - run: npm ci --ignore-scripts
       - name: Lint
-        run: npm exec -- eslint . --max-warnings=0
+        run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - name: Ruleset required checks match job names
@@ -93,8 +93,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p binaries
-          : > binaries/openharness-sidecar-x86_64-unknown-linux-gnu
-          chmod +x binaries/openharness-sidecar-x86_64-unknown-linux-gnu
+          : > binaries/oharness-sidecar-x86_64-unknown-linux-gnu
+          chmod +x binaries/oharness-sidecar-x86_64-unknown-linux-gnu
       - run: rustc --version && cargo --version
       - run: cargo fmt --all -- --check
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
