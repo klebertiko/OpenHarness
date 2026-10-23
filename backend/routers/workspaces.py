@@ -31,18 +31,28 @@ def _finite_float(text: str) -> float:
     return value
 
 
+MAX_NESTING = 100  # no request of this API nests more than three levels; FastAPI's error encoder gives out near 330 and the parser near 1000
+
+
 def _has_lone_surrogate(value: Any) -> bool:
-    """A string (or key) anywhere in the parsed body that holds a lone UTF-16 surrogate: it cannot be encoded as UTF-8 anywhere downstream."""
-    if isinstance(value, str):
-        try:
-            value.encode("utf-8")
-        except UnicodeEncodeError:
-            return True
-        return False
-    if isinstance(value, dict):
-        return any(_has_lone_surrogate(key) or _has_lone_surrogate(item) for key, item in value.items())
-    if isinstance(value, list):
-        return any(_has_lone_surrogate(item) for item in value)
+    """A string (or key) anywhere in the parsed body that holds a lone UTF-16 surrogate: it cannot be encoded as UTF-8 anywhere downstream.
+
+    Walked with an explicit stack (a recursive walk over a body nested a thousand levels deep exhausts the interpreter's stack: a
+    500). A body nested deeper than ``MAX_NESTING`` is refused as invalid JSON before pydantic can echo it into an error report.
+    """
+    pending = [(value, 0)]
+    while pending:
+        current, depth = pending.pop()
+        if isinstance(current, str):
+            try:
+                current.encode("utf-8")
+            except UnicodeEncodeError:
+                return True
+        elif isinstance(current, (dict, list)):
+            if depth >= MAX_NESTING:
+                raise ValueError("a body nested this deeply is not valid JSON")
+            children = [*current.keys(), *current.values()] if isinstance(current, dict) else current
+            pending.extend((child, depth + 1) for child in children)
     return False
 
 
@@ -61,7 +71,7 @@ async def strict_json(request: Request) -> None:
             raise ValueError("a lone surrogate is not valid JSON")
     except ValueError as exc:
         if "is not valid JSON" in str(exc):
-            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN, Infinity, numbers beyond the float range and lone surrogates are not valid"}) from exc
+            raise HTTPException(status_code=422, detail={"code": "invalid_json", "message": "NaN, Infinity, numbers beyond the float range, lone surrogates and nesting beyond 100 levels are not valid"}) from exc
         # any other parse failure is reported by FastAPI's own body handling
 
 

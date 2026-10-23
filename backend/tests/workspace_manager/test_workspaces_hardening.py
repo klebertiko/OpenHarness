@@ -148,3 +148,29 @@ def test_a_paired_surrogate_escape_is_a_character_not_an_error(client):
 def test_scrub_paths_hides_absolute_paths_and_keeps_refs(raw, expected):
     from workspaces.errors import scrub_paths
     assert scrub_paths(raw) == expected
+
+
+def nested(depth: int, leaf: str, as_object: bool) -> str:
+    if as_object:
+        return '{"repo": "x", "ref": "main", "extra": ' + '{"k": ' * depth + leaf + "}" * depth + "}"
+    return '{"repo": "x", "ref": "main", "extra": ' + "[" * depth + leaf + "]" * depth + "}"
+
+
+@pytest.mark.parametrize("as_object", [False, True], ids=["lists", "objects"])
+@pytest.mark.parametrize("depth", [600, 1100, 5000])
+def test_a_deeply_nested_body_is_never_a_500(client, depth, as_object):
+    clean = client.post("/workspaces", content=nested(depth, "1", as_object), headers={"Content-Type": "application/json"})
+    assert 400 <= clean.status_code < 500
+
+
+def test_nesting_beyond_the_limit_is_a_422_and_the_limit_itself_is_still_judged_normally(client):
+    deep = client.post("/workspaces", content=nested(101, "1", False), headers={"Content-Type": "application/json"})
+    assert deep.status_code == 422 and deep.json()["detail"]["code"] == "invalid_json"
+    within = client.post("/workspaces", content=nested(98, "1", False), headers={"Content-Type": "application/json"})
+    assert within.status_code == 422 and within.json()["detail"] != deep.json()["detail"]  # the unknown field is reported by validation
+
+
+@pytest.mark.parametrize("as_object", [False, True], ids=["lists", "objects"])
+def test_a_lone_surrogate_at_the_bottom_of_a_deeply_nested_body_is_a_422(client, as_object):
+    response = client.post("/workspaces", content=nested(600, LONE_SURROGATE, as_object), headers={"Content-Type": "application/json"})
+    assert response.status_code == 422 and response.json()["detail"]["code"] == "invalid_json"
