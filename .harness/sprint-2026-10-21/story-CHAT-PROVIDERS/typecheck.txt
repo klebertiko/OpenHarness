@@ -1,0 +1,3 @@
+
+> oharness@0.0.1-alpha typecheck
+> tsc --noEmit

@@ -1,0 +1,60 @@
+
+ RUN  v4.1.11 C:/Users/klebe/AppData/Local/Temp/oharness-qa-ab567a542950401bb7fc4112cbfc06b8
+
+x·
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/agent/MessageActions.test.tsx > copies the exact text and only confirms after the clipboard accepts it
+TestingLibraryElementError: Unable to find role="status"
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="flex flex-wrap items-center gap-2"
+    >
+      <button
+        class="rounded-control px-1.5 py-1 text-[11px] text-ink-faint hover:bg-sub-200 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+        type="button"
+      >
+        Copy message
+      </button>
+    </div>
+  </div>
+</body>
+
+Ignored nodes: comments, script, style
+<html>
+  <head />
+  <body>
+    <div>
+      <div
+        class="flex flex-wrap items-center gap-2"
+      >
+        <button
+          class="rounded-control px-1.5 py-1 text-[11px] text-ink-faint hover:bg-sub-200 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+          type="button"
+        >
+          Copy message
+        </button>
+      </div>
+    </div>
+  </body>
+</html>
+ ❯ waitForWrapper ../../../../.codex/worktrees/ca7d/OHarness/frontend/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/components/agent/MessageActions.test.tsx:9:9
+      7|   render(<MessageActions content="<script>not HTML</script>" />);
+      8|   fireEvent.click(screen.getByRole("button", { name: "Copy message" })…
+      9|   await waitFor(() => expect(screen.getByRole("status").textContent).t…
+       |         ^
+     10|   expect(copy).toHaveBeenCalledWith("<script>not HTML</script>");
+     11| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:09:25
+   Duration  2.65s (transform 109ms, setup 0ms, import 486ms, tests 1.05s, environment 817ms)

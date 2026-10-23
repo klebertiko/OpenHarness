@@ -15,7 +15,7 @@ export interface RunController {
   live: boolean;
   /** Cancel any stream and return to a blank run (used by New chat). */
   reset: () => void;
-  start: (opts: { instruction: string; mode: string; step: boolean; cwd?: string; providerId?: string; tools?: DirectRunPayload["tools"] }) => void;
+  start: (opts: { instruction: string; mode: string; step: boolean; cwd?: string; providerId?: string; model?: string; tools?: DirectRunPayload["tools"] }) => void;
   stop: () => void;
   advance: () => void;
   resolveGate: (decision: "approve" | "reject", note: string) => void;
@@ -57,6 +57,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
      been parked at a human gate for four minutes should say so; freezing the
      timer the moment the tokens stop would hide exactly that. */
   const [elapsed, setElapsed] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Re-run on run start/end or live change only; elapsed is the frozen value to keep, not a trigger
   useEffect(() => {
     if (!run.startedAt) return;
     if (!live) {
@@ -66,7 +67,6 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
     const id = window.setInterval(() => setElapsed(Date.now() - run.startedAt!), 100);
     setElapsed(Date.now() - run.startedAt);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run.startedAt, run.endedAt, live]);
 
   useEffect(() => {
@@ -80,6 +80,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
       step,
       cwd,
       providerId,
+      model,
       tools,
     }: {
       instruction: string;
@@ -87,6 +88,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
       step: boolean;
       cwd?: string;
       providerId?: string;
+      model?: string;
       tools?: DirectRunPayload["tools"];
     }) => {
       const generation = ++generationRef.current;
@@ -142,7 +144,7 @@ export function useRunStream({ graph, harnessEnabled }: UseRunStreamOptions): Ru
         );
       } else {
         abortRef.current = startDirectRun(
-          { instruction, mode, step, cwd, connection_id: providerId, ...(tools ? { tools } : {}) },
+          { instruction, mode, step, cwd, connection_id: providerId, ...(model ? { model } : {}), ...(tools ? { tools } : {}) },
           onEvent,
           onClose
         );

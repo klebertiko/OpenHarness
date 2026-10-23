@@ -22,7 +22,7 @@ async def _seed(**kw) -> str:
     async with SessionLocal() as db:
         row = ExecutionLog(
             harness_id=kw.get("harness_id", "h1"),
-            harness_name=kw.get("harness_name", "OpenHarness Agile"),
+            harness_name=kw.get("harness_name", "OHarness Agile"),
             status=kw.get("status", "complete"),
             result_json=kw.get("result_json", json.dumps({"output": "the plan ran"})),
         )
@@ -42,7 +42,7 @@ def test_list_and_detail_round_trip(client: TestClient) -> None:
     ids = [row["id"] for row in listed.json()]
     assert log_id in ids
     summary = next(row for row in listed.json() if row["id"] == log_id)
-    assert summary["harness_name"] == "OpenHarness Agile"
+    assert summary["harness_name"] == "OHarness Agile"
     assert "result" not in summary  # list stays lightweight
 
     detail = client.get(f"/execute/logs/{log_id}")
@@ -50,6 +50,9 @@ def test_list_and_detail_round_trip(client: TestClient) -> None:
     body = detail.json()
     assert body["id"] == log_id
     assert body["result"] == {"output": "the plan ran"}
+    assert body["coverage"] == "legacy_unknown"
+    assert body["last_sequence"] is None
+    assert body["artifacts"] == []
 
 
 def test_detail_404_for_unknown_run(client: TestClient) -> None:

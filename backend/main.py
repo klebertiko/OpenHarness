@@ -22,6 +22,8 @@ import models  # noqa: F401 — register ORM tables for create_all
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    from run_store import recover_interrupted
+    await recover_interrupted()
     # OH_SECRETS=memory|file|keychain (default memory for tests / ephemeral).
     if not hasattr(app.state, "secrets_store") or app.state.secrets_store is None:
         app.state.secrets_store = build_secrets_store()
@@ -35,7 +37,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="OpenHarness API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="OHarness API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

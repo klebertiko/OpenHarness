@@ -4,7 +4,9 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowUp, Code2, ListChecks, Search, Square } from "lucide-react";
 
 import { HarnessBar } from "@/components/agent/HarnessBar";
-import { ChatComposer } from "@/components/agent/ChatComposer";
+import { ChatComposer, presetFromSlashText } from "@/components/agent/ChatComposer";
+import { MessageActions } from "./MessageActions";
+import { ModelPicker } from "@/components/providers/ModelPicker";
 import { useChatTools } from "@/components/agent/useChatTools";
 import { usePermissionMode } from "@/components/agent/usePermissionMode";
 import { useWorkspaceTrust } from "@/components/agent/useWorkspaceTrust";
@@ -29,6 +31,8 @@ import { useShellStore } from "@/components/shell/shellStore";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessSessionStore } from "@/store/harnessSessionStore";
 import { useThreadStore } from "@/store/threadStore";
+import { Button, KbdChord, Notice } from "@/components/ui";
+import { chordCaps, useIsMac } from "@/components/shell/keys";
 
 /* Hallmark · genre: modern-minimal editorial workspace
    macrostructure: Quiet Desk · design-system: design.md · designed-as-app */
@@ -76,10 +80,19 @@ export function AgentStage() {
   // Workspace trust (stored by the sidecar) only matters under Auto.
   const trust = useWorkspaceTrust(chatTools.workspace?.root ?? null, permission.mode === "auto_workspace");
 
-  const [instruction, setInstruction] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftKey = activeThreadId ?? "new";
+  const instruction = drafts[draftKey] ?? "";
+  const setInstruction = (value: string) => setDrafts((current) => ({ ...current, [draftKey]: value }));
+  const [modelChoices, setModelChoices] = useState<Record<string, string>>({});
+  const selectedModel = provider ? modelChoices[provider.id] ?? "" : "";
+  const connection = connections.find((c) => c.id === provider?.id) ?? null;
+  const runOwner = useRef<{ threadId: string; instruction: string; providerLabel?: string } | null>(null);
   const [showRunDetail, setShowRunDetail] = useState(false);
   const savedRunFor = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [following, setFollowing] = useState(true);
+  const mac = useIsMac();
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const applySuggestion = (prompt: string) => {
@@ -92,9 +105,8 @@ export function AgentStage() {
   }, [hydrated, hydrate]);
 
   useEffect(() => {
-    setInstruction("");
     setShowRunDetail(false);
-    savedRunFor.current = null;
+    setFollowing(true);
   }, [activeThreadId]);
 
   const messages = useMemo(() => {
@@ -116,6 +128,11 @@ export function AgentStage() {
     graph,
     harnessEnabled: enabled,
   });
+  const ownerThreadId = runOwner.current?.threadId ?? activeThreadId;
+  const runInCurrentChat = ownerThreadId === activeThreadId;
+  const liveAnswer = run.plan.flatMap((segment) => segment.blocks
+    .filter((block) => block.kind === "text")
+    .map((block) => block.text)).join("\n\n");
 
   // One "run detail" control per run. A finished run saved on a chat message is
   // offered by that message (HistoricalRunDetail); the stage only offers it for
@@ -123,8 +140,8 @@ export function AgentStage() {
   const stageDetailId = useId();
   const runSavedOnMessage = Boolean(run.runId) && messages.some((m) => m.runId === run.runId);
   const showStageDetailControl =
-    live ||
-    ((run.status === "complete" || run.status === "error" || run.status === "stopped") &&
+    (runInCurrentChat && live) ||
+    (runInCurrentChat && (run.status === "complete" || run.status === "error" || run.status === "stopped") &&
       !runSavedOnMessage);
 
   const pendingToolApproval = run.plan.some((segment) =>
@@ -138,9 +155,11 @@ export function AgentStage() {
     if (pendingToolApproval) setShowRunDetail(true);
   }, [pendingToolApproval]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Navigation must not cancel a turn that still belongs to another chat.
   useEffect(() => {
-    if (activeThreadId !== null) return;
+    if (activeThreadId !== null || live) return;
     reset();
+    runOwner.current = null;
     composerRef.current?.focus();
   }, [activeThreadId, reset]);
 
@@ -150,7 +169,7 @@ export function AgentStage() {
 
   // Persist assistant reply onto the thread when a run finishes.
   useEffect(() => {
-    if (!activeThreadId) return;
+    if (!ownerThreadId) return;
     if (live) return;
     if (!run.runId) return;
     if (run.status !== "complete" && run.status !== "error" && run.status !== "stopped") {
@@ -160,30 +179,40 @@ export function AgentStage() {
     const text = summarizeRunOutput(run);
     if (!text) return;
     savedRunFor.current = run.runId;
-    appendMessage(activeThreadId, {
+    // Deleting a chat while it runs must not resurrect its message bucket.
+    if (!useThreadStore.getState().threads.some((thread) => thread.id === ownerThreadId)) return;
+    appendMessage(ownerThreadId, {
       role: "assistant",
       content: text,
-      // Only worth naming when Auto picked it — a person's own pick is
-      // already named by the chip, so repeating it on every reply would be
-      // noise rather than information.
-      providerLabel: provider && !provider.chosen ? provider.label : undefined,
+      // A harness may pin/fail over to a connection other than the chat default.
+      // Prefer runtime evidence; the selected connection labels direct turns only.
+      providerLabel: (() => {
+        const segment = [...run.plan].reverse().find((segment) => segment.output?.trim());
+        const actual = connections.find((connection) => connection.id === segment?.connectionId);
+        if (actual) return [actual.label, segment?.model].filter(Boolean).join(" · ");
+        if (runOwner.current) return runOwner.current.providerLabel
+          ? [runOwner.current.providerLabel, segment?.model].filter(Boolean).join(" · ") : segment?.model || undefined;
+        return provider && !provider.chosen ? provider.label : undefined;
+      })(),
       // Harness-graph runs persist a replayable event log server-side
       // (ExecutionLog); a direct/no-harness turn does not, so this id
       // 404s there — HistoricalRunDetail handles that by simply not
       // offering the toggle rather than erroring.
       runId: run.runId ?? undefined,
     });
-  }, [activeThreadId, appendMessage, live, run, provider]);
+  }, [ownerThreadId, appendMessage, live, run, provider, connections]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages.length, live, run.status]);
+    if (following) bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length, live, run.status, liveAnswer, following]);
 
+  const slashPreset = presetFromSlashText(instruction);
   const canStart =
     !live &&
     !!provider &&
     instruction.trim().length > 0 &&
-    (!enabled || graph.nodes.length > 0);
+    !(slashPreset && "warning" in slashPreset) &&
+    (!enabled || graph.nodes.length > 0 || Boolean(slashPreset && "preset" in slashPreset));
 
   /** A `/` Tool was chosen: one run whose first act is the preset (contract §2.4).
       `exec` parks on the approval gate; the user sees the card before anything runs. */
@@ -193,6 +222,7 @@ export function AgentStage() {
       preset.name === "exec" ? "/exec " + preset.argv.join(" ") : preset.name === "read" ? "/read " + preset.path : "/ls";
     const threadId = activeThreadId ?? createThread(label.slice(0, 60));
     appendMessage(threadId, { role: "user", content: label });
+    runOwner.current = { threadId, instruction: label, providerLabel: provider.label };
     setInstruction("");
     savedRunFor.current = null;
     // A brand-new conversation hands its chosen mode to the sidecar before the
@@ -204,18 +234,22 @@ export function AgentStage() {
       step: false,
       cwd: workspace?.rootPath || undefined,
       providerId: provider.id,
+      model: selectedModel || undefined,
       tools: { preset, summarize: false, thread_id: threadId, permission_mode: permissionMode },
     });
   };
 
   const onStart = () => {
     if (!canStart || !provider) return;
+    if (slashPreset && "preset" in slashPreset) { void onPreset(slashPreset.preset); return; }
     const text = instruction.trim();
     // The thread is born from the first message, not from a "New chat" click,
     // so the list never fills with empty "New chat" rows.
+    setFollowing(true);
     const threadId = activeThreadId ?? createThread(text.slice(0, 60));
     if (!activeThreadId) void permission.adopt(threadId);
     appendMessage(threadId, { role: "user", content: text });
+    runOwner.current = { threadId, instruction: text, providerLabel: !enabled ? provider.label : undefined };
     setInstruction("");
     savedRunFor.current = null;
     // Chat is never mock: it runs against the connected provider. `provider.id`
@@ -229,6 +263,7 @@ export function AgentStage() {
       step: false,
       cwd: workspace?.rootPath || undefined,
       providerId: provider.id,
+      model: !enabled ? selectedModel || undefined : undefined,
     });
   };
 
@@ -253,77 +288,77 @@ export function AgentStage() {
 
   return (
     <div className="oh-agent-stage flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-7 sm:px-8 lg:px-12">
+      {live && !runInCurrentChat && (
+        <div className="flex-none border-b border-line-soft px-4 py-2">
+          <Notice action={<Button size="sm" onClick={() => ownerThreadId && useThreadStore.getState().selectThread(ownerThreadId)}>Return to running chat</Button>}>
+            A turn is still running in another chat.
+          </Notice>
+        </div>
+      )}
+      <div
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          setFollowing(element.scrollHeight - element.scrollTop - element.clientHeight < 100);
+        }}
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 lg:px-12"
+      >
         {messages.length === 0 && !live ? (
-          <div className="oh-agent-welcome mx-auto flex w-full max-w-[680px] flex-col pt-[clamp(4rem,13vh,9rem)]">
-            <div className="mb-8 flex items-end justify-between gap-8">
-              <div className="max-w-[560px]">
-                <h1 className="t-display text-[clamp(2rem,3.6vw,3rem)] font-[600] leading-[1.08] text-ink">
-                  What are we working on?
-                </h1>
-                <p className="mt-3 text-[14px] leading-6 text-ink-mute">Describe a task, or pick one to start.</p>
+          <div className="oh-agent-welcome mx-auto flex w-full max-w-[680px] flex-col pt-[clamp(2rem,10vh,7rem)]">
+            <div className="mb-6 flex items-end justify-between gap-8">
+              <div className="min-w-0 max-w-[560px]">
+                <h1 className="t-display text-display text-ink">What are we working on?</h1>
+                <p className="mt-2 text-reading text-ink-mute">Describe a task, or pick one to start.</p>
               </div>
               <Nilo className="hidden flex-none sm:block" />
             </div>
 
-            <div className="divide-y divide-line-soft border-y border-line-soft">
+            <ul className="divide-y divide-line-soft border-y border-line-soft" aria-label="Starting prompts">
               {suggestions.map(({ icon: Icon, title, prompt }) => (
-                <button
-                  key={title}
-                  type="button"
-                  className="group flex w-full items-center gap-3 px-1 py-3.5 text-left transition-colors hover:text-ink"
-                  onClick={() => applySuggestion(prompt)}
-                >
-                  <span className="grid h-8 w-8 place-items-center text-ink-faint transition-colors group-hover:text-signal">
-                    <Icon size={16} strokeWidth={1.7} aria-hidden />
-                  </span>
-                  <span className="text-[13px] font-[550] text-ink-dim group-hover:text-ink">{title}</span>
-                </button>
+                <li key={title}>
+                  <button
+                    type="button"
+                    className="oh-focus-inner group flex min-h-control-lg w-full items-center gap-3 px-1 py-2.5 text-left transition-colors hover:bg-sub-100"
+                    onClick={() => applySuggestion(prompt)}
+                  >
+                    <span className="grid h-8 w-8 place-items-center text-ink-mute transition-colors group-hover:text-signal-text">
+                      <Icon size={16} strokeWidth={1.7} aria-hidden />
+                    </span>
+                    <span className="text-title text-ink-dim group-hover:text-ink">{title}</span>
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
 
-            <p className="mt-5 text-[12px] text-ink-faint">
+            <p className="mt-4 flex min-h-control-md items-center text-body text-ink-mute">
               {provider ? (
                 <>
                   {enabled ? `${activeBundle?.manifest?.name ?? "Your harness"} · ` : "Direct · "}
-                  <span className="text-ink-mute">{provider.label}</span>
+                  <span className="ml-1 text-ink-dim">{provider.label}</span>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => requestProviderSetup(missing?.id ?? null)}
-                  className="font-[550] text-signal underline-offset-2 hover:underline"
-                >
+                <Button variant="ghost" size="sm" className="-ml-2 text-signal-text" onClick={() => requestProviderSetup(missing?.id ?? null)}>
                   {missing?.text ?? "Connect a provider to send"}
-                </button>
+                </Button>
               )}
             </p>
           </div>
         ) : (
-          <div className="mx-auto flex max-w-[760px] flex-col gap-7 pb-6 pt-3">
+          <div role="log" aria-label="Conversation" aria-busy={live || undefined} className="mx-auto flex max-w-[760px] flex-col gap-6 pb-6 pt-3">
             {messages.map((m) => (
               <div
                 key={m.id}
                 className={[
-                  "flex max-w-[88%] flex-col gap-2",
+                  "flex min-w-0 max-w-[95%] flex-col gap-1.5 sm:max-w-[88%]",
                   m.role === "user" ? "self-end px-4 py-3 oh-agent-message--user" : "self-start pl-4 oh-agent-message--assistant",
                 ].join(" ")}
               >
-                <span className="text-[11px] font-[600] tracking-[0.02em] text-ink-faint">
-                  {m.role === "user"
-                    ? "You"
-                    : m.providerLabel
-                      ? `OpenHarness · ${m.providerLabel}`
-                      : "OpenHarness"}
+                <span className="text-body font-medium text-ink-mute">
+                  {m.role === "user" ? "You" : m.providerLabel ? `OHarness · ${m.providerLabel}` : "OHarness"}
                 </span>
-                <div
-                  className={[
-                    "whitespace-pre-wrap text-[15px] leading-7",
-                    m.role === "user" ? "text-ink" : "text-ink-dim",
-                  ].join(" ")}
-                >
+                <div className={["max-w-[68ch] whitespace-pre-wrap text-reading [overflow-wrap:anywhere]", m.role === "user" ? "text-ink" : "text-ink-dim"].join(" ")}>
                   {m.content}
                 </div>
+                <MessageActions content={m.content} onReuse={!live ? () => applySuggestion(m.content) : undefined} />
                 {m.role === "assistant" && m.runId && (
                   <HistoricalRunDetail
                     runId={m.runId}
@@ -338,7 +373,7 @@ export function AgentStage() {
               </div>
             ))}
 
-            {live && (
+            {live && runInCurrentChat && (
               <div className="flex flex-col gap-1">
                 <ThinkingStatus
                   state={gateSeg ? "waiting" : "thinking"}
@@ -346,6 +381,7 @@ export function AgentStage() {
                   elapsed={elapsed}
                   tokens={run.totals.tokens}
                 />
+                {liveAnswer && <div role="region" aria-label="Live answer" className="mt-3 max-w-[68ch] whitespace-pre-wrap text-reading text-ink-dim [overflow-wrap:anywhere]">{liveAnswer}</div>}
                 {gateSeg && (
                   <div className="mt-2">
                     <Gate segment={gateSeg} onResolve={resolveGate} />
@@ -354,13 +390,17 @@ export function AgentStage() {
               </div>
             )}
 
-            {showStageDetailControl && (
-              <RunDetailToggle
-                open={showRunDetail}
-                onToggle={() => setShowRunDetail((v) => !v)}
-                controlsId={stageDetailId}
-              />
+            {runInCurrentChat && (run.status === "error" || run.status === "stopped") && (
+              <Notice
+                tone={run.status === "error" ? "fault" : "info"}
+                action={runOwner.current?.instruction ? <Button size="sm" onClick={() => applySuggestion(runOwner.current!.instruction)}>Reuse instruction</Button> : undefined}
+              >
+                <p>{run.status === "error" ? "The turn failed. Check the provider connection, then reuse your instruction to try again." : "The turn stopped. You can reuse your instruction when ready."}</p>
+                {run.notices?.map((notice, index) => <p key={index} className="mt-1 [overflow-wrap:anywhere]">{notice}</p>)}
+              </Notice>
             )}
+
+            {showStageDetailControl && <RunDetailToggle open={showRunDetail} onToggle={() => setShowRunDetail((v) => !v)} controlsId={stageDetailId} />}
 
             {showStageDetailControl && showRunDetail && (
               <RunDetailRegion id={stageDetailId}>
@@ -374,6 +414,7 @@ export function AgentStage() {
       </div>
 
       <div className="flex-none px-3 pb-4 pt-2 sm:px-6">
+        {!following && <div className="mb-2 text-center"><Button size="sm" onClick={() => setFollowing(true)}>Jump to latest</Button></div>}
         <div className="oh-agent-composer mx-auto max-w-[820px]">
           <ChatComposer
             key={activeThreadId ?? "no-thread"}
@@ -390,46 +431,46 @@ export function AgentStage() {
             permissionNotice={permission.error}
             workspaceTrust={chatTools.workspace ? { workspaceName: chatTools.workspace.name, trusted: trust.trusted, onChange: (value) => void trust.setTrusted(value), error: trust.error } : undefined}
           />
-          <div className="flex items-center gap-2 px-2.5 pb-2.5 pt-1">
+          {chatTools.loading && <p role="status" className="px-4 py-1 text-meta text-ink-mute">Checking workspace tools…</p>}
+          {chatTools.error && <p role="status" className="px-4 py-1 text-meta text-warn-text">Workspace tools unavailable. Text chat is still available. {chatTools.error}</p>}
+          {chatTools.capabilities && <p className="px-4 py-1 text-meta text-ink-mute">{chatTools.capabilities.reason === "ok" ? "Workspace tools available in / commands" : chatTools.capabilities.reason === "cli-adapter" ? "Workspace tools are managed by this provider’s CLI" : "This connection does not offer workspace tools"}</p>}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2.5 pb-2.5 pt-1">
+            <fieldset disabled={live} aria-label="Run settings" className="contents disabled:opacity-60">
             <HarnessBar />
-            <ChatProviderPicker onConnect={() => goToProviders("providers")} />
+            <ChatProviderPicker disabled={live} onConnect={() => goToProviders("providers")} />
             <WorkspacePicker />
+            {provider && !enabled && <div className="min-w-0 max-w-full sm:max-w-[220px]">
+              <ModelPicker connection={connection} value={selectedModel} onChange={(model) => setModelChoices((current) => ({ ...current, [provider.id]: model }))}
+                label="Model for next turn" inheritLabel="Connection default" inheritDetail={connection?.defaultModel || "The provider CLI chooses its model"} disabled={live}
+                triggerClassName="h-control-md max-w-full px-2 text-body text-ink-dim max-sm:h-control-lg" />
+            </div>}
+            </fieldset>
             <span className="flex-1" />
             {missing ? (
-              <button
-                type="button"
-                onClick={() => requestProviderSetup(missing.id)}
-                title={missing.text}
-                className="hidden min-w-0 max-w-[240px] truncate text-[11px] font-[550] text-signal underline-offset-2 hover:underline sm:block"
-              >
-                {missing.text}
-              </button>
+              <Button variant="ghost" size="sm" onClick={() => requestProviderSetup(missing.id)} title={missing.text} className="min-w-0 max-w-[240px] text-signal-text max-sm:hidden">
+                <span className="truncate">{missing.text}</span>
+              </Button>
             ) : (
-              <span className="hidden text-[11px] text-ink-faint sm:inline">Ctrl ↵ to send</span>
+              <span className="flex items-center gap-1.5 text-meta text-ink-mute max-sm:hidden">
+                <KbdChord caps={chordCaps("Mod+Enter", mac)} /> to send
+              </span>
             )}
             {live ? (
-              <button
-                type="button"
-                onClick={stop}
-                aria-label="Stop run"
-                title="Stop run"
-                className="grid h-8 w-8 flex-none place-items-center rounded-[8px] border border-line text-ink-mute transition-colors hover:bg-sub-200 hover:text-ink"
-              >
-                <Square size={11} strokeWidth={2} fill="currentColor" aria-hidden />
-              </button>
+              <Button iconOnly size="lg" onClick={stop} aria-label="Stop run" title="Stop run" icon={<Square size={11} strokeWidth={2} fill="currentColor" aria-hidden />} />
             ) : (
-              <button
-                type="button"
+              <Button
+                iconOnly
+                size="lg"
+                variant="primary"
                 disabled={!canStart}
                 onClick={onStart}
-                title={!canStart && missing ? missing.text : undefined}
+                title={!canStart ? (missing ? missing.text : "Type a message to send") : "Send message"}
                 aria-label="Send message"
-                className="grid h-8 w-8 flex-none place-items-center rounded-[8px] bg-signal text-signal-ink transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35"
-              >
-                <ArrowUp size={16} strokeWidth={2.2} aria-hidden />
-              </button>
+                icon={<ArrowUp size={16} strokeWidth={2.2} aria-hidden />}
+              />
             )}
           </div>
+          <p className="px-4 pb-2 text-meta text-ink-mute">{enabled ? "Harness agents use their pinned models or connection defaults. " : `Model: ${selectedModel || connection?.defaultModel || "provider default"}. `}Each turn sends your instruction; earlier messages are not included automatically.</p>
         </div>
       </div>
     </div>

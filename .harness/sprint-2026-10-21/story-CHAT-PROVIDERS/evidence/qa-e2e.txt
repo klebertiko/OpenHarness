@@ -1,0 +1,7 @@
+Serving out/ at http://127.0.0.1:61961
+
+▶ e2e-chat-providers.mjs
+PASS isolated Chat/Providers journey: 4 checks, 5 responsive sizes
+✔ e2e-chat-providers.mjs
+
+All 1 e2e scripts passed.

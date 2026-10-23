@@ -21,7 +21,7 @@ interface UsageState {
   hydrate: () => Promise<void>;
   /** Force a re-fetch — call after a run completes or the budget changes. */
   refresh: () => Promise<void>;
-  setBudget: (limitUsd: number | null) => Promise<void>;
+  setBudget: (limitUsd: number | null) => Promise<boolean>;
 }
 
 async function load(set: (partial: Partial<UsageState>) => void): Promise<void> {
@@ -31,7 +31,7 @@ async function load(set: (partial: Partial<UsageState>) => void): Promise<void> 
     set({ summary, error: null, loading: false });
   } catch (err) {
     set({
-      error: err instanceof Error ? err.message : "Could not reach the OpenHarness sidecar for usage.",
+      error: err instanceof Error ? err.message : "Could not reach the OHarness sidecar for usage.",
       loading: false,
     });
   }
@@ -56,16 +56,17 @@ export const useUsageStore = create<UsageState>((set, get) => ({
   setBudget: async (limitUsd) => {
     if (limitUsd !== null && (!Number.isFinite(limitUsd) || limitUsd < 0)) {
       set({ error: "Budget must be zero or a positive USD amount." });
-      return;
+      return false;
     }
     try {
       await usageApi.setBudget(limitUsd);
       set({ error: null });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Could not save the budget." });
-      return;
+      return false;
     }
     await load(set);
+    return true;
   },
 }));
 

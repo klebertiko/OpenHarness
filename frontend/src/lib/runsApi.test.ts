@@ -5,7 +5,7 @@ const rawList = [
   {
     id: "r1",
     harness_id: "h1",
-    harness_name: "OpenHarness Agile",
+    harness_name: "OHarness Agile",
     status: "complete",
     started_at: "2026-09-10T12:00:00Z",
     finished_at: "2026-09-10T12:00:42Z",
@@ -28,9 +28,9 @@ describe("runsApi", () => {
 
     const runs = await runsApi.list();
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:8000/execute/logs", { cache: "no-store" });
-    expect(runs[0]).toMatchObject({ id: "r1", harnessName: "OpenHarness Agile", status: "complete" });
+    expect(runs[0]).toMatchObject({ id: "r1", harnessName: "OHarness Agile", status: "complete" });
     // Unknown status falls back rather than leaking a bad enum.
-    expect(runs[1].status).toBe("complete");
+    expect(runs[1].status).toBe("unknown");
   });
 
   it("get GETs /execute/logs/{id} and carries the result payload", async () => {
@@ -71,4 +71,17 @@ describe("runsApi · direct history", () => {
     expect(list[1].source).toBe("harness");
     vi.unstubAllGlobals();
   });
+});
+
+
+it("preserves durable coverage, interrupted status and artifact metadata", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+    id: "r3", status: "interrupted", coverage: "partial", last_sequence: 3,
+    artifacts: [{ id: "a1", run_id: "r3", kind: "node_output", version: 2 }],
+  }) }));
+  const run = await runsApi.get("r3");
+  expect(run.status).toBe("interrupted");
+  expect(run.coverage).toBe("partial");
+  expect(run.lastSequence).toBe(3);
+  expect(run.artifacts[0].version).toBe(2);
 });
