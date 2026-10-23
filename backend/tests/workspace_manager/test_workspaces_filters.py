@@ -164,11 +164,13 @@ def test_removing_a_dirty_worktree_runs_no_empty_name_filter(svc, repo, marker_b
     assert repo.out("show", f"{result['rescue']['ref']}:n.w") == "untracked"
 
 
-# ----------------------------------------------------------------------- a filter driver whose NAME is not valid UTF-8 (fail closed)
+# ----------------------------------------------------------------------- a filter driver whose NAME cannot be neutralised exactly (fail closed):
+# not valid UTF-8, or containing "=" or a control character (it cannot be written back into a ``-c`` argument unchanged)
 
 from workspaces.errors import WorkspaceError  # noqa: E402
 
-BAD_NAMES = {"lone-ff": b"\xff", "truncated": b"a\xc3(b", "latin1": b"caf\xe9", "overlong": b"\xc0\xaf", "surrogate": b"\xed\xa0\x80"}
+BAD_NAMES = {"lone-ff": b"\xff", "truncated": b"a\xc3(b", "latin1": b"caf\xe9", "overlong": b"\xc0\xaf", "surrogate": b"\xed\xa0\x80",
+             "equals": b"a=b", "control-01": b"a\x01b", "tab": b"a\tb", "control-1f": b"a\x1fb"}
 
 
 def bytes_name_repo(repo, marker_bench, name: bytes):
@@ -194,7 +196,7 @@ def bad_name(request):
     return BAD_NAMES[request.param]
 
 
-def test_a_filter_driver_name_that_is_not_utf8_is_refused_by_the_runner(runner, repo, marker_bench, bad_name):
+def test_a_filter_driver_name_that_cannot_be_neutralised_is_refused_by_the_runner(runner, repo, marker_bench, bad_name):
     bytes_name_repo(repo, marker_bench, bad_name)
     (repo.path / "a.w").write_text("changed\n", encoding="utf-8")
     with pytest.raises(WorkspaceError) as caught:
@@ -202,7 +204,7 @@ def test_a_filter_driver_name_that_is_not_utf8_is_refused_by_the_runner(runner, 
     assert caught.value.code == "unsafe_repository" and marker_bench.ran() == []
 
 
-def test_creating_a_workspace_in_a_repository_with_a_non_utf8_filter_runs_nothing(svc, repo, marker_bench, bad_name):
+def test_creating_a_workspace_in_a_repository_with_an_unneutralisable_filter_runs_nothing(svc, repo, marker_bench, bad_name):
     bytes_name_repo(repo, marker_bench, bad_name)
     with pytest.raises(WorkspaceError) as caught:
         svc.create(str(repo.path), "main", branch="bad-create")
@@ -211,7 +213,7 @@ def test_creating_a_workspace_in_a_repository_with_a_non_utf8_filter_runs_nothin
     assert repo.out("branch", "--list", "bad-create") == ""
 
 
-def test_listing_with_a_non_utf8_filter_runs_nothing(svc, repo, marker_bench, bad_name):
+def test_listing_with_an_unneutralisable_filter_runs_nothing(svc, repo, marker_bench, bad_name):
     repo.commit("a.w", "payload\n")
     info = svc.create(str(repo.path), "main", branch="bad-list")
     plant_bytes_filter(repo, marker_bench, bad_name)
