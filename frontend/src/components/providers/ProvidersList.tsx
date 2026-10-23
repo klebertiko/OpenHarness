@@ -47,7 +47,7 @@ const groupOf = (c: Connection): "ready" | "needsSetup" | "agentsOnly" =>
     when it has never actually been used, a genuinely different state from
     "used, but free" or "used, but unpriced" (both of which formatCost
     already tells apart honestly). */
-function rowCostLabel(c: Connection, usage: ConnectionUsage | undefined): string | undefined {
+function rowCostLabel(_c: Connection, usage: ConnectionUsage | undefined): string | undefined {
   if (!usage || usage.tokensTotal <= 0) return undefined;
   return usageCostLabel(usage);
 }

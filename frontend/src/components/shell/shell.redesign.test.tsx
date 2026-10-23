@@ -72,7 +72,7 @@ describe("CommandPalette", () => {
       const [open, setOpen] = useState(false);
       return (
         <>
-          <button onClick={() => setOpen(true)}>Search and commands</button>
+          <button type="button" onClick={() => setOpen(true)}>Search and commands</button>
           <CommandPalette open={open} commands={commands} onClose={() => setOpen(false)} />
         </>
       );

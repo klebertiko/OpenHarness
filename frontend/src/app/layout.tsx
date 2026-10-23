@@ -19,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={fontVariables} data-theme="dark" suppressHydrationWarning>
       <head>
         {/* Blocking on purpose: the theme must be known before first paint. */}
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/theme-init.js" />
       </head>
       <body>{children}</body>
