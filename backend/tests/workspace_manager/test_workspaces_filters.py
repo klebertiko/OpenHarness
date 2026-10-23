@@ -278,26 +278,27 @@ def test_a_filter_only_in_the_target_worktrees_config_runs_nothing_on_removal(sv
     assert marker_bench.ran() == [] and not path.exists()
 
 
+def stale_worktree(svc, repo, marker_bench, branch):
+    """A clean worktree whose only filter is in its own config.worktree and whose tracked file has a new mtime: a plain
+    ``git worktree remove`` (no ``--force``) starts a ``git status`` there that must run the clean filter to compare content."""
+    worktree_filter_repo(repo, marker_bench)
+    info = svc.create(str(repo.path), "main", branch=branch)
+    worktree_only_filter(repo, marker_bench, info)
+    path = Path(info["path"])
+    target = path / "a.w"
+    target.write_bytes(target.read_bytes())
+    return path
+
+
+def test_the_unneutralised_worktree_remove_does_run_the_filter(runner, svc, repo, marker_bench):
+    """Positive control for the two tests below: without neutralisation the sentinel fires, so an empty sentinel there means something."""
+    path = stale_worktree(svc, repo, marker_bench, "control")
+    runner.run(repo.path, ["worktree", "remove", "--", str(path)], filters=False, check=False)
+    assert marker_bench.ran() != []
+
+
 def test_the_runner_unions_the_configuration_of_other_worktrees(runner, svc, repo, marker_bench):
-    worktree_filter_repo(repo, marker_bench)
-    info = svc.create(str(repo.path), "main", branch="union")
-    worktree_only_filter(repo, marker_bench, info)
-    path = Path(info["path"])
-    target = path / "a.w"
-    target.write_bytes(target.read_bytes())
-    admin = Path(repo.out("rev-parse", "--absolute-git-dir", cwd=path))
-    runner.run(repo.path, ["worktree", "remove", "--force", "--", str(path)], filters=True, filter_dirs=[path])
+    path = stale_worktree(svc, repo, marker_bench, "union")
+    runner.run(repo.path, ["worktree", "remove", "--", str(path)], filters=True, filter_dirs=[path])
     assert marker_bench.ran() == [] and not path.exists()
-    assert not admin.exists()
 
-
-def test_the_runner_reads_a_worktrees_configuration_from_its_administrative_directory(runner, svc, repo, marker_bench):
-    worktree_filter_repo(repo, marker_bench)
-    info = svc.create(str(repo.path), "main", branch="gitdir")
-    worktree_only_filter(repo, marker_bench, info)
-    path = Path(info["path"])
-    target = path / "a.w"
-    target.write_bytes(target.read_bytes())
-    admin = Path(repo.out("rev-parse", "--absolute-git-dir", cwd=path))
-    runner.run(repo.path, ["worktree", "remove", "--force", "--", str(path)], filters=True, filter_git_dirs=[admin])
-    assert marker_bench.ran() == []

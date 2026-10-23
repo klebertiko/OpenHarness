@@ -89,14 +89,13 @@ class GitRunner:
         ]
         return [part for pair in pairs for part in ("-c", pair)]
 
-    def _filter_neutralisers(self, cwd: Path, git_dir: Path | None = None) -> set[str]:
-        """The names of every filter driver the configuration visible from ``cwd`` (or from ``git_dir``) defines.
+    def _filter_neutralisers(self, cwd: Path) -> set[str]:
+        """The names of every filter driver the configuration visible from ``cwd`` defines.
 
         The keys are read as BYTES: a name that is not strict UTF-8 cannot be written back into an argv unchanged (decoding it
         with a replacement character would blank a driver git does not have and leave the real one armed), so it is refused.
         """
-        where = ["--git-dir", os.fspath(git_dir)] if git_dir is not None else []
-        listing = self._execute([*where, "config", "--list", "--null"], cwd, DEFAULT_TIMEOUT_S, None, None)
+        listing = self._execute(["config", "--list", "--null"], cwd, DEFAULT_TIMEOUT_S, None, None)
         if listing.returncode != 0:
             raise WorkspaceError("unsafe_repository", "git could not read this repository's configuration", 409)
         drivers: set[str] = set()
@@ -179,15 +178,15 @@ class GitRunner:
 
     def run(self, cwd: Path | str, args: list[str], *, timeout: float = DEFAULT_TIMEOUT_S, input: bytes | None = None,
             env: dict[str, str] | None = None, check: bool = True, filters: bool = False,
-            filter_dirs: Sequence[Path | str] = (), filter_git_dirs: Sequence[Path | str] = ()) -> GitResult:
+            filter_dirs: Sequence[Path | str] = ()) -> GitResult:
         """Run ``git <args>`` in ``cwd``.
 
         ``filters=True`` is required for any command that reads or writes working-tree content (checkout, status, add): it blanks
         the repository's clean/smudge/process filters first. Pure plumbing on refs and objects does not need it.
 
-        A command run from one worktree that makes git read ANOTHER worktree (``worktree add/remove`` start a ``git status`` there)
-        passes that worktree in ``filter_dirs`` (its directory) and/or ``filter_git_dirs`` (its administrative directory, which holds
-        its ``config.worktree``): the drivers blanked are the union of every configuration git will read.
+        A command run from one worktree that makes git read ANOTHER worktree (a ``worktree remove`` without ``--force`` starts a
+        ``git status`` there) passes that worktree's directory in ``filter_dirs``: the drivers blanked are the union of every
+        configuration git will read, ``config.worktree`` included.
         """
         cwd = Path(cwd)
         pre: list[str] = []
@@ -196,9 +195,6 @@ class GitRunner:
             for other in filter_dirs:
                 if os.path.isdir(other):
                     drivers |= self._filter_neutralisers(Path(other))
-            for admin in filter_git_dirs:
-                if os.path.isdir(admin):
-                    drivers |= self._filter_neutralisers(Path(admin), Path(admin))
             pre = self._overrides(drivers)
         if pre:
             args = [*pre, *args]
