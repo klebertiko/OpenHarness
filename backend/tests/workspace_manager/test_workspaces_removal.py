@@ -420,3 +420,27 @@ def test_an_initialized_submodule_blocks_removal(svc, repo, runner):
     with pytest.raises(WorkspaceError) as caught:
         svc.remove(str(repo.path), info["id"], "anything")
     assert caught.value.status == 403 and (sub / "work.txt").is_file()
+
+
+def test_the_administrative_directory_is_reconfirmed_before_it_is_deleted(svc, repo, monkeypatch):
+    """Between deleting the worktree and deleting its administrative directory, the directory's ``gitdir`` is repointed (as if
+    the entry had been swapped): the second deletion must refuse, leaving that directory and the neighbour's untouched."""
+    info = svc.create(str(repo.path), "main", branch="swap")
+    neighbour = svc.create(str(repo.path), "main", branch="neighbour")
+    admin = Path(repo.out("rev-parse", "--absolute-git-dir", cwd=info["path"]))
+    neighbour_admin = Path(repo.out("rev-parse", "--absolute-git-dir", cwd=neighbour["path"]))
+    report = svc.removal_check(str(repo.path), info["id"])
+    real = removal_module.remove_tree
+    calls: list[str] = []
+
+    def swapping(path):
+        calls.append(os.fspath(path))
+        real(path)
+        if len(calls) == 1:  # the worktree directory is gone; its administrative directory now claims another worktree
+            (admin / "gitdir").write_text(str(Path(neighbour["path"]) / ".git") + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(removal_module, "remove_tree", swapping)
+    with pytest.raises(WorkspaceError) as caught:
+        svc.remove(str(repo.path), info["id"], report["confirmation_token"])
+    assert caught.value.code == "inspection_failed"
+    assert len(calls) == 1 and admin.is_dir() and neighbour_admin.is_dir() and Path(neighbour["path"]).is_dir()
