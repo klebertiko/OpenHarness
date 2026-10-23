@@ -12,7 +12,7 @@ let step = 'startup', rejectValidation = false;
 const startedAt = new Date().toISOString();
 const report = data => writeFileSync(resolve(output, 'e2e.json'), JSON.stringify({ startedAt, step, checks, errors, unexpected, executions, responsive, ...data }, null, 2));
 report({ result: 'running' });
-const browser = await chromium.launch({ channel: process.env.OHM_BROWSER_CHANNEL || 'msedge', headless: true });
+const browser = await chromium.launch(process.env.OHM_BROWSER_EXECUTABLE ? { executablePath: process.env.OHM_BROWSER_EXECUTABLE, headless: true } : { channel: process.env.OHM_BROWSER_CHANNEL || "msedge", headless: true });
 const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 1000 }, serviceWorkers: 'block' });
 const page = await context.newPage();
 page.setDefaultTimeout(15000);
@@ -97,8 +97,8 @@ try {
   assert.deepEqual(executions[1].graph_json.nodes.find(n => n.id === 'impl').data.providerIds, ['openai']);
   checks.push('Mock/live serialized mode and selected pin verified; execution response stubbed');
   step = 'OHM roundtrip and rejected import';
-  // Two .ohm inputs exist (actions bar, validate dock); the dock reports "Imported · <id>".
-  const upload = bundle => page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').nth(1).setInputFiles({ name: 'roundtrip.ohm', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
+  // The validate dock owns the .ohm import input and reports "Imported · <id>".
+  const upload = bundle => page.locator('input[type="file"][accept=".ohm,.oharness,application/json"]').first().setInputFiles({ name: 'roundtrip.ohm', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bundle)) });
   await upload(fixture); await page.getByText('Imported · ' + fixture.manifest.id, { exact: true }).waitFor();
   const first = await download('first.ohm'); assert.deepEqual(authored(first), fixture);
   await upload(first); await page.getByText('Imported · ' + fixture.manifest.id, { exact: true }).waitFor();
