@@ -49,7 +49,7 @@ Timeout: o processo entra num *job object* (`sandbox/process_tree.py`, reaprovei
 `workspaces/gitrun.py`. `sandbox.exec.run` foi avaliado e descartado: truncar em 64 KiB, redigir e misturar stderr corromperia a saída NUL-separada
 que é parseada e *hasheada* para amarrar a confirmação de remoção. O helper devolve bytes exatos e mantém stderr separado. Por chamada: argv em lista, sem shell,
 git por caminho absoluto, ambiente reconstruído da allowlist do sidecar (`scrub_env` + remoção de todo `GIT_*`), `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=<null>`, `GIT_TERMINAL_PROMPT=0`, timeout, stdin fechado.
-**Achado esperado do OpenGrep:** `dangerous-subprocess-use-audit` neste call site. Não há `# nosemgrep`; o comentário no código explica os controles.
+**Achado do OpenGrep:** `dangerous-subprocess-use-audit` neste call site (a regra acusa qualquer argv não literal). Este `Popen` carrega o **único** `# nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit` do módulo `workspaces/`, autorizado explicitamente pelo mantenedor (2026-10-24) depois de duas revisões de SEC; o comentário no código resume os controles acima. Nenhuma outra regra é suprimida: os achados `regex_dos` de `scrub_paths` foram corrigidos no código (abaixo), não suprimidos.
 
 ### Criar
 1. `validate_ref` (rejeita início `-`, controles, espaço, `..`, `@{`, `~^:?*[\`, `//`, `.lock`, >255) → `git check-ref-format --allow-onelevel` → `git rev-parse --verify --end-of-options <ref>^{commit}`.
@@ -109,7 +109,7 @@ Limpo e sem commits exclusivos remove direto (ainda desfazendo links antes). Ref
 - O limite de saída de 64 MiB é conferido **depois** de bufferizar a saída do git.
 - Homóglifos/Unicode confundível em nome de branch nova (a allowlist aceita letras de qualquer escrita).
 - `state.json` acumula grupos vazios de repositórios que já não têm workspaces.
-- O `stderr` do git em `detail` das respostas de erro (limitado a 300 caracteres) passa por `scrub_paths`, que troca caminhos absolutos por `<path>` (entre aspas, ou sem aspas com espaços simples dentro de um componente, como `C:\Program Files\My App\ws`); refs entre aspas (`'feature/x'`) ficam legíveis. Um caminho sem aspas com dois espaços seguidos, ou com espaço antes de um separador, ainda pode vazar o trecho final.
+- O `stderr` do git em `detail` das respostas de erro (limitado a 300 caracteres) passa por `scrub_paths`, que troca caminhos absolutos por `<path>` (entre aspas, ou sem aspas com espaços simples dentro de um componente, como `C:\Program Files\My App\ws`); refs entre aspas (`'feature/x'`) ficam legíveis. Os caminhos com letra de unidade e os POSIX são percorridos por um scanner linear (corridas de caracteres de componente, sem quantificadores aninhados), no lugar das duas regex que o OpenGrep acusava como `regex_dos`; contra as regex anteriores, 450 mil strings aleatórias deram saídas idênticas, e `test_workspaces_scrub.py` fixa os casos de borda e limita o tempo (menos de 0,5 s) em entradas hostis de 100 mil caracteres. Um caminho sem aspas com dois espaços seguidos, ou com espaço antes de um separador, ainda pode vazar o trecho final.
 - Orphan com arquivo ainda preso (aberto): a limpeza falha com `remove_failed` e pode ser repetida; o gerenciador não força handles.
 
 ## Integração futura (NÃO feita aqui)
