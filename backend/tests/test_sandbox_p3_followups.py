@@ -37,18 +37,12 @@ def test_ls_and_pytest_ask_for_an_operand_with_a_trailing_newline(tmp_path):
 
 @pytest.fixture
 def fresh_git_version(monkeypatch):
-    monkeypatch.setattr(permission, '_GIT_VERSION_KNOWN', (), raising=False)
-    monkeypatch.setattr(permission, '_GIT_VERSION_FAILED_AT', None, raising=False)
-    cache_clear = getattr(permission._git_version, 'cache_clear', None)
-    if cache_clear:
-        cache_clear()
-    yield
-    if cache_clear:
-        cache_clear()
+    monkeypatch.setattr(permission._GIT_PROBE, 'version', ())
+    monkeypatch.setattr(permission._GIT_PROBE, 'failed_at', None)
 
 
 def test_a_transient_git_version_failure_is_not_remembered(monkeypatch, fresh_git_version):
-    monkeypatch.setattr(permission, '_GIT_VERSION_RETRY_S', 0.0, raising=False)
+    monkeypatch.setattr(permission, '_GIT_VERSION_RETRY_S', 0.0)
     answers = iter([None, b'git version 2.45.0\n'])
     monkeypatch.setattr(permission, '_git_run', lambda args, cwd: next(answers))
     assert permission._git_version() == ()
@@ -74,7 +68,7 @@ def test_a_failing_git_is_retried_at_a_bounded_rate(monkeypatch, fresh_git_versi
         calls.append(args)
         return None
     monkeypatch.setattr(permission, '_git_run', run)
-    monkeypatch.setattr(permission, '_GIT_VERSION_RETRY_S', 3600.0, raising=False)
+    monkeypatch.setattr(permission, '_GIT_VERSION_RETRY_S', 3600.0)
     assert permission._git_version() == ()
     assert permission._git_version() == ()
     assert len(calls) == 1

@@ -306,9 +306,16 @@ def _parse_git_version(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in found.groups(default='0')) if found else ()
 
 
-_GIT_VERSION_KNOWN: tuple[int, ...] = ()
-_GIT_VERSION_FAILED_AT: float | None = None
 _GIT_VERSION_RETRY_S = 30.0  # a failed probe is retried at most this often; only a success is remembered
+
+
+class _GitProbe:
+    """What the process has learned about the installed git: the version once read, and when a read last failed."""
+    version: tuple[int, ...] = ()
+    failed_at: float | None = None
+
+
+_GIT_PROBE = _GitProbe()
 
 
 def _git_version() -> tuple[int, ...]:
@@ -316,18 +323,17 @@ def _git_version() -> tuple[int, ...]:
     A version that was read is remembered for the process. A failure (a timeout while an antivirus scans git on
     its first call, say) is not: it is retried, but not more often than every `_GIT_VERSION_RETRY_S` seconds,
     so a git that never answers does not cost a probe per command."""
-    global _GIT_VERSION_KNOWN, _GIT_VERSION_FAILED_AT
-    if _GIT_VERSION_KNOWN:
-        return _GIT_VERSION_KNOWN
+    if _GIT_PROBE.version:
+        return _GIT_PROBE.version
     now = time.monotonic()
-    if _GIT_VERSION_FAILED_AT is not None and now - _GIT_VERSION_FAILED_AT < _GIT_VERSION_RETRY_S:
+    if _GIT_PROBE.failed_at is not None and now - _GIT_PROBE.failed_at < _GIT_VERSION_RETRY_S:
         return ()
     out = _git_run(['--version'], os.path.dirname(_GIT_EXE) if _GIT_EXE else '.')
     version = _parse_git_version(out.decode('utf-8', 'replace')) if out is not None else ()
     if version:
-        _GIT_VERSION_KNOWN, _GIT_VERSION_FAILED_AT = version, None
+        _GIT_PROBE.version, _GIT_PROBE.failed_at = version, None
     else:
-        _GIT_VERSION_FAILED_AT = now
+        _GIT_PROBE.failed_at = now
     return version
 
 
