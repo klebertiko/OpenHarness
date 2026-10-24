@@ -46,6 +46,7 @@
     <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
     <symbol id="human" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5 21v-3a7 7 0 0 1 14 0v3"/></symbol>
     <symbol id="download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></symbol>
+    <symbol id="warning" viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Zm0 7v5m0 3v.01"/></symbol>
     <symbol id="copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
   </defs></svg>
   <header class="site-header">
@@ -105,6 +106,7 @@
       <div><p class="overline">Download</p><h2 id="download-title">Pre-release<br> 0.0.1-alpha.</h2></div>
       <div class="ecosystem-copy"><p>Version 0.0.1-alpha is a pre-release of alpha quality: the app keeps changing, and the screenshots above show what exists today. <strong>The installers are not signed.</strong> Verify each file before you open it.</p>
         <p><a class="button primary" href="https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha" target="_blank" rel="noopener noreferrer">Open the 0.0.1-alpha release page <svg class="icon" aria-hidden="true"><use href="#external"/></svg></a></p>
+        <p class="source-note">Before you download, check the <a href="#requisitos">system requirements</a>: below them the interface renders broken, with no warning.</p>
         <p class="source-note">When the version is published, the files will be on its GitHub page. Pre-releases never show up under “Latest”, so the link points straight at the version. Until it is published, the page does not open.</p>
         <div class="download-list">
           <div><strong>Windows 10/11 x64</strong><code>OHarness-windows-x64-setup.exe</code><p>Unsigned. SmartScreen shows “Windows protected your PC” and an unknown publisher: choose “More info”, then “Run anyway”. Needs the WebView2 Runtime, present on current Windows 10/11.</p></div>
@@ -120,12 +122,46 @@ gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness<
         <h3 class="download-step">Known limits</h3>
         <ul class="download-limits">
           <li>The app window has an automated test on Windows only. On Linux and macOS, continuous integration builds and tests only the sidecar, the app's local service.</li>
-          <li>The minimum WebView version is neither decided nor enforced, and rendering varies between WebView2, WKWebView, and WebKitGTK.</li>
+          <li>The app does not check the WebView version at startup, and the installer does not yet enforce a minimum (the declaration for macOS and the .deb is in PR klebertiko/oharness#167). See <a href="#requisitos">System requirements</a>. Rendering varies between WebView2, WKWebView and WebKitGTK.</li>
           <li>In the installed app, the database and secrets live in the app's local data folder, named after the identifier <code>dev.oharness.app</code>: on Windows, <code>%LOCALAPPDATA%\dev.oharness.app</code>; on macOS and Linux, the equivalent system folder.</li>
           <li>There is no automatic update. Connected mode and the six connections exist, but this version does not claim that each one was tested end to end on every system.</li>
           <li>Chat commands go through a broker in the backend, with path containment. In Ask mode every action asks for approval; in Auto mode only a fixed list of commands runs without asking. This does not isolate the operating system: what runs, runs with your privileges.</li>
           <li>License: public preview, source available for evaluation; redistribution terms are not defined yet.</li>
         </ul>
+      </div>
+    </section>
+
+    <section id="requisitos" class="ecosystem-section requirements-section wrap" aria-labelledby="requirements-title">
+      <div><p class="overline">System requirements</p><h2 id="requirements-title">What your<br> system needs.</h2></div>
+      <div class="ecosystem-copy"><p>The OHarness desktop draws its interface in the browser engine built into your system (the WebView). That is why the minimum depends on your operating system, not only on the app. Check it before you download; whatever was not verified is labeled “not verified”.</p>
+        <div class="req-callout" role="note" aria-labelledby="req-callout-title"><svg class="icon" aria-hidden="true"><use href="#warning"/></svg><div><strong id="req-callout-title">Below the minimum, the interface renders broken, with no warning.</strong><p>The interface uses Tailwind CSS 4 (migration in PR klebertiko/oharness#120), which requires Chrome 111, Safari 16.4 or Firefox 128, or newer, because of <code>@property</code> and <code>color-mix()</code>. Source: the Tailwind documentation. On macOS and Linux the app uses the system's own WebView: if it is older than that, the layout breaks and the app shows no warning. On Windows, WebView2 follows the current Edge and meets the minimum.</p></div></div>
+        <table class="req-table" role="table"><caption>Minimum requirements by system</caption>
+          <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">System</th><th scope="col" role="columnheader">What it needs</th></tr></thead>
+          <tbody role="rowgroup">
+            <tr role="row"><th scope="row" role="rowheader">Windows<small>x64</small></th><td role="cell"><p><strong>Windows 10 or 11, 64-bit (x64), with the WebView2 Runtime.</strong></p><ul>
+              <li>WebView2 is Microsoft's Evergreen runtime, which tracks Edge. Windows 11 includes it; on Windows 10, from version 1803 onward, the Tauri documentation says it is already installed.</li>
+              <li>If it is missing, the NSIS installer downloads the WebView2 bootstrapper and runs it. That needs an internet connection: without internet and without the runtime, the installer cannot install WebView2.</li>
+              <li>x64 only: there is no ARM installer. Windows 7, 8 and 8.1 do not qualify: their WebView2 stopped at Edge version 109, below the minimum.</li></ul></td></tr>
+            <tr role="row"><th scope="row" role="rowheader">macOS<small>Apple silicon and Intel</small></th><td role="cell"><p><strong>macOS 13.3 (Ventura) or newer, on Apple silicon or Intel.</strong></p><ul>
+              <li>Two native installers, one for Apple silicon (arm64) and one for Intel (x64). There is no universal installer.</li>
+              <li>13.3 is the defensible floor: macOS 13.0 to 13.2 ship Safari 16.1 to 16.3, without <code>@property</code>.</li>
+              <li>Today this is documentation only. Declaring the minimum in the installer (<code>LSMinimumSystemVersion</code>) is in PR klebertiko/oharness#167 and only takes effect after it; until then macOS does not stop the app from opening on an older version.</li></ul></td></tr>
+            <tr role="row"><th scope="row" role="rowheader">Linux<small>x86_64</small></th><td role="cell"><p><strong>Linux x86_64 (64-bit), with WebKitGTK 2.40 or newer and glibc 2.35 or newer.</strong></p><ul>
+              <li>WebKitGTK: the package <code>webkit2gtk-4.1</code> (<code>libwebkit2gtk-4.1-0</code> on Debian and Ubuntu). 2.40 is a plausible floor, not a proven one (see “Not verified”). Ubuntu 22.04 without updates ships 2.36, below the floor; with security updates it reaches 2.50.x. As of October 2026: Ubuntu 24.04, 2.44 (2.52 with updates); Debian 12, 2.50; Fedora 42, 2.52.</li>
+              <li>glibc 2.35: Ubuntu 22.04+, Debian 12+ and Fedora 36+, according to the release workflow's comment.</li>
+              <li>The .deb depends on <code>libwebkit2gtk-4.1-0</code> and, after PR klebertiko/oharness#167, on <code>(>= 2.40)</code>. Before that the .deb does not require a version: apt installs it even with 2.36, and the interface may break.</li></ul></td></tr>
+          </tbody></table>
+        <h3 class="download-step">Not verified</h3>
+        <ul class="download-limits">
+          <li>macOS: Apple does not literally state that “13.3 ships Safari 16.4”. That link comes from a secondary source (Eclectic Light).</li>
+          <li>macOS 12 and earlier: we did not verify whether an app's WKWebView gets a manually installed Safari 16.4. So we do not promise support.</li>
+          <li>macOS: the real minimum of the packaged binaries (the PyInstaller local service and native extensions) was not measured and may be higher than 13.3. We also did not verify exactly what macOS does when it opens an app below <code>LSMinimumSystemVersion</code>.</li>
+          <li>Linux: that WebKitGTK 2.40 is equivalent to Safari 16.4 and ships <code>@property</code> enabled by default. 2.40 was released on 2023-03-17 and its source already contains <code>@property</code>, but there is no official table that proves the equivalence.</li>
+          <li>Linux: does the AppImage carry its own WebKit? According to the Tauri bundler's code it does, but we did not check our file. The glibc requirement applies either way.</li>
+          <li>Linux: the effect of <code>(>= 2.40)</code> in the generated .deb (the package may appear twice in Depends) can only be confirmed in PR #167's file. The WebKitGTK version of Fedora 36 and of distros outside those listed was not verified either.</li>
+        </ul>
+        <h3 class="download-step">Before you open it</h3>
+        <p>The installers are unsigned. Download only from the <a href="https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha" target="_blank" rel="noopener noreferrer">0.0.1-alpha release page</a> (pre-releases do not show up under “Latest”) and check each file with <code>sha256sum --check --ignore-missing SHA256SUMS</code> and <code>gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness</code>, as shown in <a href="#baixar">Download</a>.</p>
       </div>
     </section>
 

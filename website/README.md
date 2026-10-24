@@ -28,7 +28,7 @@ Antes de publicar, siga `SECURITY.md`: testes, revisão independente e ausência
 
 ## Conteúdo
 
-- `index.html`: produto, diagrama interativo, cinco capturas reais (Chats, Studio, Canvas, Execução, Provedores), seção Baixar (pré-lançamento 0.0.1-alpha, instaladores sem assinatura, verificação e limites conhecidos), harnesses incluídos, introdução OHM e manifesto.
+- `index.html`: produto, diagrama interativo, cinco capturas reais (Chats, Studio, Canvas, Execução, Provedores), seção Baixar (pré-lançamento 0.0.1-alpha, instaladores sem assinatura, verificação e limites conhecidos), seção `#requisitos` (requisitos mínimos por sistema, aviso de interface quebrada abaixo do mínimo e lista do que não foi verificado; só afirma o que a pesquisa marcou como verificado, e os números mudam junto com o PR #120/#167), harnesses incluídos, introdução OHM e manifesto.
 - `model.html`: estrutura do formato, documento mínimo copiável, schema, validação real de hoje e limites (o Studio ainda lê e grava JSON; YAML é decisão adotada, migração não implementada).
 - `manifesto.html` e `MANIFESTO.md`: declaração original de princípios, em leitura web e Markdown.
 - `CONTENT-NOTES.md`: tabela afirmação, fonte (arquivo ou comando) e estado, mais o que foi removido e por quê. Conferência editorial interna.

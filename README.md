@@ -44,7 +44,19 @@ sha256sum --check --ignore-missing SHA256SUMS
 gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness
 ```
 
-Attestations prove where a file was built; they do not replace a publisher signature. Alpha quality: read the limitations in [`docs/release-notes/v0.0.1-alpha.md`](docs/release-notes/v0.0.1-alpha.md).
+Attestations prove where a file was built; they do not replace a publisher signature. Alpha quality: read the limitations in [`docs/release-notes/v0.0.1-alpha.md`](docs/release-notes/v0.0.1-alpha.md) ([pt-BR](docs/release-notes/v0.0.1-alpha.pt-BR.md)).
+
+### System requirements
+
+> **Below the minimum, the interface renders broken, with no warning.** The UI uses Tailwind CSS 4 (migration in PR #120), which requires Chrome 111, Safari 16.4 or Firefox 128 or newer because of `@property` and `color-mix()` ([Tailwind docs](https://tailwindcss.com/docs/upgrade-guide)). On macOS and Linux the app renders in the system WebView; if that is older, the layout breaks and the app shows no message. On Windows, WebView2 tracks the current Edge and meets the minimum.
+
+| System | Minimum |
+| --- | --- |
+| Windows | Windows 10 or 11, 64-bit (x64) only, with the WebView2 Runtime (Evergreen). Windows 11 includes it; Windows 10 from version 1803 already ships it (Tauri docs). If it is missing, the NSIS installer downloads the WebView2 bootstrapper and needs an internet connection. Windows 7, 8 and 8.1 do not qualify: their WebView2 stopped at Edge 109. |
+| macOS | macOS 13.3 or newer, Apple silicon (arm64) or Intel (x64), one native installer each (not universal). 13.3 is the defensible floor: macOS 13.0 to 13.2 ship Safari 16.1 to 16.3, without `@property`. Today this is documentation only: declaring it in the installer (`LSMinimumSystemVersion`) is in PR #167 and takes effect only after it; until then macOS does not stop the app from opening on an older version. |
+| Linux | x86_64 (64-bit), WebKitGTK 2.40 or newer (`webkit2gtk-4.1`) and glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+, Fedora 36+, per the comment in `release.yml`). Ubuntu 22.04 without updates ships WebKitGTK 2.36, below the floor; with security updates it ships 2.50.x. The `.deb` depends on `libwebkit2gtk-4.1-0` and, after PR #167, on `(>= 2.40)`; before that it requires no version. |
+
+**Not verified:** Apple does not literally state that macOS 13.3 ships Safari 16.4 (secondary source only); whether an app's WKWebView on macOS 12 or earlier gets a manually installed Safari 16.4; the real minimum (`minos`) of the packaged macOS binaries, including the PyInstaller sidecar, which may be higher than 13.3; what macOS does exactly when it opens an app below `LSMinimumSystemVersion`; that WebKitGTK 2.40 is equivalent to Safari 16.4 with `@property` enabled by default (2.40 is a plausible floor, not a proven one); whether the AppImage carries its own WebKit (per the Tauri bundler's code it does; our file was not inspected); the effect of `(>= 2.40)` on the generated `.deb`; the WebKitGTK version of Fedora 36 and of distros not listed. The installers are unsigned: download only from the [tag page](https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha), never `/releases/latest`, and run `sha256sum --check --ignore-missing SHA256SUMS` and `gh attestation verify <file> --repo klebertiko/oharness` first.
 
 ---
 
