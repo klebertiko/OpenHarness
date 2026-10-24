@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 
 const root = new URL('../', import.meta.url);
-const publicUrl = 'https://klebertiko.github.io/OHarness/';
+const publicUrl = 'https://klebertiko.github.io/oharness/';
 const catalog = JSON.parse(await readFile(new URL('locales/en-US.json', root), 'utf8'));
 const neutral = new Set(['OHarness', 'Manifesto', 'manifesto', 'Menu', 'Skill', 'Gate', 'Harness Studio', 'Chats', 'OHarness Model', 'OHARNESS MODEL', 'YAML', 'manifest + graph', 'content', 'runtime + validation', 'AGENTS.md', 'Agent Skills', 'MCP', 'A2A', 'OHarness desktop', 'schemaVersion', 'manifest', 'graph', 'nodes', 'edges', 'runtime', 'validation', 'license', 'hello.ohm', '.ohm', '.oharness', 'Manifesto ↗', 'Manifesto — OHarness', 'OHarness Model.']);
 const missing = new Set();

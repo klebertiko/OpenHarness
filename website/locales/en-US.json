@@ -196,7 +196,7 @@
   "SHA256SUMS": "SHA256SUMS",
   "e, na mesma pasta, confira a soma e a origem do arquivo (troque o nome pelo arquivo que você baixou):": "and, in the same folder, check the checksum and the origin of the file (swap in the name of the file you downloaded):",
   "bash": "bash",
-  "sha256sum --check --ignore-missing SHA256SUMS\ngh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness": "sha256sum --check --ignore-missing SHA256SUMS\ngh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness",
+  "sha256sum --check --ignore-missing SHA256SUMS\ngh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness": "sha256sum --check --ignore-missing SHA256SUMS\ngh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness",
   "No Windows (PowerShell), compare o hash com a linha do arquivo em": "On Windows (PowerShell), compare the hash with the file's line in",
   "Get-FileHash -Algorithm SHA256 OHarness-windows-x64-setup.exe": "Get-FileHash -Algorithm SHA256 OHarness-windows-x64-setup.exe",
   "A atestação prova onde o arquivo foi construído; ela não substitui a assinatura de um editor.": "The attestation proves where the file was built; it does not replace a publisher signature.",

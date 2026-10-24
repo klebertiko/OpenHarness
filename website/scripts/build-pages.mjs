@@ -28,8 +28,8 @@ for (const file of files) {
 await writeFile(resolve(output, '.nojekyll'), '');
 await writeFile(resolve(output, 'README.md'), `# OHarness website
 
-- Português brasileiro: https://klebertiko.github.io/OHarness/
-- American English: https://klebertiko.github.io/OHarness/en/
+- Português brasileiro: https://klebertiko.github.io/oharness/
+- American English: https://klebertiko.github.io/oharness/en/
 
 This is the static product website, generated from the website/ folder on main by npm run build:pages and deployed by the Pages workflow (.github/workflows/pages.yml). Edit the source on main, not this output.
 

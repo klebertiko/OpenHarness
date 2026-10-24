@@ -26,14 +26,14 @@
   <script type="module" src="./motion.js"></script>
 <!-- locale-meta:start -->
 <!-- nosemgrep: html.security.audit.missing-integrity -->
-<link rel="canonical" href="https://klebertiko.github.io/OHarness/">
+<link rel="canonical" href="https://klebertiko.github.io/oharness/">
 <!-- nosemgrep: html.security.audit.missing-integrity -->
-<link rel="alternate" hreflang="pt-BR" href="https://klebertiko.github.io/OHarness/">
+<link rel="alternate" hreflang="pt-BR" href="https://klebertiko.github.io/oharness/">
 <!-- nosemgrep: html.security.audit.missing-integrity -->
-<link rel="alternate" hreflang="en-US" href="https://klebertiko.github.io/OHarness/en/">
+<link rel="alternate" hreflang="en-US" href="https://klebertiko.github.io/oharness/en/">
 <!-- nosemgrep: html.security.audit.missing-integrity -->
-<link rel="alternate" hreflang="x-default" href="https://klebertiko.github.io/OHarness/">
-<meta property="og:url" content="https://klebertiko.github.io/OHarness/">
+<link rel="alternate" hreflang="x-default" href="https://klebertiko.github.io/oharness/">
+<meta property="og:url" content="https://klebertiko.github.io/oharness/">
 <meta property="og:locale:alternate" content="en_US">
 <!-- locale-meta:end -->
 </head>
@@ -104,7 +104,7 @@
     <section id="baixar" class="ecosystem-section download-section wrap" aria-labelledby="download-title">
       <div><p class="overline">Baixar</p><h2 id="download-title">Pré-lançamento<br> 0.0.1-alpha.</h2></div>
       <div class="ecosystem-copy"><p>A versão 0.0.1-alpha é um pré-lançamento com qualidade alfa: o app muda, e as capturas acima mostram o que existe hoje. <strong>Os instaladores não são assinados.</strong> Verifique cada arquivo antes de abrir.</p>
-        <p><a class="button primary" href="https://github.com/klebertiko/OHarness/releases/tag/v0.0.1-alpha" target="_blank" rel="noopener noreferrer">Abrir a página da versão 0.0.1-alpha <svg class="icon" aria-hidden="true"><use href="#external"/></svg></a></p>
+        <p><a class="button primary" href="https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha" target="_blank" rel="noopener noreferrer">Abrir a página da versão 0.0.1-alpha <svg class="icon" aria-hidden="true"><use href="#external"/></svg></a></p>
         <p class="source-note">Quando a versão for publicada, os arquivos ficarão na página dela no GitHub. Pré-lançamentos não aparecem em “Latest”, por isso o link aponta direto para a versão. Enquanto ela não for publicada, a página não abre.</p>
         <div class="download-list">
           <div><strong>Windows 10/11 x64</strong><code>OHarness-windows-x64-setup.exe</code><p>Sem assinatura. O SmartScreen mostra “Windows protected your PC” e editor desconhecido: escolha “More info” e depois “Run anyway”. Exige o WebView2 Runtime, presente no Windows 10/11 atual.</p></div>
@@ -114,7 +114,7 @@
         <h3 class="download-step">Verifique antes de abrir</h3>
         <p>Baixe também <code>SHA256SUMS</code> e, na mesma pasta, confira a soma e a origem do arquivo (troque o nome pelo arquivo que você baixou):</p>
         <div class="code-sample"><div class="code-head"><span>bash</span></div><pre tabindex="0">sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness</pre></div>
+gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness</pre></div>
         <p class="source-note">No Windows (PowerShell), compare o hash com a linha do arquivo em <code>SHA256SUMS</code>: <code>Get-FileHash -Algorithm SHA256 OHarness-windows-x64-setup.exe</code></p>
         <p class="source-note">A atestação prova onde o arquivo foi construído; ela não substitui a assinatura de um editor.</p>
         <h3 class="download-step">Limites conhecidos</h3>
@@ -134,7 +134,7 @@ gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness<
       <div class="ecosystem-copy"><p>O desktop traz quatro harnesses incluídos. Abra qualquer um no Studio como cópia editável; o original não muda. Nenhum vem com provedor definido nem com credenciais: a conexão é sua escolha. Hoje o app conecta Anthropic e OpenAI pelas CLIs locais, OpenRouter com chave de API, Ollama (local ou na nuvem) e Cursor, só para agentes.</p>
         <p>O menor deles é o Agent + review: um agente, um gate de revisão e uma aprovação humana, em três nós.</p>
         <div class="reference-links">
-          <a href="https://github.com/klebertiko/OHarness/blob/main/backend/oharness/fixtures/default-agile.ohm" target="_blank" rel="noopener noreferrer"><span>Agile Harness <small>O primeiro da lista do app: harness Agile/Scrum/Kanban, adaptado da skill engineering/harness.</small></span><svg class="icon" aria-hidden="true"><use href="#external"/></svg></a>
+          <a href="https://github.com/klebertiko/oharness/blob/main/backend/oharness/fixtures/default-agile.ohm" target="_blank" rel="noopener noreferrer"><span>Agile Harness <small>O primeiro da lista do app: harness Agile/Scrum/Kanban, adaptado da skill engineering/harness.</small></span><svg class="icon" aria-hidden="true"><use href="#external"/></svg></a>
           <a href="https://github.com/deepseek-ai/deepseek-harness" target="_blank" rel="noopener noreferrer"><span>DeepSeek Harness <small>Modelado a partir da versão desktop dsh-v0.2.1-alpha.2: modo de plano, loop de turnos e passos do agente, ferramentas protegidas, subagentes e continuação de objetivo.</small></span><svg class="icon" aria-hidden="true"><use href="#external"/></svg></a>
           <a href="https://github.com/mattpocock/skills" target="_blank" rel="noopener noreferrer"><span>Matt Pocock skills <small>Modelado a partir de mattpocock/skills: setup, grill, spec, tickets, implementação com TDD, revisão em dois eixos, PR, merge humano e retro.</small></span><svg class="icon" aria-hidden="true"><use href="#external"/></svg></a>
         </div><p class="source-note">Os dois últimos são modelados a partir de projetos publicados por terceiros. A presença aqui não indica afiliação nem endosso.</p>
