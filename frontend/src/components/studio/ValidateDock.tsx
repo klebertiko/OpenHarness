@@ -5,19 +5,22 @@ import { CheckCircle2, Download, FlaskConical, Upload } from "lucide-react";
 import { composeBundleFromCanvas, isOHarnessBundle, mockBundle, validateBundle, type MockStep } from "@/lib/bundlesApi";
 import { saveOhmFile } from "@/lib/ohmFile";
 import { openStudioBundle } from "@/lib/studio";
+import { VIEW_EDGE_KEYS, VIEW_NODE_KEYS } from "@/lib/studioDocuments";
 import { useCanvasStore } from "@/store/canvasStore";
 import { useHarnessSessionStore, type HarnessBundle } from "@/store/harnessSessionStore";
 type DockStatus = "idle" | "working" | "ok" | "error";
-// Selection, dragging and run telemetry do not change what was validated.
-function without(record: object, keys: string[]) {
+// Selection, dragging, measuring and run telemetry do not change what was validated.
+function without(record: object, keys: readonly string[]) {
   return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.includes(key)));
 }
 function draftKey() {
   const { nodes, edges, harnessMeta } = useCanvasStore.getState();
   const activeBundle = useHarnessSessionStore.getState().activeBundle;
   return JSON.stringify({
-    nodes: nodes.map(node => ({ ...without(node, ["selected", "dragging", "measured"]), data: without(node.data, ["status", "output", "error", "tokens", "latencyMs"]) })),
-    edges: edges.map(edge => without(edge, ["selected"])), harnessMeta, activeBundle,
+    nodes: nodes.map(node => ({ ...without(node, VIEW_NODE_KEYS), data: without(node.data, ["status", "output", "error", "tokens", "latencyMs"]) })),
+    edges: edges.map(edge => without(edge, VIEW_EDGE_KEYS)),
+    // The record id is assigned by the first autosave; it is not something the person authored.
+    harnessMeta: { name: harnessMeta.name, description: harnessMeta.description }, activeBundle,
   });
 }
 export function ValidateDock() {
@@ -29,18 +32,21 @@ export function ValidateDock() {
   const [errors, setErrors] = useState<string[]>([]);
   const [steps, setSteps] = useState<MockStep[]>([]);
   const [resultFor, setResultFor] = useState("");
+  // "Imported" reports an event, not a claim about the draft: the canvas may still settle after
+  // openStudioBundle, so it must not depend on the draft key. The next dock action replaces it.
+  const [imported, setImported] = useState(false);
   const nodes = useCanvasStore(s => s.nodes);
   const edges = useCanvasStore(s => s.edges);
   const harnessMeta = useCanvasStore(s => s.harnessMeta);
   const running = useCanvasStore(s => s.isRunning);
   const activeBundle = useHarnessSessionStore(s => s.activeBundle);
   const key = draftKey();
-  const fresh = resultFor === key;
-  const busy = fresh && status === "working";
+  const fresh = imported || resultFor === key;
+  const busy = resultFor === key && status === "working";
   const compose = () => composeBundleFromCanvas(isOHarnessBundle(activeBundle) ? activeBundle : null, { nodes, edges, harnessMeta });
   function begin(label: string) {
     const ticket = ++requestId.current, stamp = draftKey();
-    setResultFor(stamp); setStatus("working"); setMessage(label); setErrors([]); setSteps([]);
+    setImported(false); setResultFor(stamp); setStatus("working"); setMessage(label); setErrors([]); setSteps([]);
     return () => ticket === requestId.current && stamp === draftKey();
   }
   function fail(error: unknown) { setStatus("error"); setMessage(error instanceof Error ? error.message : "Operation failed"); }
@@ -79,7 +85,7 @@ export function ValidateDock() {
       if (!result.ok) { setStatus("error"); setMessage("Import failed validation"); setErrors(result.errors ?? []); return; }
       if (!isOHarnessBundle(parsed)) { setStatus("error"); setMessage("Not a recognizable .ohm bundle"); return; }
       openStudioBundle(parsed as unknown as HarnessBundle);
-      setResultFor(draftKey()); setStatus("ok"); setMessage("Imported · " + parsed.manifest.id);
+      setImported(true); setStatus("ok"); setMessage("Imported · " + parsed.manifest.id);
     } catch (error) { if (current()) fail(error); }
   }
   return <section aria-label="Bundle" className="flex flex-none flex-col border-t border-line bg-sub-100">
