@@ -25,7 +25,7 @@ export default function Slot({ params }: { params: Promise<{ slot: string }> }) 
         overflow: "hidden",
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {/* biome-ignore lint/performance/noImgElement: dev-only reference overlay of a static bitmap, not an app image */}
       <img
         src="/ref/bar.png"
         alt=""

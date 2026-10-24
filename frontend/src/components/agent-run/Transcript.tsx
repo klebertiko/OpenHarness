@@ -507,6 +507,7 @@ function RouteDecisionProvenance({ decision }: { decision: NonNullable<RunState[
   return (
     <div
       className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line-soft px-2 py-1.5 text-ink-dim"
+      role="group"
       aria-label="Routing decision provenance"
     >
       <span className="t-meta">{`decided by ${source}`}</span>

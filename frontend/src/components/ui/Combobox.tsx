@@ -205,19 +205,17 @@ export function Combobox({
   };
 
   // Each time it opens: measure, start the cursor on the current value.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Only on the open transition
   useLayoutEffect(() => {
     if (!open) return;
     if (triggerRef.current) setPos(measure(triggerRef.current, width));
     const selected = options.findIndex((o) => o.id === value && !o.disabled);
     setCursor(selected >= 0 ? selected : Math.max(0, options.findIndex((o) => !o.disabled)));
-    // Only on the open transition.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Focus once the popover exists, not on every re-measure
   useEffect(() => {
     if (open && pos) focusList();
-    // Focus once the popover exists, not on every re-measure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, pos === null]);
 
   useEffect(() => {
@@ -244,9 +242,9 @@ export function Combobox({
     setCursor((c) => (c < visible.length && !visible[c]?.disabled ? c : Math.max(0, firstEnabled(0, 1))));
   }, [open, visible, firstEnabled]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Scroll when the cursor moves while open; optionId is derived from a stable id
   useEffect(() => {
     if (open) document.getElementById(optionId(cursor))?.scrollIntoView?.({ block: "nearest" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, cursor]);
 
   const choose = (i: number) => {
@@ -298,6 +296,7 @@ export function Combobox({
   const groups = visible.some((o) => o.group);
 
   const optionRow = (o: ComboOption, i: number) => (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: options are driven by the listbox (aria-activedescendant); keys are handled on the list, not per option
     <div
       key={o.id + ":" + i}
       id={optionId(i)}
@@ -346,7 +345,9 @@ export function Combobox({
       );
     });
   } else {
-    visible.forEach((o, i) => rows.push(optionRow(o, i)));
+    visible.forEach((o, i) => {
+      rows.push(optionRow(o, i));
+    });
   }
 
   const message =

@@ -596,7 +596,7 @@ export function PropertiesPanel() {
                 className={inputCls}
                 type="number"
                 value={d.maxTokens ?? 4096}
-                onChange={(e) => update({ maxTokens: parseInt(e.target.value) })}
+                onChange={(e) => update({ maxTokens: parseInt(e.target.value, 10) })}
               />
             </Field>
 
@@ -609,7 +609,7 @@ export function PropertiesPanel() {
                 value={d.tokenLimit ?? ""}
                 onChange={(e) => {
                   const raw = e.target.value;
-                  update({ tokenLimit: raw === "" ? undefined : Math.max(0, parseInt(raw) || 0) });
+                  update({ tokenLimit: raw === "" ? undefined : Math.max(0, parseInt(raw, 10) || 0) });
                 }}
               />
             </Field>

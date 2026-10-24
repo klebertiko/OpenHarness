@@ -130,11 +130,10 @@ export function AppShell({
   const shellMode = useModeStore((s) => s.mode);
   const hydrateProviders = useProviderStore((s) => s.hydrate);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Hydration runs once, deliberately
   useEffect(() => {
     shell.hydrate();
     void hydrateProviders();
-    // Hydration runs once, deliberately.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* Narrow-window policy. A stated preference is never overwritten — the
@@ -260,6 +259,7 @@ export function AppShell({
       data-shell-mode={shellMode}
     >
       {/* First tab stop: lets a keyboard user skip the header and rail. */}
+      {/* biome-ignore lint/a11y/useValidAnchor: a real in-page link; the handler only moves focus into the main region as well as scrolling to it */}
       <a
         href="#oh-main"
         className="t-body fixed left-2 top-2 z-[60] -translate-y-[200%] rounded-control border border-line-strong bg-sub-100 px-3 py-2 text-ink focus:translate-y-0"

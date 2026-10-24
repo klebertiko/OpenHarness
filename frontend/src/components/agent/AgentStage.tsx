@@ -155,13 +155,12 @@ export function AgentStage() {
     if (pendingToolApproval) setShowRunDetail(true);
   }, [pendingToolApproval]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Navigation must not cancel a turn that still belongs to another chat.
   useEffect(() => {
     if (activeThreadId !== null || live) return;
     reset();
     runOwner.current = null;
     composerRef.current?.focus();
-    // Navigation must not cancel a turn that still belongs to another chat.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeThreadId, reset]);
 
   useEffect(() => {
