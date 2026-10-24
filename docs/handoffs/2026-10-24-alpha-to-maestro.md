@@ -9,7 +9,7 @@ Entraram nesta frente, nesta ordem, todos com CI obrigatório verde, threads res
 
 | PR | O que é |
 | --- | --- |
-| #116, #134, #133, #129, #155, #149 | Dependabot/CI: cache NVD do OWASP, npm do frontend, Tauri/Rust, Python, tauri-cli |
+| #116, #134, #133, #129, #155, #149, #170, #150, #135 | Dependabot/CI: cache NVD do OWASP, npm do frontend, Tauri/Rust, Python, tauri-cli, tauri-build, actions (#135 teve conflito com o #171 em `owasp.yml`, resolvido à mão) |
 | #140 | Design system (tokens DTCG, brand book, checagens de paridade e contraste) |
 | #144 | Rebranding OpenHarness → OHarness em todo o repositório, com compatibilidade de dados |
 | #141 | Redesign de todas as telas do app no design system |
@@ -25,7 +25,6 @@ Issues fechadas: #147, #148, #153, #118. **#109** segue aberta (junction já vei
 
 | PR | Estado | Dono / próximo passo |
 | --- | --- | --- |
-| #170, #150, #135 (Dependabot) | fila de merge, um por vez | Alpha; #135 estava em conflito, pedir `@dependabot recreate` se persistir |
 | #145 `docs/site-real-screenshots` | site com capturas reais, falhas de CI | Alpha Design + você: decidir quem fica com o `website/` e os screenshots (a sessão de design foi orientada a coordenar por comentário no #145) |
 | #139 Workspace Manager | atrás da `main`, falhas de CI | BE do #139 (seu). Tem ocorrências do nome antigo: ver passos do comentário no PR |
 | #120 Tailwind 4 | reconstruído sobre o design novo, falhas de segurança (CodeQL, OpenGrep, Trivy, Dependency review) | seu; Alpha não mexeu |
