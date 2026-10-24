@@ -14,6 +14,8 @@
   ·
   <a href="https://klebertiko.github.io/OHarness/en/">English</a>
   ·
+  <a href="docs/USAGE.md">Usage guide</a>
+  ·
   <a href="docs/harness-spec/README.md">OHM format</a>
   ·
   <a href="docs/ci-security.md">CI &amp; security</a>
@@ -296,7 +298,7 @@ Published: [klebertiko.github.io/OHarness](https://klebertiko.github.io/OHarness
 
 ## Domain vocabulary (short)
 
-Use these names in issues, PRs, and docs — see [`CONTEXT.md`](CONTEXT.md):
+Use these names in issues, PRs, and docs — see [`CONTEXT.md`](CONTEXT.md) and the [glossary](docs/GLOSSARY.md):
 
 | Term | Meaning |
 | --- | --- |
