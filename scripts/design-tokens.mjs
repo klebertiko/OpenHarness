@@ -113,7 +113,8 @@ function rule(css, selector) {
 /** The size and options of `--text-<key>` in the `@theme` block of globals.css, as `[slice, size, "{ lineHeight: \"..\", letterSpacing: \"..\" }"]` (the shape the checks below read). */
 function tailwindSize(text, key) {
   const theme = text.slice(text.indexOf("@theme"), text.indexOf("}", text.indexOf("@theme")));
-  const read = (suffix) => new RegExp(`--text-${key}${suffix}\s*:\s*([^;]+);`).exec(theme)?.[1].trim();
+  const vars = new Map([...theme.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((d) => [d[1], d[2].trim()]));
+  const read = (suffix) => vars.get(`--text-${key}${suffix}`);
   const size = read("");
   if (!size) return null;
   const lh = read("--line-height"), ls = read("--letter-spacing");
