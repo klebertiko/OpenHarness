@@ -369,11 +369,12 @@
   border-inline-start: 2px solid color-mix(in oklab, var(--signal) 60%, var(--line));
 }
 
-/* Sheets: opacity and an 8px translate only. The individual `translate`
-   property leaves the centring `transform` alone. */
+/* Sheets: opacity and an 8px lift only. Tailwind 4 centres with the individual `translate`
+   property (-translate-x-1/2), so the animation uses `transform`, which composes with it;
+   animating `translate` here replaced the centring and pushed every sheet 280px right. */
 @keyframes oh-sheet-in {
-  from { opacity: 0; translate: 0 8px; }
-  to { opacity: 1; translate: 0 0; }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 @keyframes oh-scrim-in {
   from { opacity: 0; }
