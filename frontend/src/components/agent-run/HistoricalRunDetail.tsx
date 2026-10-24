@@ -92,10 +92,9 @@ export function HistoricalRunDetail({
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The run behind a message is fixed for this component's lifetime.
   useEffect(() => {
     if (defaultOpen && !memoryRun) void load();
-    // The run behind a message is fixed for this component's lifetime.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggle = () => {

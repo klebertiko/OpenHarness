@@ -56,6 +56,7 @@ function Row({
   }, [active]);
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard selection is handled once on the combobox input (arrows and Enter), as in the ARIA combobox pattern
     <div
       ref={ref}
       id={id}

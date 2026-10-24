@@ -113,6 +113,7 @@ describe("Badge", () => {
   });
 
   it("colours a role marker from its role token", () => {
+    // biome-ignore lint/a11y/useValidAriaRole: Badge's `role` is a harness role (design token), not an ARIA role
     const { container } = render(<Badge role="gate">Gate</Badge>);
     expect((container.querySelector("[aria-hidden]") as HTMLElement).style.getPropertyValue("--role")).toBe("var(--role-gate)");
   });
