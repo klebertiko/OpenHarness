@@ -4,7 +4,7 @@ Esta seção substitui os números das verificações de setembro abaixo, que de
 
 ## Atualização pós-#141/#144 (22/10/2026)
 
-As dez capturas foram refeitas na UI redesenhada (main em 944a5bb) e a marca virou OHarness: nomes de arquivo `OHarness-*`, `--repo klebertiko/OHarness`, links do Pages com `/OHarness/`. A seção Baixar e os alts foram atualizados. Os resultados medidos abaixo foram repetidos depois da fusão; ver a lista no relatório da revisão.
+As dez capturas foram refeitas na UI redesenhada (main em 944a5bb) e a marca virou OHarness: nomes de arquivo `OHarness-*`, `--repo klebertiko/oharness`, links do Pages com `/oharness/` (repositório já renomeado no GitHub). A seção Baixar e os alts foram atualizados. Os resultados medidos abaixo foram repetidos depois da fusão; ver a lista no relatório da revisão.
 
 ## O que mudou
 
@@ -57,7 +57,7 @@ Uma revisão independente identificou menu móvel permanecendo aberto ao ampliar
 
 - Implementação YAML no desktop e fidelidade do roundtrip: plano em `../docs/product/ohm-yaml-migration.md`.
 - Contrato de ciclos no motor: entrega separada no mesmo plano.
-- Publicado no GitHub Pages em 11/09/2026: `https://klebertiko.github.io/OHarness/`, com inglês em `/en/`, HTTPS e canonical/hreflang. Uma imagem social dedicada e um domínio próprio continuam opcionais.
+- Publicado no GitHub Pages em 11/09/2026: `https://klebertiko.github.io/oharness/`, com inglês em `/en/`, HTTPS e canonical/hreflang. Uma imagem social dedicada e um domínio próprio continuam opcionais.
 
 O produto é mostrado em desenvolvimento, sem alegações de release, licença geral, métricas de adoção ou compatibilidade universal.
 

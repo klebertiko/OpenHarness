@@ -11,10 +11,10 @@ Prévia: http://127.0.0.1:4174. O servidor escuta apenas no loopback; `PORT` per
 
 ## Idiomas e GitHub Pages
 
-- pt-BR: https://klebertiko.github.io/OHarness/
-- en-US: https://klebertiko.github.io/OHarness/en/
+- pt-BR: https://klebertiko.github.io/oharness/
+- en-US: https://klebertiko.github.io/oharness/en/
 
-Esses endereços (e os links do repositório nas páginas) usam o nome novo, OHarness, e só funcionam depois que o repositório for renomeado no GitHub; até lá o Pages continua em `/OpenHarness/`.
+Esses endereços e os links do repositório nas páginas usam o nome novo (repositório `klebertiko/oharness`, Pages em `/oharness/`). O link da etiqueta `v0.0.1-alpha` ainda responde 404: a etiqueta e a release não existem até a publicação.
 
 As três páginas possuem versões estáticas nos dois idiomas, inclusive sem JavaScript. O seletor EN/PT mantém a página e, com JavaScript, sua seção atual. A navegação mantém o idioma escolhido pela URL; não há redirecionamento automático pelo idioma do navegador. A preferência de tema é compartilhada entre idiomas.
 
@@ -39,7 +39,7 @@ Antes de publicar, siga `SECURITY.md`: testes, revisão independente e ausência
 - `nilo.js` e `motion.css`/`motion.js`: demonstração do mascote, cena com enquadramentos e entradas suaves.
 - `assets`: fontes Sora/IBM Plex Mono e marca já usadas pelo app; dez capturas reais ({chats,studio,canvas,run,providers} × {light,dark}, `.webp`) do app 0.0.1-alpha (main em 944a5bb, UI redesenhada, marca OHarness), feitas na UI real com o sidecar empacotado em um perfil descartável: sem provedor conectado, sem credencial, execução simulada (mock). Todas estão na lista pública. Automate, Pull requests e a captura de setembro não existem mais.
 
-O site não acessa o backend, não executa agentes e não coleta dados. Ele aponta para a página da etiqueta `v0.0.1-alpha` no GitHub (`https://github.com/klebertiko/OHarness/releases/tag/v0.0.1-alpha`; nunca `/releases/latest`, que não serve pré-lançamentos) e não afirma que os instaladores existem: o link só abre depois que a release for publicada. Os nomes dos arquivos, o texto sobre falta de assinatura e os comandos de verificação vêm de `.github/workflows/release.yml` e `docs/ci-security.md`; reconfira-os se o workflow mudar. Links internos são relativos para funcionar também sob subdiretórios. As URLs canônicas apontam para o GitHub Pages acima.
+O site não acessa o backend, não executa agentes e não coleta dados. Ele aponta para a página da etiqueta `v0.0.1-alpha` no GitHub (`https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha`; nunca `/releases/latest`, que não serve pré-lançamentos) e não afirma que os instaladores existem: o link só abre depois que a release for publicada. Os nomes dos arquivos, o texto sobre falta de assinatura e os comandos de verificação vêm de `.github/workflows/release.yml` e `docs/ci-security.md`; reconfira-os se o workflow mudar. Links internos são relativos para funcionar também sob subdiretórios. As URLs canônicas apontam para o GitHub Pages acima.
 
 ## Direção visual
 

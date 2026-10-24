@@ -10,9 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="https://klebertiko.github.io/OHarness/">Product site (pt-BR)</a>
+  <a href="https://klebertiko.github.io/oharness/">Product site (pt-BR)</a>
   ·
-  <a href="https://klebertiko.github.io/OHarness/en/">English</a>
+  <a href="https://klebertiko.github.io/oharness/en/">English</a>
+  ·
+  <a href="https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha">Download</a>
   ·
   <a href="docs/harness-spec/README.md">OHM format</a>
   ·
@@ -23,11 +25,26 @@
 
 <p align="center">
   <img alt="Status" src="https://img.shields.io/badge/status-public%20preview-3AB3AD?style=flat-square" />
-  <img alt="Platform" src="https://img.shields.io/badge/desktop-Windows%20(Tauri%20v2)-161412?style=flat-square" />
-  <img alt="OHM" src="https://img.shields.io/badge/bundle-.ohm%20(YAML%201.2)-D9A441?style=flat-square" />
+  <img alt="Platforms: Windows, Linux, macOS" src="https://img.shields.io/badge/desktop-Windows%20%C2%B7%20Linux%20%C2%B7%20macOS%20(Tauri%20v2)-161412?style=flat-square" />
+  <img alt=".ohm: YAML adopted, Studio import and export still JSON" src="https://img.shields.io/badge/.ohm-YAML%20adopted%2C%20Studio%20I%2FO%20still%20JSON-D9A441?style=flat-square" />
   <img alt="Node" src="https://img.shields.io/badge/node-22-339933?style=flat-square&logo=node.js&logoColor=white" />
   <img alt="Python" src="https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
 </p>
+
+---
+
+## Download
+
+**Pre-release `v0.0.1-alpha`**: [github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha](https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha). Installers for Windows (x64), Linux (AppImage and `.deb`, x86_64) and macOS (Apple silicon and Intel). Until the pre-release is published, that page returns 404. Link the tag, not `/releases/latest`: GitHub never serves a pre-release from `latest`.
+
+**The installers are unsigned.** Windows SmartScreen ("Windows protected your PC") and macOS Gatekeeper warn on first launch; details and the exact steps are in [`docs/ci-security.md`](docs/ci-security.md#code-signing). Verify every download before running it, in the folder with the files (use the file you downloaded in the second command):
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/oharness
+```
+
+Attestations prove where a file was built; they do not replace a publisher signature. Alpha quality: read the limitations in [`docs/release-notes/v0.0.1-alpha.md`](docs/release-notes/v0.0.1-alpha.md).
 
 ---
 
@@ -113,7 +130,7 @@ Five vendors. Anthropic and OpenAI connect through the CLI you are already signe
 
 ```mermaid
 flowchart LR
-  subgraph Desktop["Windows desktop"]
+  subgraph Desktop["Desktop"]
     UI["Next.js UI<br/>(static export)"]
     Shell["Tauri v2 shell"]
     UI --- Shell
@@ -144,8 +161,8 @@ Packaging decision: [`docs/adr/0001-desktop-packaging.md`](docs/adr/0001-desktop
 
 | Tool | Notes |
 | --- | --- |
-| **Rust** (`rustup`) + MSVC Build Tools | Tauri / WebView2 linkage |
-| **WebView2** | Usually present on Windows 10/11 |
+| **Rust** (`rustup`) + MSVC Build Tools (Windows) | Tauri / WebView2 linkage |
+| **WebView2** (Windows) | Usually present on Windows 10/11 |
 | **Node.js 22** | See [`.nvmrc`](.nvmrc) |
 | **Python 3.12+** | Sidecar |
 
@@ -171,7 +188,9 @@ node scripts/build-sidecar.mjs   # needs backend/.venv or a system python
 npm run tauri:dev                # devUrl is http://127.0.0.1:3000 (Terminal B)
 ```
 
-### Windows installer
+### Windows installer (local build)
+
+Tagged releases build Windows, Linux and macOS installers in CI (see [Download](#download)). To build the Windows one yourself:
 
 ```bash
 npm ci
@@ -267,16 +286,9 @@ Package installs in CI go through **Aikido Safe Chain** (checksum-pinned install
 
 Full policy and admin checklist: [`docs/ci-security.md`](docs/ci-security.md).
 
-A tag builds on three operating systems and ends in a **draft** GitHub Release that a maintainer reviews and publishes. A tag with a pre-release suffix (e.g. `v0.0.1-alpha`) is marked pre-release, and GitHub never serves it from `releases/latest`, so link it by tag: `https://github.com/klebertiko/OHarness/releases/tag/v0.0.1-alpha`. Asset names are stable and carry no version: `OHarness-windows-x64-setup.exe`, `OHarness-linux-x86_64.AppImage`, `OHarness-linux-amd64.deb`, `OHarness-macos-arm64.dmg`, `OHarness-macos-x64.dmg`, plus `SHA256SUMS` and the SBOM `OHarness-sbom.cdx.json`.
+A tag builds on three operating systems and ends in a **draft** GitHub Release that a maintainer reviews and publishes. A tag with a pre-release suffix (e.g. `v0.0.1-alpha`) is marked pre-release, and GitHub never serves it from `releases/latest`, so link it by tag: `https://github.com/klebertiko/oharness/releases/tag/v0.0.1-alpha`. Asset names are stable and carry no version: `OHarness-windows-x64-setup.exe`, `OHarness-linux-x86_64.AppImage`, `OHarness-linux-amd64.deb`, `OHarness-macos-arm64.dmg`, `OHarness-macos-x64.dmg`, plus `SHA256SUMS` and the SBOM `OHarness-sbom.cdx.json`.
 
-Release verification (after a published tag, in the folder with the downloaded files):
-
-```bash
-sha256sum --check --ignore-missing SHA256SUMS
-gh attestation verify OHarness-windows-x64-setup.exe --repo klebertiko/OHarness
-```
-
-GitHub attestations prove provenance; they do not replace Authenticode. EV / Azure Artifact Signing remains a hard requirement before treating builds as production distribution.
+To verify a download, see [Download](#download). GitHub attestations prove provenance; they do not replace Authenticode. EV / Azure Artifact Signing remains a hard requirement before treating builds as production distribution.
 
 ---
 
@@ -290,7 +302,7 @@ npm ci
 npm run dev          # http://127.0.0.1:4174
 ```
 
-Published: [klebertiko.github.io/OHarness](https://klebertiko.github.io/OHarness/) (pt-BR) · [/en/](https://klebertiko.github.io/OHarness/en/).
+Published: [klebertiko.github.io/oharness](https://klebertiko.github.io/oharness/) (pt-BR) · [/en/](https://klebertiko.github.io/oharness/en/).
 
 ---
 
@@ -313,7 +325,7 @@ Use these names in issues, PRs, and docs — see [`CONTEXT.md`](CONTEXT.md):
 
 1. Prefer small PRs against `main` with required checks green.
 2. Do not weaken CI/Security gates to force a green run — fix the finding.
-3. Desktop changes should pass `npm run desktop:smoke` (or `desktop:release` for packaging).
+3. Desktop changes should pass `npm run desktop:smoke` (Windows; builds with `npm run tauri:build`).
 4. OHM changes: validate with `python -m oharness validate` and keep fixtures in sync.
 
 Security reports: [`SECURITY.md`](SECURITY.md) — use GitHub private vulnerability reporting, not public issues.
