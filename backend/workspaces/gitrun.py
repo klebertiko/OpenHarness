@@ -131,9 +131,10 @@ class GitRunner:
         proc: subprocess.Popen | None = None
         try:
             # The single process-spawning call site of the Workspace Manager. argv is a list (no shell), git is an absolute path,
-            # the environment is rebuilt from an allowlist, stdin is closed and the call is time-bounded. Expected OpenGrep finding:
-            # dangerous-subprocess-use-audit (it flags any subprocess use; the reasons above are why it is controlled).
-            proc = subprocess.Popen(argv, cwd=str(cwd), env=self._environment(env),
+            # the environment is rebuilt from an allowlist, stdin is closed and the call is time-bounded (killed with its process tree).
+            # OpenGrep flags any non-literal subprocess argv (dangerous-subprocess-use-audit); this one suppression is the reviewed one
+            # (two SEC reviews, ADR 0008); it is the only suppression in workspaces/.
+            proc = subprocess.Popen(argv, cwd=str(cwd), env=self._environment(env),  # nosemgrep: opengrep-rules.python.lang.security.audit.dangerous-subprocess-use-audit
                                     stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options)
             try:
