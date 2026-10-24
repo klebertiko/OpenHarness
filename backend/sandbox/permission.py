@@ -23,11 +23,11 @@ There is deliberately no "bypass" mode, and an unknown mode is ``"ask"``. The mo
 is stored per conversation by the sidecar; a run request can only tighten it
 (`effective_mode`), never loosen it.
 """
-import functools
 import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path, PureWindowsPath
 from typing import Literal, NamedTuple
 
@@ -131,11 +131,12 @@ _GIT_REDIRECTS = ('commondir', 'config.worktree', 'gitdir')
 # An attribute that binds a path to a driver (clean/smudge/textconv/merge/diff program defined in some config).
 _GIT_DRIVER_ATTR = re.compile(r'(?:^|\s)(?:filter|diff|merge)\s*=', re.IGNORECASE)
 
-_SCRIPT_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:_.-]{0,63}$')
+_SCRIPT_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9:_.-]{0,63}\Z')
 _PYTEST_FLAGS = frozenset({'-q', '-qq', '-v', '-vv', '-x', '-s', '--lf', '--ff', '--co', '--collect-only', '--no-header', '-rA'})
-_PYTEST_TB = re.compile(r'^--tb=(short|long|line|no|auto|native)$')
-_PYTEST_NODE = re.compile(r'^[\w./\\:\[\]-]+$')
-_LS_FLAGS = re.compile(r'^-[A-Za-z]{1,6}$')
+_PYTEST_TB = re.compile(r'^--tb=(short|long|line|no|auto|native)\Z')
+_PYTEST_NODE = re.compile(r'^[\w./\\:\[\]-]+\Z')
+_LS_FLAGS = re.compile(r'^-[A-Za-z]{1,6}\Z')
+_LS_OPERAND = re.compile(r'^[\w./\\ +@-]+\Z')
 
 
 def _normalize_program(name: str) -> str:
@@ -305,11 +306,29 @@ def _parse_git_version(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in found.groups(default='0')) if found else ()
 
 
-@functools.lru_cache(maxsize=1)
+_GIT_VERSION_KNOWN: tuple[int, ...] = ()
+_GIT_VERSION_FAILED_AT: float | None = None
+_GIT_VERSION_RETRY_S = 30.0  # a failed probe is retried at most this often; only a success is remembered
+
+
 def _git_version() -> tuple[int, ...]:
-    """The installed git's version as a tuple of ints, cached for the process; () when it cannot be read."""
+    """The installed git's version as a tuple of ints; () when it cannot be read.
+    A version that was read is remembered for the process. A failure (a timeout while an antivirus scans git on
+    its first call, say) is not: it is retried, but not more often than every `_GIT_VERSION_RETRY_S` seconds,
+    so a git that never answers does not cost a probe per command."""
+    global _GIT_VERSION_KNOWN, _GIT_VERSION_FAILED_AT
+    if _GIT_VERSION_KNOWN:
+        return _GIT_VERSION_KNOWN
+    now = time.monotonic()
+    if _GIT_VERSION_FAILED_AT is not None and now - _GIT_VERSION_FAILED_AT < _GIT_VERSION_RETRY_S:
+        return ()
     out = _git_run(['--version'], os.path.dirname(_GIT_EXE) if _GIT_EXE else '.')
-    return _parse_git_version(out.decode('utf-8', 'replace')) if out is not None else ()
+    version = _parse_git_version(out.decode('utf-8', 'replace')) if out is not None else ()
+    if version:
+        _GIT_VERSION_KNOWN, _GIT_VERSION_FAILED_AT = version, None
+    else:
+        _GIT_VERSION_FAILED_AT = now
+    return version
 
 
 def _git_config_keys(config: str, git_dir: str) -> list[str] | None:
@@ -428,7 +447,7 @@ def _pytest_ok(args: list[str], trusted: bool, cwd: str) -> bool:
 
 
 def _ls_ok(args: list[str], cwd: str) -> bool:
-    return all(_LS_FLAGS.match(arg) or _operand_ok(cwd, arg, re.compile(r'^[\w./\\ +@-]+$')) for arg in args)
+    return all(_LS_FLAGS.match(arg) or _operand_ok(cwd, arg, _LS_OPERAND) for arg in args)
 
 
 def _allowed_exec(call, workspace, trusted: bool) -> bool:
