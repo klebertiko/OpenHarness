@@ -512,13 +512,17 @@
 /* ── Focus — one ring, signal-coloured, never removed. The outline follows
    each element's own border-radius; forcing a fixed radius here made the ring
    corners disagree with rounder controls. ─────────────────────────────────── */
-:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 2px;
-}
+/* In @layer base on purpose: Tailwind 4 utilities are layered, and unlayered CSS beats every layer, so an
+   unlayered `:focus-visible` would defeat `focus-visible:outline-none` (which beat it by specificity in v3). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
 
-.oh-focus-inner:focus-visible {
-  outline-offset: -2px;
+  .oh-focus-inner:focus-visible {
+    outline-offset: -2px;
+  }
 }
 
 /* The composer shows focus on the whole 14px card, not the bare textarea, so

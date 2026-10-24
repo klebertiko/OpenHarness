@@ -392,7 +392,7 @@ export function Combobox({
               autoComplete="off"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onNavKeyDown}
-              className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-mute"
+              className="min-w-0 flex-1 bg-transparent text-body text-ink outline-hidden placeholder:text-ink-mute"
             />
           </div>
         )}

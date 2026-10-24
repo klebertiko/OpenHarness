@@ -291,7 +291,7 @@ export function AppShell({
           {leftOpen && !immersive ? left : null}
         </ActivityRail>
 
-        <main id="oh-main" tabIndex={-1} className="relative min-w-0 flex-1 bg-sub-000 outline-none">{stage}</main>
+        <main id="oh-main" tabIndex={-1} className="relative min-w-0 flex-1 bg-sub-000 outline-hidden">{stage}</main>
 
         {rightOpen && !immersive && right && (
           <aside
