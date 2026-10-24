@@ -50,7 +50,8 @@ jobs:
           cyclonedx-npm --output-file sbom/website.cdx.json --output-format JSON website/package-lock.json
           cyclonedx-py requirements backend/requirements.txt --output-format JSON --output-file sbom/backend.cdx.json
           cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --override-filename tauri
-          mv src-tauri/tauri.cdx.json sbom/tauri.cdx.json
+          # --override-filename drops the ".cdx" infix (cargo-cyclonedx writes tauri.json, not tauri.cdx.json).
+          mv src-tauri/tauri.json sbom/tauri.cdx.json
       - name: Validate CycloneDX JSON
         run: |
           python - <<'PY'
